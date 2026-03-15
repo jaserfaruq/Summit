@@ -2,17 +2,19 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
+  timeout: 55000, // 55s — must complete before Vercel's 60s limit
 });
 
 const MODEL = "claude-sonnet-4-20250514";
 
 export async function callClaude(
   systemPrompt: string,
-  userMessage: string
+  userMessage: string,
+  maxTokens: number = 8192
 ): Promise<string> {
   const response = await anthropic.messages.create({
     model: MODEL,
-    max_tokens: 8192,
+    max_tokens: maxTokens,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
   });

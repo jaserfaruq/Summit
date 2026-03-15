@@ -85,7 +85,7 @@ Graduation benchmarks: ${JSON.stringify(objective.graduation_benchmarks)}
 Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}`;
 
   try {
-    const responseText = await callClaude(PROMPT_2A_SYSTEM, userMessage);
+    const responseText = await callClaude(PROMPT_2A_SYSTEM, userMessage, 4096);
     const planData = parseClaudeJSON<LightweightPlanResponse>(responseText);
 
     // Store the plan (plan_data includes planSummary + week structure without sessions)
