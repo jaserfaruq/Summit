@@ -4,6 +4,8 @@ import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_2B_SYSTEM } from "@/lib/prompts";
 import { PlanSession } from "@/lib/types";
 
+export const maxDuration = 60;
+
 interface GenerateWeekSessionsRequest {
   planId: string;
   weekNumber: number;

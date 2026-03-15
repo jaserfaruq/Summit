@@ -4,6 +4,8 @@ import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_5_SYSTEM } from "@/lib/prompts";
 import { FindRoutesRequest, RouteRecommendation } from "@/lib/types";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();

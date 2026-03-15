@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_3_SYSTEM } from "@/lib/prompts";
 import { CompleteWeekRequest, DimensionScores, Dimension } from "@/lib/types";
+
+export const maxDuration = 60;
 import { calculateDimensionScore, checkRebalanceTrigger } from "@/lib/scoring";
 
 const DIMENSIONS: Dimension[] = ["cardio", "strength", "climbing_technical", "flexibility"];
