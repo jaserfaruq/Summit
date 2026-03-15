@@ -108,10 +108,17 @@ Progress fraction: Week ${weekNumber} sessions should be at approximately ${Math
     }
 
     return NextResponse.json({ sessions: result.sessions });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error generating week sessions:", error);
+    const err = error as { status?: number; message?: string; error?: { type?: string; message?: string } };
+    const detail = err.error?.message || err.message || String(error);
+    const errorType = err.error?.type || (err.message?.includes("timed out") ? "timeout" : "unknown");
     return NextResponse.json(
-      { error: "Failed to generate sessions for this week. Please try again." },
+      {
+        error: `Failed to generate sessions: ${detail}`,
+        errorType,
+        errorStatus: err.status,
+      },
       { status: 500 }
     );
   }
