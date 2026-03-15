@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { TrainingPlan, WeeklyTarget, Objective, PlanSession } from "@/lib/types";
+import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog } from "@/lib/types";
 import WeekBadge from "@/components/WeekBadge";
 import Link from "next/link";
 
@@ -32,6 +32,14 @@ function PlanContent() {
   const [sessionErrors, setSessionErrors] = useState<Record<number, string>>({});
   // Cache loaded sessions per week
   const [weekSessions, setWeekSessions] = useState<Record<number, PlanSession[]>>({});
+  // Workout logs to track completion
+  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
+  // Complete week state
+  const [completingWeek, setCompletingWeek] = useState<number | null>(null);
+  const [weekCompleteResult, setWeekCompleteResult] = useState<Record<number, {
+    updatedScores: Record<string, number>;
+    rebalanceTriggered: boolean;
+  }>>({});
 
   const shouldGenerate = searchParams.get("generate") === "true";
   const objectiveId = searchParams.get("objectiveId");
@@ -83,6 +91,14 @@ function PlanContent() {
       .single();
 
     setObjective(objData as Objective);
+
+    // Fetch workout logs for this user
+    const { data: logData } = await supabase
+      .from("workout_logs")
+      .select("*")
+      .eq("user_id", user.id);
+
+    setWorkoutLogs((logData as WorkoutLog[]) || []);
 
     // Expand current week
     const today = new Date();
@@ -189,6 +205,91 @@ function PlanContent() {
     }
   }
 
+  // Complete a week — triggers score recalculation
+  async function handleCompleteWeek(week: WeeklyTarget) {
+    if (!plan) return;
+    setCompletingWeek(week.week_number);
+
+    // Gather workout logs for this week
+    const weekStart = new Date(week.week_start + "T00:00:00");
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    const weekLogs = workoutLogs.filter((log) => {
+      const logDate = new Date(log.logged_date + "T00:00:00");
+      return logDate >= weekStart && logDate < weekEnd;
+    });
+
+    // Format logs for the API
+    const logsForApi = weekLogs.map((log) => ({
+      logged_date: log.logged_date,
+      dimension: log.dimension,
+      duration_min: log.duration_min,
+      details: log.details,
+      benchmark_results: log.benchmark_results,
+      completed_as_prescribed: log.completed_as_prescribed,
+      session_name: log.session_name,
+      notes: log.notes,
+    }));
+
+    try {
+      const res = await fetch("/api/complete-week", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId: plan.id,
+          weekNumber: week.week_number,
+          workoutLogs: logsForApi,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to complete week");
+      }
+
+      const result = await res.json();
+      setWeekCompleteResult((prev) => ({
+        ...prev,
+        [week.week_number]: result,
+      }));
+
+      // Refresh objective to get updated scores
+      if (objective) {
+        const supabase = createClient();
+        const { data: updatedObj } = await supabase
+          .from("objectives")
+          .select("*")
+          .eq("id", objective.id)
+          .single();
+        if (updatedObj) setObjective(updatedObj as Objective);
+      }
+    } catch (error) {
+      console.error("Error completing week:", error);
+      alert(error instanceof Error ? error.message : "Failed to complete week");
+    }
+
+    setCompletingWeek(null);
+  }
+
+  // Get logs for a specific week
+  function getLogsForWeek(week: WeeklyTarget): WorkoutLog[] {
+    const weekStart = new Date(week.week_start + "T00:00:00");
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    return workoutLogs.filter((log) => {
+      const logDate = new Date(log.logged_date + "T00:00:00");
+      return logDate >= weekStart && logDate < weekEnd;
+    });
+  }
+
+  // Check if a session has been logged
+  function isSessionLogged(sessionName: string, week: WeeklyTarget): boolean {
+    const weekLogs = getLogsForWeek(week);
+    return weekLogs.some((log) => log.session_name === sessionName);
+  }
+
   if (generating) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
@@ -263,6 +364,15 @@ function PlanContent() {
         <p className="text-sage text-sm">
           {weeks.length} weeks · Target: {objective?.target_date ? new Date(objective.target_date).toLocaleDateString() : ""}
         </p>
+        {objective && (
+          <div className="flex gap-4 mt-2 text-xs">
+            <span className="text-forest font-medium">Current Scores:</span>
+            <span>C: {objective.current_cardio_score}</span>
+            <span>S: {objective.current_strength_score}</span>
+            <span>CT: {objective.current_climbing_score}</span>
+            <span>F: {objective.current_flexibility_score}</span>
+          </div>
+        )}
       </div>
 
       {/* Plan summary */}
@@ -315,10 +425,16 @@ function PlanContent() {
           const weekEnd = new Date(weekStart);
           weekEnd.setDate(weekEnd.getDate() + 7);
           const isCurrent = today >= weekStart && today < weekEnd;
+          const isPast = today >= weekEnd;
 
           const sessions = weekSessions[week.week_number] || [];
           const isLoadingSessions = loadingSessions[week.week_number];
           const sessionError = sessionErrors[week.week_number];
+          const weekLogs = getLogsForWeek(week);
+          const hasLogs = weekLogs.length > 0;
+          const completeResult = weekCompleteResult[week.week_number];
+          const isCompleting = completingWeek === week.week_number;
+          const canComplete = (week.week_type === "test" || week.week_type === "regular") && hasLogs && !completeResult;
 
           return (
             <div
@@ -337,6 +453,16 @@ function PlanContent() {
                   <WeekBadge type={week.week_type} />
                   {isCurrent && (
                     <span className="text-xs bg-forest text-white px-2 py-0.5 rounded">Current</span>
+                  )}
+                  {hasLogs && (
+                    <span className="text-xs text-recovery-green font-medium">
+                      {weekLogs.length} logged
+                    </span>
+                  )}
+                  {completeResult && (
+                    <span className="text-xs bg-recovery-green/10 text-recovery-green px-2 py-0.5 rounded font-medium">
+                      Scores Updated
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-4">
@@ -388,12 +514,15 @@ function PlanContent() {
                   {sessions.map((session: PlanSession, i: number) => {
                     const sessionKey = `${week.week_number}-${i}`;
                     const isSessionExpanded = expandedSession === sessionKey;
+                    const logged = isSessionLogged(session.name, week);
 
                     return (
                       <div
                         key={i}
                         className={`rounded-lg border ${
-                          session.isBenchmarkSession
+                          logged
+                            ? "border-recovery-green/30 bg-recovery-green/5"
+                            : session.isBenchmarkSession
                             ? "border-test-blue/30 bg-test-blue/5"
                             : "border-sage/10 bg-gray-50"
                         }`}
@@ -406,20 +535,25 @@ function PlanContent() {
                           className="w-full px-4 py-3 flex items-center justify-between text-left"
                         >
                           <div className="flex items-center gap-2">
-                            {session.isBenchmarkSession && (
+                            {logged && <span className="text-recovery-green text-sm">✓</span>}
+                            {!logged && session.isBenchmarkSession && (
                               <span className="text-test-blue text-sm">★</span>
                             )}
-                            <span className="font-medium text-sm">{session.name}</span>
+                            <span className={`font-medium text-sm ${logged ? "line-through opacity-60" : ""}`}>
+                              {session.name}
+                            </span>
                             <span className="text-xs text-sage">{session.estimatedMinutes} min</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Link
-                              href={`/log?session=${encodeURIComponent(session.name)}&planId=${plan.id}&week=${week.week_number}`}
-                              className="text-xs bg-forest text-white px-2.5 py-1 rounded hover:bg-forest/90 transition-colors"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              Log
-                            </Link>
+                            {!logged && (
+                              <Link
+                                href={`/log?session=${encodeURIComponent(session.name)}&planId=${plan.id}&week=${week.week_number}`}
+                                className="text-xs bg-forest text-white px-2.5 py-1 rounded hover:bg-forest/90 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Log
+                              </Link>
+                            )}
                             <span className="text-sage text-xs">{isSessionExpanded ? "▾" : "▸"}</span>
                           </div>
                         </button>
@@ -478,6 +612,48 @@ function PlanContent() {
                       </div>
                     );
                   })}
+
+                  {/* Complete Week button */}
+                  {canComplete && (isPast || isCurrent) && (
+                    <button
+                      onClick={() => handleCompleteWeek(week)}
+                      disabled={isCompleting}
+                      className={`w-full mt-3 py-3 rounded-lg font-medium text-sm transition-colors ${
+                        week.week_type === "test"
+                          ? "bg-test-blue text-white hover:bg-test-blue/90"
+                          : "bg-forest text-white hover:bg-forest/90"
+                      } disabled:opacity-50`}
+                    >
+                      {isCompleting
+                        ? "Recalculating Scores..."
+                        : week.week_type === "test"
+                        ? `Complete Test Week ${week.week_number} & Recalculate Scores`
+                        : `Complete Week ${week.week_number} & Update Scores`
+                      }
+                    </button>
+                  )}
+
+                  {/* Score update result */}
+                  {completeResult && (
+                    <div className={`mt-3 rounded-lg p-4 border ${
+                      completeResult.rebalanceTriggered
+                        ? "bg-burnt-orange/10 border-burnt-orange/30"
+                        : "bg-recovery-green/10 border-recovery-green/30"
+                    }`}>
+                      <h4 className="text-sm font-semibold mb-2">
+                        {completeResult.rebalanceTriggered
+                          ? "Scores Updated — Rebalancing Triggered"
+                          : "Scores Updated"
+                        }
+                      </h4>
+                      <div className="flex gap-4 text-xs">
+                        <span>C: {completeResult.updatedScores.cardio}</span>
+                        <span>S: {completeResult.updatedScores.strength}</span>
+                        <span>CT: {completeResult.updatedScores.climbing_technical}</span>
+                        <span>F: {completeResult.updatedScores.flexibility}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

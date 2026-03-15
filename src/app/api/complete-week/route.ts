@@ -45,12 +45,15 @@ export async function POST(request: NextRequest) {
   const objective = (plan as Record<string, unknown>).objectives as Record<string, unknown>;
   const weekType = weekTarget.week_type;
 
-  // Save workout logs
+  // Workout logs are already saved by the /log page.
+  // If any are passed that don't have IDs, save them now.
   for (const log of workoutLogs) {
-    await supabase.from("workout_logs").insert({
-      user_id: user.id,
-      ...log,
-    });
+    if (!(log as Record<string, unknown>).id) {
+      await supabase.from("workout_logs").insert({
+        user_id: user.id,
+        ...log,
+      });
+    }
   }
 
   // Recovery and taper weeks: no score changes
