@@ -57,7 +57,7 @@ export default function CalendarPage() {
 
   function getObjectivesForDate(day: number) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return objectives.filter((o) => o.target_date === dateStr);
+    return objectives.filter((o) => o.target_date?.substring(0, 10) === dateStr);
   }
 
   function handleDayClick(day: number) {
@@ -209,6 +209,38 @@ export default function CalendarPage() {
           ))}
         </div>
       </div>
+
+      {/* All Objectives list below calendar */}
+      {objectives.length > 0 && (
+        <div className="mt-6 bg-white rounded-xl shadow-sm border border-sage/20 p-5">
+          <h3 className="font-semibold text-forest mb-3">All Objectives</h3>
+          <div className="space-y-2">
+            {objectives.map((obj) => {
+              const objDate = new Date(obj.target_date);
+              return (
+                <button
+                  key={obj.id}
+                  onClick={() => {
+                    setCurrentDate(new Date(objDate.getFullYear(), objDate.getMonth()));
+                    setSelectedObjective(obj);
+                    setShowModal(true);
+                  }}
+                  className="w-full text-left flex items-center justify-between px-3 py-2 rounded-lg hover:bg-sage/5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded ${TYPE_COLORS[obj.type] || "bg-gray-200"}`}>
+                      {obj.type.replace("_", " ")}
+                    </span>
+                    <span className="font-medium text-sm text-forest">{obj.name}</span>
+                    <TierBadgeSmall tier={obj.tier} />
+                  </div>
+                  <span className="text-xs text-sage">{objDate.toLocaleDateString()}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <ObjectiveModal
