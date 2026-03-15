@@ -1,8 +1,29 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
-import { PROMPT_2_SYSTEM } from "@/lib/prompts";
-import { GeneratePlanRequest, PlanData } from "@/lib/types";
+import { PROMPT_2A_SYSTEM } from "@/lib/prompts";
+import { GeneratePlanRequest } from "@/lib/types";
+
+interface LightweightPlanResponse {
+  planSummary: {
+    philosophy: string;
+    weeklyStructure: string;
+    equipmentNeeded: string[];
+    keyExercises: string[];
+  };
+  weeks: {
+    weekNumber: number;
+    weekStartDate: string;
+    weekType: string;
+    totalHoursTarget: number;
+    expectedScores: {
+      cardio: number;
+      strength: number;
+      climbing_technical: number;
+      flexibility: number;
+    };
+  }[];
+}
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
@@ -43,7 +64,7 @@ export async function POST(request: NextRequest) {
     .eq("id", user.id)
     .single();
 
-  // Calculate weeks available (minus 2 for taper)
+  // Calculate weeks available
   const now = new Date();
   const targetDate = new Date(objective.target_date);
   const totalWeeks = Math.max(
@@ -64,17 +85,23 @@ Graduation benchmarks: ${JSON.stringify(objective.graduation_benchmarks)}
 Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}`;
 
   try {
-    const responseText = await callClaude(PROMPT_2_SYSTEM, userMessage);
-    const planData = parseClaudeJSON<PlanData>(responseText);
+    const responseText = await callClaude(PROMPT_2A_SYSTEM, userMessage);
+    const planData = parseClaudeJSON<LightweightPlanResponse>(responseText);
 
-    // Store the plan
+    // Store the plan (plan_data includes planSummary + week structure without sessions)
     const { data: plan, error: planError } = await supabase
       .from("training_plans")
       .insert({
         user_id: user.id,
         objective_id: objectiveId,
         assessment_id: assessmentId,
-        plan_data: planData,
+        plan_data: {
+          planSummary: planData.planSummary,
+          weeks: planData.weeks.map((w) => ({
+            ...w,
+            sessions: [], // Sessions will be generated on-demand
+          })),
+        },
         graduation_workouts: objective.graduation_benchmarks,
         status: "active",
       })
@@ -85,7 +112,7 @@ Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}`;
       return NextResponse.json({ error: "Failed to save plan" }, { status: 500 });
     }
 
-    // Store weekly targets
+    // Store weekly targets with empty sessions
     const weeklyTargets = planData.weeks.map((week) => ({
       plan_id: plan.id,
       week_number: week.weekNumber,
@@ -93,7 +120,7 @@ Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}`;
       week_type: week.weekType,
       total_hours: week.totalHoursTarget,
       expected_scores: week.expectedScores,
-      sessions: week.sessions,
+      sessions: [], // Empty — sessions generated on-demand via /api/generate-week-sessions
     }));
 
     const { error: weekError } = await supabase
@@ -122,7 +149,7 @@ Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}`;
   } catch (error) {
     console.error("Error generating plan:", error);
     return NextResponse.json(
-      { error: "Failed to generate plan" },
+      { error: "Failed to generate plan. Please try again." },
       { status: 500 }
     );
   }

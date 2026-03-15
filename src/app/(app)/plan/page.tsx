@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { TrainingPlan, WeeklyTarget, Objective, PlanSession } from "@/lib/types";
@@ -22,24 +22,22 @@ function PlanContent() {
   const [weeks, setWeeks] = useState<WeeklyTarget[]>([]);
   const [objective, setObjective] = useState<Objective | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Track session loading/error state per week
+  const [loadingSessions, setLoadingSessions] = useState<Record<number, boolean>>({});
+  const [sessionErrors, setSessionErrors] = useState<Record<number, string>>({});
+  // Cache loaded sessions per week
+  const [weekSessions, setWeekSessions] = useState<Record<number, PlanSession[]>>({});
 
   const shouldGenerate = searchParams.get("generate") === "true";
   const objectiveId = searchParams.get("objectiveId");
   const assessmentId = searchParams.get("assessmentId");
 
-  useEffect(() => {
-    if (shouldGenerate && objectiveId && assessmentId) {
-      generatePlan(objectiveId, assessmentId);
-    } else {
-      fetchPlan();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function fetchPlan() {
+  const fetchPlan = useCallback(async () => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -66,7 +64,17 @@ function PlanContent() {
       .eq("plan_id", activePlan.id)
       .order("week_number");
 
-    setWeeks((weekData as WeeklyTarget[]) || []);
+    const weeksArr = (weekData as WeeklyTarget[]) || [];
+    setWeeks(weeksArr);
+
+    // Pre-populate cached sessions for weeks that already have them
+    const cached: Record<number, PlanSession[]> = {};
+    for (const w of weeksArr) {
+      if (w.sessions && w.sessions.length > 0) {
+        cached[w.week_number] = w.sessions;
+      }
+    }
+    setWeekSessions(cached);
 
     const { data: objData } = await supabase
       .from("objectives")
@@ -78,7 +86,7 @@ function PlanContent() {
 
     // Expand current week
     const today = new Date();
-    const currentWeek = (weekData as WeeklyTarget[])?.find((w) => {
+    const currentWeek = weeksArr.find((w) => {
       const start = new Date(w.week_start);
       const end = new Date(start);
       end.setDate(end.getDate() + 7);
@@ -87,10 +95,20 @@ function PlanContent() {
     if (currentWeek) setExpandedWeek(currentWeek.week_number);
 
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    if (shouldGenerate && objectiveId && assessmentId) {
+      generatePlan(objectiveId, assessmentId);
+    } else {
+      fetchPlan();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function generatePlan(objId: string, assId: string) {
     setGenerating(true);
+    setGenerateError(null);
     try {
       const res = await fetch("/api/generate-plan", {
         method: "POST",
@@ -103,28 +121,103 @@ function PlanContent() {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to generate plan");
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to generate plan");
       }
 
       router.replace("/plan");
-      fetchPlan();
+      await fetchPlan();
     } catch (error) {
       console.error("Plan generation error:", error);
+      setGenerateError(
+        error instanceof Error ? error.message : "Failed to generate plan. Please try again."
+      );
     }
     setGenerating(false);
+  }
+
+  // Load sessions for a specific week on-demand
+  async function loadWeekSessions(weekNumber: number) {
+    if (!plan) return;
+
+    // Already loaded
+    if (weekSessions[weekNumber] && weekSessions[weekNumber].length > 0) return;
+
+    setLoadingSessions((prev) => ({ ...prev, [weekNumber]: true }));
+    setSessionErrors((prev) => {
+      const next = { ...prev };
+      delete next[weekNumber];
+      return next;
+    });
+
+    try {
+      const res = await fetch("/api/generate-week-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId: plan.id,
+          weekNumber,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to load sessions");
+      }
+
+      const { sessions } = await res.json();
+      setWeekSessions((prev) => ({ ...prev, [weekNumber]: sessions }));
+    } catch (error) {
+      console.error(`Error loading sessions for week ${weekNumber}:`, error);
+      setSessionErrors((prev) => ({
+        ...prev,
+        [weekNumber]: error instanceof Error ? error.message : "Failed to load sessions",
+      }));
+    }
+
+    setLoadingSessions((prev) => ({ ...prev, [weekNumber]: false }));
+  }
+
+  // When a week is expanded, trigger session loading
+  function handleWeekToggle(weekNumber: number) {
+    const isExpanded = expandedWeek === weekNumber;
+    const newExpanded = isExpanded ? null : weekNumber;
+    setExpandedWeek(newExpanded);
+
+    if (newExpanded !== null) {
+      loadWeekSessions(newExpanded);
+    }
   }
 
   if (generating) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-        <div className="animate-pulse">
-          <div className="text-4xl mb-4">⛰️</div>
-          <h2 className="text-2xl font-bold text-forest mb-2">Generating Your Training Plan</h2>
-          <p className="text-sage">
-            Our AI coach is designing a periodized plan tailored to your objective and current fitness...
-          </p>
-          <div className="mt-8 w-12 h-12 border-4 border-forest border-t-transparent rounded-full animate-spin mx-auto" />
-        </div>
+        {generateError ? (
+          <div>
+            <div className="text-4xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-forest mb-2">Plan Generation Failed</h2>
+            <p className="text-red-600 mb-6">{generateError}</p>
+            <button
+              onClick={() => {
+                if (objectiveId && assessmentId) {
+                  generatePlan(objectiveId, assessmentId);
+                }
+              }}
+              className="bg-forest text-white px-6 py-3 rounded-lg font-medium hover:bg-forest/90 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        ) : (
+          <div className="animate-pulse">
+            <div className="text-4xl mb-4">⛰️</div>
+            <h2 className="text-2xl font-bold text-forest mb-2">Generating Your Training Plan</h2>
+            <p className="text-sage">
+              Our AI coach is designing a periodized plan tailored to your objective and current fitness...
+            </p>
+            <div className="mt-8 w-12 h-12 border-4 border-forest border-t-transparent rounded-full animate-spin mx-auto" />
+          </div>
+        )}
       </div>
     );
   }
@@ -193,7 +286,7 @@ function PlanContent() {
       {/* Graduation workouts */}
       {plan.graduation_workouts && (
         <div className="bg-forest/5 rounded-xl border border-forest/20 p-5">
-          <h3 className="font-semibold text-forest mb-3">🏁 Graduation Workouts (Finish Line)</h3>
+          <h3 className="font-semibold text-forest mb-3">Graduation Workouts (Finish Line)</h3>
           <div className="grid md:grid-cols-2 gap-3">
             {(["cardio", "strength", "climbing_technical", "flexibility"] as const).map((dim) => {
               const benchmarks = (plan.graduation_workouts as unknown as Record<string, Array<{ exerciseName: string; graduationTarget: string }>>)?.[dim];
@@ -223,6 +316,10 @@ function PlanContent() {
           weekEnd.setDate(weekEnd.getDate() + 7);
           const isCurrent = today >= weekStart && today < weekEnd;
 
+          const sessions = weekSessions[week.week_number] || [];
+          const isLoadingSessions = loadingSessions[week.week_number];
+          const sessionError = sessionErrors[week.week_number];
+
           return (
             <div
               key={week.id}
@@ -232,7 +329,7 @@ function PlanContent() {
             >
               {/* Week header */}
               <button
-                onClick={() => setExpandedWeek(isExpanded ? null : week.week_number)}
+                onClick={() => handleWeekToggle(week.week_number)}
                 className="w-full px-5 py-4 flex items-center justify-between text-left"
               >
                 <div className="flex items-center gap-3">
@@ -263,7 +360,32 @@ function PlanContent() {
               {/* Sessions */}
               {isExpanded && (
                 <div className="px-5 pb-5 space-y-2">
-                  {week.sessions.map((session: PlanSession, i: number) => {
+                  {isLoadingSessions && (
+                    <div className="py-6 text-center">
+                      <div className="w-8 h-8 border-3 border-forest border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                      <p className="text-sm text-sage">Generating sessions for Week {week.week_number}...</p>
+                    </div>
+                  )}
+
+                  {sessionError && !isLoadingSessions && (
+                    <div className="py-4 text-center bg-red-50 rounded-lg border border-red-200">
+                      <p className="text-sm text-red-600 mb-3">{sessionError}</p>
+                      <button
+                        onClick={() => loadWeekSessions(week.week_number)}
+                        className="text-sm bg-forest text-white px-4 py-2 rounded hover:bg-forest/90 transition-colors"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
+
+                  {!isLoadingSessions && !sessionError && sessions.length === 0 && (
+                    <div className="py-4 text-center text-sage text-sm">
+                      No sessions generated yet. They should appear shortly.
+                    </div>
+                  )}
+
+                  {sessions.map((session: PlanSession, i: number) => {
                     const sessionKey = `${week.week_number}-${i}`;
                     const isSessionExpanded = expandedSession === sessionKey;
 
