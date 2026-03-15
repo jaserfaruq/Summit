@@ -1,29 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
-import { callClaude, parseClaudeJSON } from "@/lib/claude";
-import { PROMPT_2A_SYSTEM } from "@/lib/prompts";
 import { GeneratePlanRequest } from "@/lib/types";
-
-interface LightweightPlanResponse {
-  planSummary: {
-    philosophy: string;
-    weeklyStructure: string;
-    equipmentNeeded: string[];
-    keyExercises: string[];
-  };
-  weeks: {
-    weekNumber: number;
-    weekStartDate: string;
-    weekType: string;
-    totalHoursTarget: number;
-    expectedScores: {
-      cardio: number;
-      strength: number;
-      climbing_technical: number;
-      flexibility: number;
-    };
-  }[];
-}
+import { generateWeekSchedule, expectedScoresAtWeek } from "@/lib/scoring";
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
@@ -72,23 +50,61 @@ export async function POST(request: NextRequest) {
     Math.floor((targetDate.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000))
   );
 
-  const userMessage = `Athlete profile: Available ${profile?.training_days_per_week || 5}/week. Equipment: ${(profile?.equipment_access || []).join(", ") || "basic gym equipment"}. Location: ${profile?.location || "not specified"}. Injuries: none.
+  // Build week schedule algorithmically — no Claude call needed
+  const weekTypes = generateWeekSchedule(totalWeeks);
+  const daysPerWeek = profile?.training_days_per_week || 5;
 
-Objective: ${objective.name}. Type: ${objective.type}. Target date: ${objective.target_date}. Distance: ${objective.distance_miles || "N/A"} miles. Elevation gain: ${objective.elevation_gain_ft || "N/A"} ft. Technical grade: ${objective.technical_grade || "N/A"}.
+  const currentScores = {
+    cardio: assessment.cardio_score,
+    strength: assessment.strength_score,
+    climbing_technical: assessment.climbing_score,
+    flexibility: assessment.flexibility_score,
+  };
 
-Current scores: Cardio ${assessment.cardio_score}, Strength ${assessment.strength_score}, Climbing/Technical ${assessment.climbing_score}, Flexibility ${assessment.flexibility_score}.
-Target scores: Cardio ${objective.target_cardio_score}, Strength ${objective.target_strength_score}, Climbing/Technical ${objective.target_climbing_score}, Flexibility ${objective.target_flexibility_score}.
-Weeks available: ${totalWeeks}.
+  const targetScores = {
+    cardio: objective.target_cardio_score,
+    strength: objective.target_strength_score,
+    climbing_technical: objective.target_climbing_score,
+    flexibility: objective.target_flexibility_score,
+  };
 
-Graduation benchmarks: ${JSON.stringify(objective.graduation_benchmarks)}
+  // Base hours: scale by training days, cap at 10 for recreational athletes
+  const baseHours = Math.min(daysPerWeek * 1.2, 10);
 
-Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}`;
+  const weeks = weekTypes.map((weekType, i) => {
+    const weekNumber = i + 1;
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() + i * 7);
+    const weekStartStr = weekStart.toISOString().split("T")[0];
+
+    // Volume scaling by week type
+    let volumeMultiplier = 1.0;
+    if (weekType === "test") volumeMultiplier = 0.8;
+    else if (weekType === "recovery") volumeMultiplier = 0.5;
+    else if (weekType === "taper") volumeMultiplier = 0.6;
+
+    // Progressive volume: ramp up ~5% per week, capped by week type
+    const progressionFactor = Math.min(1.0, 0.7 + (weekNumber / totalWeeks) * 0.3);
+    const totalHours = Math.round(baseHours * volumeMultiplier * progressionFactor * 10) / 10;
+
+    return {
+      weekNumber,
+      weekStartDate: weekStartStr,
+      weekType,
+      totalHoursTarget: totalHours,
+      expectedScores: expectedScoresAtWeek(currentScores, targetScores, weekNumber, totalWeeks),
+    };
+  });
+
+  const planSummary = {
+    philosophy: `Progressive ${totalWeeks}-week plan building from current fitness to ${objective.name} readiness. Test weeks every ~4 weeks for calibration, recovery weeks to consolidate gains, and a 2-week taper to peak on target date.`,
+    weeklyStructure: `${daysPerWeek} sessions per week across cardio, strength, climbing/technical, and flexibility. Sessions are generated on-demand when you expand each week.`,
+    equipmentNeeded: profile?.equipment_access || ["basic gym equipment"],
+    keyExercises: extractKeyExercises(objective.graduation_benchmarks),
+  };
 
   try {
-    const responseText = await callClaude(PROMPT_2A_SYSTEM, userMessage, 4096);
-    const planData = parseClaudeJSON<LightweightPlanResponse>(responseText);
-
-    // Store the plan (plan_data includes planSummary + week structure without sessions)
+    // Store the plan
     const { data: plan, error: planError } = await supabase
       .from("training_plans")
       .insert({
@@ -96,11 +112,8 @@ Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}`;
         objective_id: objectiveId,
         assessment_id: assessmentId,
         plan_data: {
-          planSummary: planData.planSummary,
-          weeks: planData.weeks.map((w) => ({
-            ...w,
-            sessions: [], // Sessions will be generated on-demand
-          })),
+          planSummary,
+          weeks: weeks.map((w) => ({ ...w, sessions: [] })),
         },
         graduation_workouts: objective.graduation_benchmarks,
         status: "active",
@@ -109,18 +122,19 @@ Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}`;
       .single();
 
     if (planError || !plan) {
+      console.error("Failed to save plan:", planError);
       return NextResponse.json({ error: "Failed to save plan" }, { status: 500 });
     }
 
     // Store weekly targets with empty sessions
-    const weeklyTargets = planData.weeks.map((week) => ({
+    const weeklyTargets = weeks.map((week) => ({
       plan_id: plan.id,
       week_number: week.weekNumber,
       week_start: week.weekStartDate,
       week_type: week.weekType,
       total_hours: week.totalHoursTarget,
       expected_scores: week.expectedScores,
-      sessions: [], // Empty — sessions generated on-demand via /api/generate-week-sessions
+      sessions: [], // Generated on-demand via /api/generate-week-sessions
     }));
 
     const { error: weekError } = await supabase
@@ -144,7 +158,7 @@ Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}`;
 
     return NextResponse.json({
       planId: plan.id,
-      weekCount: planData.weeks.length,
+      weekCount: weeks.length,
     });
   } catch (error) {
     console.error("Error generating plan:", error);
@@ -153,4 +167,20 @@ Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}`;
       { status: 500 }
     );
   }
+}
+
+// Extract exercise names from graduation benchmarks for the plan summary
+function extractKeyExercises(graduationBenchmarks: unknown): string[] {
+  const exercises: string[] = [];
+  if (!graduationBenchmarks || typeof graduationBenchmarks !== "object") return exercises;
+  const benchmarks = graduationBenchmarks as Record<string, Array<{ exerciseName?: string }>>;
+  for (const dim of Object.keys(benchmarks)) {
+    const dimBenchmarks = benchmarks[dim];
+    if (Array.isArray(dimBenchmarks)) {
+      for (const b of dimBenchmarks) {
+        if (b.exerciseName) exercises.push(b.exerciseName);
+      }
+    }
+  }
+  return exercises;
 }
