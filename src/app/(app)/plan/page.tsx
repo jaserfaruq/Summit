@@ -28,6 +28,7 @@ export default function PlanPage() {
     } else {
       fetchPlan();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function fetchPlan() {
@@ -187,7 +188,7 @@ export default function PlanPage() {
           <h3 className="font-semibold text-forest mb-3">🏁 Graduation Workouts (Finish Line)</h3>
           <div className="grid md:grid-cols-2 gap-3">
             {(["cardio", "strength", "climbing_technical", "flexibility"] as const).map((dim) => {
-              const benchmarks = (plan.graduation_workouts as Record<string, Array<{ exerciseName: string; graduationTarget: string }>>)?.[dim];
+              const benchmarks = (plan.graduation_workouts as unknown as Record<string, Array<{ exerciseName: string; graduationTarget: string }>>)?.[dim];
               if (!benchmarks || benchmarks.length === 0) return null;
               return (
                 <div key={dim}>
@@ -244,10 +245,10 @@ export default function PlanPage() {
               {/* Expected scores bar */}
               {week.expected_scores && (
                 <div className="px-5 pb-2 flex gap-4 text-xs text-sage">
-                  <span>C: {(week.expected_scores as Record<string, number>).cardio}</span>
-                  <span>S: {(week.expected_scores as Record<string, number>).strength}</span>
-                  <span>CT: {(week.expected_scores as Record<string, number>).climbing_technical}</span>
-                  <span>F: {(week.expected_scores as Record<string, number>).flexibility}</span>
+                  <span>C: {(week.expected_scores as unknown as Record<string, number>).cardio}</span>
+                  <span>S: {(week.expected_scores as unknown as Record<string, number>).strength}</span>
+                  <span>CT: {(week.expected_scores as unknown as Record<string, number>).climbing_technical}</span>
+                  <span>F: {(week.expected_scores as unknown as Record<string, number>).flexibility}</span>
                 </div>
               )}
 

@@ -26,7 +26,7 @@ function LogForm() {
   const [completedAsPrescribed, setCompletedAsPrescribed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [prescribedSession, setPrescribedSession] = useState<PlanSession | null>(null);
-  const [weekType, setWeekType] = useState<string>("regular");
+  const [, setWeekType] = useState<string>("regular");
 
   // Cardio-specific
   const [activityType, setActivityType] = useState("run");
@@ -56,6 +56,7 @@ function LogForm() {
     if (planId && weekNumber && sessionName) {
       fetchSessionDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId, weekNumber, sessionName]);
 
   async function fetchSessionDetails() {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { Objective, ObjectiveType, MatchObjectiveResponse, EstimateScoresResponse } from "@/lib/types";
+import { Objective, ObjectiveType, MatchObjectiveResponse, EstimateScoresResponse, DimensionGraduationBenchmarks, DimensionScores, DimensionTaglines, DimensionRelevanceProfiles } from "@/lib/types";
 
 const OBJECTIVE_TYPES: { value: ObjectiveType; label: string }[] = [
   { value: "hike", label: "Hike" },
@@ -62,12 +62,12 @@ export default function ObjectiveModal({
     if (!user) return;
 
     try {
-      let targetScores = { cardio: 50, strength: 50, climbing_technical: 25, flexibility: 30 };
-      let taglines = { cardio: "", strength: "", climbing_technical: "", flexibility: "" };
-      let relevanceProfiles = {};
-      let graduationBenchmarks = { cardio: [], strength: [], climbing_technical: [], flexibility: [] };
+      let targetScores: DimensionScores = { cardio: 50, strength: 50, climbing_technical: 25, flexibility: 30 };
+      let taglines: DimensionTaglines = { cardio: "", strength: "", climbing_technical: "", flexibility: "" };
+      let relevanceProfiles: DimensionRelevanceProfiles | Record<string, never> = {};
+      let graduationBenchmarks: DimensionGraduationBenchmarks = { cardio: [], strength: [], climbing_technical: [], flexibility: [] };
       let matchedId = null;
-      let tier = matchResult?.tier || "bronze";
+      const tier = matchResult?.tier || "bronze";
 
       if (matchResult?.tier === "gold" && matchResult.validatedObjective) {
         const vo = matchResult.validatedObjective;

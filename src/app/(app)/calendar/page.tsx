@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { Objective, ObjectiveType } from "@/lib/types";
+import { Objective } from "@/lib/types";
 import ObjectiveModal from "@/components/ObjectiveModal";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
