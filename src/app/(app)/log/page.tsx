@@ -12,6 +12,8 @@ const DIMENSIONS: { value: Dimension; label: string }[] = [
   { value: "flexibility", label: "Flexibility" },
 ];
 
+const inputClass = "w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50";
+
 function LogForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -28,26 +30,17 @@ function LogForm() {
   const [prescribedSession, setPrescribedSession] = useState<PlanSession | null>(null);
   const [, setWeekType] = useState<string>("regular");
 
-  // Cardio-specific
   const [activityType, setActivityType] = useState("run");
   const [cardioDistance, setCardioDistance] = useState("");
   const [cardioElevation, setCardioElevation] = useState("");
-
-  // Strength-specific
   const [exercises, setExercises] = useState<{ name: string; sets: string; reps: string; weight: string }[]>([
     { name: "", sets: "", reps: "", weight: "" },
   ]);
-
-  // Climbing-specific
   const [climbType, setClimbType] = useState("sport");
   const [climbGrade, setClimbGrade] = useState("");
   const [pitches, setPitches] = useState("");
-
-  // Flexibility-specific
   const [routineName, setRoutineName] = useState("");
   const [bodyAreas, setBodyAreas] = useState("");
-
-  // Benchmark results (for test weeks)
   const [benchmarkResults, setBenchmarkResults] = useState<
     { exerciseId: string; exerciseName: string; result: string; graduationTarget: string }[]
   >([]);
@@ -78,7 +71,6 @@ function LogForm() {
         setDimension(session.dimension as Dimension);
         setDurationMin(session.estimatedMinutes.toString());
 
-        // If benchmark session, pre-populate benchmark fields
         if (session.isBenchmarkSession) {
           const benchmarks = session.training
             .filter((t) => t.isBenchmark)
@@ -163,32 +155,28 @@ function LogForm() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
-      <h2 className="text-2xl font-bold text-forest">
+      <h2 className="text-2xl font-bold text-white">
         {sessionName ? `Log: ${sessionName}` : "Log Workout"}
       </h2>
 
       {prescribedSession && (
-        <div className="bg-forest/5 border border-forest/20 rounded-lg p-4">
-          <p className="text-sm text-gray-600 italic mb-3">{prescribedSession.objective}</p>
+        <div className="bg-dark-card border border-dark-border rounded-lg p-4">
+          <p className="text-sm text-dark-muted italic mb-3">{prescribedSession.objective}</p>
           <button
             onClick={handleMarkComplete}
             disabled={loading}
-            className="w-full bg-forest text-white py-2.5 rounded-lg font-medium hover:bg-forest/90 transition-colors disabled:opacity-50"
+            className="w-full bg-gold text-dark-bg py-2.5 rounded-lg font-medium hover:bg-gold/90 transition-colors disabled:opacity-50"
           >
             {loading ? "Saving..." : "Mark Complete as Prescribed"}
           </button>
-          <p className="text-xs text-sage text-center mt-2">Or log a different workout below</p>
+          <p className="text-xs text-dark-muted text-center mt-2">Or log a different workout below</p>
         </div>
       )}
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Dimension</label>
-          <select
-            value={dimension}
-            onChange={(e) => setDimension(e.target.value as Dimension)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
-          >
+          <label className="block text-sm font-medium text-dark-muted mb-1">Dimension</label>
+          <select value={dimension} onChange={(e) => setDimension(e.target.value as Dimension)} className={inputClass}>
             {DIMENSIONS.map((d) => (
               <option key={d.value} value={d.value}>{d.label}</option>
             ))}
@@ -196,44 +184,21 @@ function LogForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
-          <input
-            type="number"
-            value={durationMin}
-            onChange={(e) => setDurationMin(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
-          />
+          <label className="block text-sm font-medium text-dark-muted mb-1">Duration (minutes)</label>
+          <input type="number" value={durationMin} onChange={(e) => setDurationMin(e.target.value)} className={inputClass} />
         </div>
 
-        {/* Dimension-specific fields */}
         {dimension === "cardio" && (
           <div className="space-y-3">
-            <select
-              value={activityType}
-              onChange={(e) => setActivityType(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
-            >
+            <select value={activityType} onChange={(e) => setActivityType(e.target.value)} className={inputClass}>
               <option value="run">Run</option>
               <option value="hike">Hike</option>
               <option value="bike">Bike</option>
               <option value="swim">Swim</option>
               <option value="other">Other</option>
             </select>
-            <input
-              type="number"
-              step="0.1"
-              value={cardioDistance}
-              onChange={(e) => setCardioDistance(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
-              placeholder="Distance (miles)"
-            />
-            <input
-              type="number"
-              value={cardioElevation}
-              onChange={(e) => setCardioElevation(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
-              placeholder="Elevation gain (ft)"
-            />
+            <input type="number" step="0.1" value={cardioDistance} onChange={(e) => setCardioDistance(e.target.value)} className={inputClass} placeholder="Distance (miles)" />
+            <input type="number" value={cardioElevation} onChange={(e) => setCardioElevation(e.target.value)} className={inputClass} placeholder="Elevation gain (ft)" />
           </div>
         )}
 
@@ -241,90 +206,44 @@ function LogForm() {
           <div className="space-y-3">
             {exercises.map((ex, i) => (
               <div key={i} className="grid grid-cols-4 gap-2">
-                <input
-                  value={ex.name}
-                  onChange={(e) => updateExercise(i, "name", e.target.value)}
-                  className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forest focus:border-transparent"
-                  placeholder="Exercise"
-                />
-                <input
-                  value={ex.sets}
-                  onChange={(e) => updateExercise(i, "sets", e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forest focus:border-transparent"
-                  placeholder="Sets"
-                />
-                <input
-                  value={ex.reps}
-                  onChange={(e) => updateExercise(i, "reps", e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forest focus:border-transparent"
-                  placeholder="Reps"
-                />
+                <input value={ex.name} onChange={(e) => updateExercise(i, "name", e.target.value)} className={`col-span-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white text-sm focus:ring-2 focus:ring-gold/50`} placeholder="Exercise" />
+                <input value={ex.sets} onChange={(e) => updateExercise(i, "sets", e.target.value)} className={`px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white text-sm focus:ring-2 focus:ring-gold/50`} placeholder="Sets" />
+                <input value={ex.reps} onChange={(e) => updateExercise(i, "reps", e.target.value)} className={`px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white text-sm focus:ring-2 focus:ring-gold/50`} placeholder="Reps" />
               </div>
             ))}
-            <button
-              onClick={addExercise}
-              className="text-sm text-forest font-medium hover:underline"
-            >
-              + Add Exercise
-            </button>
+            <button onClick={addExercise} className="text-sm text-gold font-medium hover:underline">+ Add Exercise</button>
           </div>
         )}
 
         {dimension === "climbing_technical" && (
           <div className="space-y-3">
-            <select
-              value={climbType}
-              onChange={(e) => setClimbType(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
-            >
+            <select value={climbType} onChange={(e) => setClimbType(e.target.value)} className={inputClass}>
               <option value="sport">Sport</option>
               <option value="trad">Trad</option>
               <option value="boulder">Bouldering</option>
               <option value="alpine">Alpine</option>
               <option value="gym">Gym</option>
             </select>
-            <input
-              value={climbGrade}
-              onChange={(e) => setClimbGrade(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
-              placeholder="Grade (e.g., 5.10a)"
-            />
-            <input
-              type="number"
-              value={pitches}
-              onChange={(e) => setPitches(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
-              placeholder="Pitches"
-            />
+            <input value={climbGrade} onChange={(e) => setClimbGrade(e.target.value)} className={inputClass} placeholder="Grade (e.g., 5.10a)" />
+            <input type="number" value={pitches} onChange={(e) => setPitches(e.target.value)} className={inputClass} placeholder="Pitches" />
           </div>
         )}
 
         {dimension === "flexibility" && (
           <div className="space-y-3">
-            <input
-              value={routineName}
-              onChange={(e) => setRoutineName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
-              placeholder="Routine name"
-            />
-            <input
-              value={bodyAreas}
-              onChange={(e) => setBodyAreas(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
-              placeholder="Body areas worked (e.g., hips, shoulders)"
-            />
+            <input value={routineName} onChange={(e) => setRoutineName(e.target.value)} className={inputClass} placeholder="Routine name" />
+            <input value={bodyAreas} onChange={(e) => setBodyAreas(e.target.value)} className={inputClass} placeholder="Body areas worked (e.g., hips, shoulders)" />
           </div>
         )}
 
-        {/* Benchmark results (test week) */}
         {benchmarkResults.length > 0 && (
-          <div className="bg-test-blue/5 border border-test-blue/20 rounded-lg p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-test-blue">Benchmark Results</h3>
+          <div className="bg-test-blue/10 border border-test-blue/30 rounded-lg p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-blue-300">Benchmark Results</h3>
             {benchmarkResults.map((b, i) => (
               <div key={i} className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-dark-text">
                   {b.exerciseName}
-                  <span className="text-sage font-normal ml-2">Target: {b.graduationTarget}</span>
+                  <span className="text-dark-muted font-normal ml-2">Target: {b.graduationTarget}</span>
                 </label>
                 <input
                   type="number"
@@ -335,7 +254,7 @@ function LogForm() {
                     updated[i] = { ...updated[i], result: e.target.value };
                     setBenchmarkResults(updated);
                   }}
-                  className="w-full px-3 py-2 border border-test-blue/30 rounded-lg focus:ring-2 focus:ring-test-blue focus:border-transparent"
+                  className="w-full px-3 py-2 bg-dark-surface border border-test-blue/30 rounded-lg text-white focus:ring-2 focus:ring-test-blue focus:border-transparent"
                   placeholder="Your result"
                 />
               </div>
@@ -344,20 +263,14 @@ function LogForm() {
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
-            placeholder="How did it feel? Any modifications?"
-          />
+          <label className="block text-sm font-medium text-dark-muted mb-1">Notes (optional)</label>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={inputClass} placeholder="How did it feel? Any modifications?" />
         </div>
 
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="w-full bg-burnt-orange text-white py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-burnt-orange/90 transition-colors"
+          className="w-full bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
         >
           {loading ? "Saving..." : "Save Workout Log"}
         </button>
@@ -368,7 +281,7 @@ function LogForm() {
 
 export default function LogPage() {
   return (
-    <Suspense fallback={<div className="max-w-xl mx-auto px-4 py-6"><div className="animate-pulse h-8 bg-sage/20 rounded w-1/3" /></div>}>
+    <Suspense fallback={<div className="max-w-xl mx-auto px-4 py-6"><div className="animate-pulse h-8 bg-dark-border rounded w-1/3" /></div>}>
       <LogForm />
     </Suspense>
   );

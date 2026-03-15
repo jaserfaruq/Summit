@@ -16,19 +16,18 @@ export default function ScoreArc({
   const percentage = target > 0 ? Math.min((current / target) * 100, 100) : 0;
   const color = scoreArcColor(current, target);
   const colorMap = {
-    green: { stroke: "#22c55e", bg: "bg-green-50", text: "text-green-700" },
-    yellow: { stroke: "#eab308", bg: "bg-yellow-50", text: "text-yellow-700" },
-    red: { stroke: "#ef4444", bg: "bg-red-50", text: "text-red-700" },
+    green: { stroke: "#22c55e", text: "text-green-400" },
+    yellow: { stroke: "#eab308", text: "text-yellow-400" },
+    red: { stroke: "#ef4444", text: "text-red-400" },
   };
-  const { stroke, bg, text } = colorMap[color];
+  const { stroke, text } = colorMap[color];
 
-  // SVG arc parameters
   const radius = 45;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   return (
-    <div className={`${bg} rounded-xl p-4 text-center`}>
+    <div className="bg-dark-card rounded-xl p-4 text-center border border-dark-border">
       <div className="relative inline-block">
         <svg width="100" height="100" className="-rotate-90">
           <circle
@@ -36,7 +35,7 @@ export default function ScoreArc({
             cy="50"
             r={radius}
             fill="none"
-            stroke="#e5e7eb"
+            stroke="#333"
             strokeWidth="8"
           />
           <circle
@@ -55,13 +54,13 @@ export default function ScoreArc({
         <div className="absolute inset-0 flex items-center justify-center">
           <div>
             <div className={`text-lg font-bold ${text}`}>{current}</div>
-            <div className="text-xs text-gray-400">/ {target}</div>
+            <div className="text-xs text-dark-muted">/ {target}</div>
           </div>
         </div>
       </div>
-      <div className="mt-2 font-semibold text-forest text-sm">{label}</div>
+      <div className="mt-2 font-semibold text-white text-sm">{label}</div>
       {tagline && (
-        <div className="text-xs text-sage mt-0.5 italic">{tagline}</div>
+        <div className="text-xs text-dark-muted mt-0.5 italic">{tagline}</div>
       )}
     </div>
   );

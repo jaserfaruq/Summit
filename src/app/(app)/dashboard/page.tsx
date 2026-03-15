@@ -77,13 +77,13 @@ export default async function DashboardPage() {
   if (!latestAssessment) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-12 text-center">
-        <h2 className="text-3xl font-bold text-forest mb-4">Welcome to Summit Planner</h2>
-        <p className="text-gray-600 mb-8">
+        <h2 className="text-3xl font-bold text-white mb-4">Welcome to Summit Planner</h2>
+        <p className="text-dark-muted mb-8">
           Start by taking a quick fitness assessment to establish your baseline scores.
         </p>
         <Link
           href="/assessment"
-          className="inline-block bg-burnt-orange hover:bg-burnt-orange/90 text-white font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
+          className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
         >
           Take Your Fitness Assessment
         </Link>
@@ -95,15 +95,15 @@ export default async function DashboardPage() {
   if (!activeObjective) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-12 text-center">
-        <h2 className="text-3xl font-bold text-forest mb-4">Assessment Complete</h2>
-        <p className="text-gray-600 mb-2">
+        <h2 className="text-3xl font-bold text-white mb-4">Assessment Complete</h2>
+        <p className="text-dark-muted mb-2">
           Cardio: {latestAssessment.cardio_score} | Strength: {latestAssessment.strength_score} |
           Climbing: {latestAssessment.climbing_score} | Flexibility: {latestAssessment.flexibility_score}
         </p>
-        <p className="text-gray-600 mb-8">Now add your first summit objective to start training.</p>
+        <p className="text-dark-muted mb-8">Now add your first summit objective to start training.</p>
         <Link
           href="/calendar"
-          className="inline-block bg-burnt-orange hover:bg-burnt-orange/90 text-white font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
+          className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
         >
           Add Your First Objective
         </Link>
@@ -115,17 +115,17 @@ export default async function DashboardPage() {
   if (!activePlan) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-12 text-center">
-        <h2 className="text-3xl font-bold text-forest mb-4">{activeObjective.name}</h2>
+        <h2 className="text-3xl font-bold text-white mb-4">{activeObjective.name}</h2>
         <div className="flex justify-center gap-4 mb-4">
           <TierBadge tier={activeObjective.tier} />
-          <span className="text-gray-500">
+          <span className="text-dark-muted">
             Target: {new Date(activeObjective.target_date).toLocaleDateString()}
           </span>
         </div>
-        <p className="text-gray-600 mb-8">Generate a training plan to start building toward your objective.</p>
+        <p className="text-dark-muted mb-8">Generate a training plan to start building toward your objective.</p>
         <Link
           href={`/plan?generate=true&objectiveId=${activeObjective.id}&assessmentId=${latestAssessment.id}`}
-          className="inline-block bg-burnt-orange hover:bg-burnt-orange/90 text-white font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
+          className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
         >
           Generate Training Plan
         </Link>
@@ -145,7 +145,7 @@ export default async function DashboardPage() {
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
       {/* Estimated scores banner */}
       {!hasTestWeekData && (
-        <div className="bg-test-blue/10 border border-test-blue/20 text-test-blue px-4 py-3 rounded-lg text-sm">
+        <div className="bg-test-blue/20 border border-test-blue/30 text-blue-300 px-4 py-3 rounded-lg text-sm">
           Estimated scores — take your first benchmark test to calibrate.
         </div>
       )}
@@ -153,17 +153,17 @@ export default async function DashboardPage() {
       {/* Objective countdown */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-forest">{activeObjective.name}</h2>
+          <h2 className="text-2xl font-bold text-white">{activeObjective.name}</h2>
           <div className="flex items-center gap-3 mt-1">
             <TierBadge tier={activeObjective.tier} />
-            <span className="text-sage text-sm">
+            <span className="text-dark-muted text-sm">
               {new Date(activeObjective.target_date).toLocaleDateString()}
             </span>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-bold text-forest">{weeksRemaining}</div>
-          <div className="text-sm text-sage">weeks remaining</div>
+          <div className="text-3xl font-bold text-gold">{weeksRemaining}</div>
+          <div className="text-sm text-dark-muted">weeks remaining</div>
         </div>
       </div>
 
@@ -197,11 +197,11 @@ export default async function DashboardPage() {
 
       {/* This week summary */}
       {currentWeekTarget && (
-        <div className="bg-white rounded-xl shadow-sm border border-sage/20 p-6">
+        <div className="bg-dark-card rounded-xl border border-dark-border p-6">
           <div className="flex items-center gap-3 mb-4">
-            <h3 className="text-lg font-semibold text-forest">This Week</h3>
+            <h3 className="text-lg font-semibold text-white">This Week</h3>
             <WeekBadge type={currentWeekTarget.week_type} />
-            <span className="text-sage text-sm ml-auto">
+            <span className="text-dark-muted text-sm ml-auto">
               Week {currentWeekTarget.week_number} · {currentWeekTarget.total_hours}h planned
             </span>
           </div>
@@ -211,20 +211,20 @@ export default async function DashboardPage() {
                 key={i}
                 className={`flex items-center justify-between p-3 rounded-lg border ${
                   session.isBenchmarkSession
-                    ? "border-test-blue/30 bg-test-blue/5"
-                    : "border-sage/10 bg-gray-50"
+                    ? "border-test-blue/30 bg-test-blue/10"
+                    : "border-dark-border bg-dark-surface"
                 }`}
               >
                 <div className="flex items-center gap-2">
                   {session.isBenchmarkSession && (
-                    <span className="text-test-blue">★</span>
+                    <span className="text-blue-300">★</span>
                   )}
-                  <span className="font-medium text-sm">{session.name}</span>
-                  <span className="text-sage text-xs">{session.estimatedMinutes} min</span>
+                  <span className="font-medium text-sm text-white">{session.name}</span>
+                  <span className="text-dark-muted text-xs">{session.estimatedMinutes} min</span>
                 </div>
                 <Link
                   href={`/log?session=${encodeURIComponent(session.name)}&planId=${activePlan.id}&week=${currentWeekTarget.week_number}`}
-                  className="text-sm bg-forest text-white px-3 py-1 rounded hover:bg-forest/90 transition-colors"
+                  className="text-sm bg-gold/90 text-dark-bg px-3 py-1 rounded hover:bg-gold transition-colors font-medium"
                 >
                   Mark Complete
                 </Link>
@@ -236,20 +236,20 @@ export default async function DashboardPage() {
 
       {/* Graduation benchmarks */}
       {activeObjective.graduation_benchmarks && (
-        <div className="bg-white rounded-xl shadow-sm border border-sage/20 p-6">
-          <h3 className="text-lg font-semibold text-forest mb-4">Graduation Benchmarks</h3>
+        <div className="bg-dark-card rounded-xl border border-dark-border p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Graduation Benchmarks</h3>
           <div className="grid md:grid-cols-2 gap-4">
             {(["cardio", "strength", "climbing_technical", "flexibility"] as const).map((dim) => {
               const benchmarks = activeObjective.graduation_benchmarks?.[dim];
               if (!benchmarks || benchmarks.length === 0) return null;
               return (
                 <div key={dim} className="space-y-2">
-                  <h4 className="text-sm font-semibold text-forest capitalize">
+                  <h4 className="text-sm font-semibold text-gold capitalize">
                     {dim.replace("_", " / ")}
                   </h4>
                   {benchmarks.map((b, i) => (
-                    <div key={i} className="text-sm text-gray-600 pl-3 border-l-2 border-sage/30">
-                      <span className="font-medium">{b.exerciseName}</span>: {b.graduationTarget}
+                    <div key={i} className="text-sm text-dark-muted pl-3 border-l-2 border-dark-border">
+                      <span className="font-medium text-dark-text">{b.exerciseName}</span>: {b.graduationTarget}
                     </div>
                   ))}
                 </div>
@@ -263,13 +263,13 @@ export default async function DashboardPage() {
       <div className="flex gap-3">
         <Link
           href="/plan"
-          className="flex-1 text-center py-3 bg-forest text-white rounded-lg font-medium hover:bg-forest/90 transition-colors"
+          className="flex-1 text-center py-3 bg-gold text-dark-bg rounded-lg font-medium hover:bg-gold/90 transition-colors"
         >
           View Full Plan
         </Link>
         <Link
           href="/progress"
-          className="flex-1 text-center py-3 border-2 border-forest text-forest rounded-lg font-medium hover:bg-forest hover:text-white transition-colors"
+          className="flex-1 text-center py-3 border border-dark-border text-dark-text rounded-lg font-medium hover:bg-dark-card transition-colors"
         >
           View Progress
         </Link>
@@ -280,9 +280,9 @@ export default async function DashboardPage() {
 
 function TierBadge({ tier }: { tier: string }) {
   const colors = {
-    gold: "bg-yellow-100 text-yellow-800 border-yellow-300",
-    silver: "bg-gray-100 text-gray-700 border-gray-300",
-    bronze: "bg-orange-100 text-orange-800 border-orange-300",
+    gold: "bg-gold/20 text-gold border-gold/30",
+    silver: "bg-white/10 text-white/70 border-white/20",
+    bronze: "bg-burnt-orange/20 text-burnt-orange border-burnt-orange/30",
   };
   return (
     <span

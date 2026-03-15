@@ -18,7 +18,6 @@ export default function ProgressPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Get first objective
     const { data: objectives } = await supabase
       .from("objectives")
       .select("*")
@@ -45,8 +44,8 @@ export default function ProgressPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-sage/20 rounded w-1/3" />
-          <div className="h-64 bg-sage/20 rounded" />
+          <div className="h-8 bg-dark-border rounded w-1/3" />
+          <div className="h-64 bg-dark-border rounded" />
         </div>
       </div>
     );
@@ -55,8 +54,8 @@ export default function ProgressPage() {
   if (!objective) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold text-forest mb-4">No Progress Data Yet</h2>
-        <p className="text-sage">Add an objective and start training to see your progress here.</p>
+        <h2 className="text-2xl font-bold text-white mb-4">No Progress Data Yet</h2>
+        <p className="text-dark-muted">Add an objective and start training to see your progress here.</p>
       </div>
     );
   }
@@ -68,7 +67,6 @@ export default function ProgressPage() {
     flexibility: objective.target_flexibility_score,
   };
 
-  // Chart dimensions
   const chartWidth = 800;
   const chartHeight = 300;
   const padding = { top: 20, right: 20, bottom: 40, left: 50 };
@@ -96,21 +94,21 @@ export default function ProgressPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      <h2 className="text-2xl font-bold text-forest">Progress: {objective.name}</h2>
+      <h2 className="text-2xl font-bold text-white">Progress: {objective.name}</h2>
 
       {scoreHistory.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-sage/20 p-8 text-center">
-          <p className="text-sage">No score history yet. Complete your first training week to see progress.</p>
+        <div className="bg-dark-card rounded-xl border border-dark-border p-8 text-center">
+          <p className="text-dark-muted">No score history yet. Complete your first training week to see progress.</p>
         </div>
       ) : (
         <>
           {/* SVG Chart */}
-          <div className="bg-white rounded-xl shadow-sm border border-sage/20 p-4 overflow-x-auto">
+          <div className="bg-dark-card rounded-xl border border-dark-border p-4 overflow-x-auto">
             <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full" style={{ minWidth: 400 }}>
               {/* Y-axis labels */}
               {[0, 25, 50, 75, 100].map((v) => (
                 <g key={v}>
-                  <text x={padding.left - 10} y={yScale(v) + 4} textAnchor="end" className="text-[10px] fill-gray-400">
+                  <text x={padding.left - 10} y={yScale(v) + 4} textAnchor="end" className="text-[10px]" fill="#888">
                     {v}
                   </text>
                   <line
@@ -118,7 +116,7 @@ export default function ProgressPage() {
                     x2={chartWidth - padding.right}
                     y1={yScale(v)}
                     y2={yScale(v)}
-                    stroke="#e5e7eb"
+                    stroke="#333"
                     strokeWidth={1}
                   />
                 </g>
@@ -177,7 +175,8 @@ export default function ProgressPage() {
                   x={xScale(i)}
                   y={chartHeight - 5}
                   textAnchor="middle"
-                  className="text-[9px] fill-gray-400"
+                  className="text-[9px]"
+                  fill="#888"
                 >
                   {new Date(point.week_ending).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </text>
@@ -190,53 +189,53 @@ export default function ProgressPage() {
             {dimensions.map((dim) => (
               <div key={dim.key} className="flex items-center gap-2 text-sm">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: dim.color }} />
-                <span>{dim.label}</span>
-                <span className="text-sage text-xs">(target: {dim.target})</span>
+                <span className="text-dark-text">{dim.label}</span>
+                <span className="text-dark-muted text-xs">(target: {dim.target})</span>
               </div>
             ))}
           </div>
 
-          <div className="flex items-center gap-6 justify-center text-xs text-sage">
+          <div className="flex items-center gap-6 justify-center text-xs text-dark-muted">
             <div className="flex items-center gap-1">
-              <div className="w-2.5 h-2.5 rounded-full bg-gray-400" />
+              <div className="w-2.5 h-2.5 rounded-full bg-dark-muted" />
               <span>Regular week (estimated)</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3.5 h-3.5 rounded-full bg-gray-700" />
+              <div className="w-3.5 h-3.5 rounded-full bg-white" />
               <span>Test week (measured)</span>
             </div>
           </div>
 
           {/* Score table */}
-          <div className="bg-white rounded-xl shadow-sm border border-sage/20 overflow-x-auto">
+          <div className="bg-dark-card rounded-xl border border-dark-border overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-sage/20">
-                  <th className="px-4 py-3 text-left text-sage font-medium">Week</th>
-                  <th className="px-4 py-3 text-center text-sage font-medium">Type</th>
-                  <th className="px-4 py-3 text-center text-sage font-medium">Cardio</th>
-                  <th className="px-4 py-3 text-center text-sage font-medium">Strength</th>
-                  <th className="px-4 py-3 text-center text-sage font-medium">Climbing</th>
-                  <th className="px-4 py-3 text-center text-sage font-medium">Flexibility</th>
+                <tr className="border-b border-dark-border">
+                  <th className="px-4 py-3 text-left text-dark-muted font-medium">Week</th>
+                  <th className="px-4 py-3 text-center text-dark-muted font-medium">Type</th>
+                  <th className="px-4 py-3 text-center text-dark-muted font-medium">Cardio</th>
+                  <th className="px-4 py-3 text-center text-dark-muted font-medium">Strength</th>
+                  <th className="px-4 py-3 text-center text-dark-muted font-medium">Climbing</th>
+                  <th className="px-4 py-3 text-center text-dark-muted font-medium">Flexibility</th>
                 </tr>
               </thead>
               <tbody>
                 {scoreHistory.map((entry) => (
-                  <tr key={entry.id} className="border-b border-sage/10">
-                    <td className="px-4 py-2">{new Date(entry.week_ending).toLocaleDateString()}</td>
+                  <tr key={entry.id} className="border-b border-dark-border/50">
+                    <td className="px-4 py-2 text-dark-text">{new Date(entry.week_ending).toLocaleDateString()}</td>
                     <td className="px-4 py-2 text-center">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded ${
                         entry.is_test_week
-                          ? "bg-test-blue/10 text-test-blue"
-                          : "bg-sage/10 text-sage"
+                          ? "bg-test-blue/20 text-blue-300"
+                          : "bg-dark-border text-dark-muted"
                       }`}>
                         {entry.is_test_week ? "Test" : "Estimate"}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-center font-mono">{entry.cardio_score}</td>
-                    <td className="px-4 py-2 text-center font-mono">{entry.strength_score}</td>
-                    <td className="px-4 py-2 text-center font-mono">{entry.climbing_score}</td>
-                    <td className="px-4 py-2 text-center font-mono">{entry.flexibility_score}</td>
+                    <td className="px-4 py-2 text-center font-mono text-dark-text">{entry.cardio_score}</td>
+                    <td className="px-4 py-2 text-center font-mono text-dark-text">{entry.strength_score}</td>
+                    <td className="px-4 py-2 text-center font-mono text-dark-text">{entry.climbing_score}</td>
+                    <td className="px-4 py-2 text-center font-mono text-dark-text">{entry.flexibility_score}</td>
                   </tr>
                 ))}
               </tbody>

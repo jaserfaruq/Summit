@@ -15,16 +15,16 @@ const TYPE_COLORS: Record<string, string> = {
   trail_run: "bg-test-blue text-white",
   alpine_climb: "bg-burnt-orange text-white",
   rock_climb: "bg-burnt-orange text-white",
-  mountaineering: "bg-forest text-white",
-  scramble: "bg-sage text-white",
+  mountaineering: "bg-gold text-dark-bg",
+  scramble: "bg-dark-muted text-white",
   backpacking: "bg-recovery-green text-white",
 };
 
 const DIMENSION_COLORS: Record<string, string> = {
-  cardio: "bg-test-blue/15 text-test-blue border-test-blue/30",
-  strength: "bg-burnt-orange/15 text-burnt-orange border-burnt-orange/30",
-  climbing_technical: "bg-forest/15 text-forest border-forest/30",
-  flexibility: "bg-sage/20 text-sage border-sage/40",
+  cardio: "bg-test-blue/15 text-blue-300 border-test-blue/30",
+  strength: "bg-burnt-orange/15 text-orange-300 border-burnt-orange/30",
+  climbing_technical: "bg-gold/15 text-gold border-gold/30",
+  flexibility: "bg-dark-border text-dark-muted border-dark-border",
 };
 
 interface CalendarSession {
@@ -61,14 +61,12 @@ export default function CalendarPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Fetch objectives
     const { data: objData } = await supabase
       .from("objectives")
       .select("*")
       .order("target_date");
     if (objData) setObjectives(objData as Objective[]);
 
-    // Fetch active plan + weekly targets
     const { data: plans } = await supabase
       .from("training_plans")
       .select("*")
@@ -91,7 +89,6 @@ export default function CalendarPage() {
       }
     }
 
-    // Fetch workout logs
     const { data: logData } = await supabase
       .from("workout_logs")
       .select("*")
@@ -99,37 +96,23 @@ export default function CalendarPage() {
     if (logData) setWorkoutLogs(logData as WorkoutLog[]);
   }
 
-  // Distribute sessions across the days of each week
   function distributeSessionsToDates(weeks: WeeklyTarget[], planId: string): CalendarSession[] {
     const results: CalendarSession[] = [];
-
     for (const week of weeks) {
       if (!week.sessions || week.sessions.length === 0) continue;
-
       const weekStart = new Date(week.week_start + "T00:00:00");
       const sessionCount = week.sessions.length;
-
-      // Distribute sessions across the week, leaving at least 1 rest day
-      // Spread evenly: for 5 sessions in 7 days, use days 0,1,2,3,4 (Mon-Fri pattern)
-      const availableDays = Math.min(6, 7); // max 6 training days
+      const availableDays = Math.min(6, 7);
       const spacing = sessionCount <= 1 ? 1 : Math.floor(availableDays / sessionCount);
 
       for (let i = 0; i < sessionCount; i++) {
-        const dayOffset = Math.min(i * spacing, 6); // keep within the week
+        const dayOffset = Math.min(i * spacing, 6);
         const sessionDate = new Date(weekStart);
         sessionDate.setDate(sessionDate.getDate() + dayOffset);
         const dateStr = sessionDate.toISOString().split("T")[0];
-
-        results.push({
-          date: dateStr,
-          session: week.sessions[i],
-          weekNumber: week.week_number,
-          weekType: week.week_type,
-          planId,
-        });
+        results.push({ date: dateStr, session: week.sessions[i], weekNumber: week.week_number, weekType: week.week_type, planId });
       }
     }
-
     return results;
   }
 
@@ -162,13 +145,12 @@ export default function CalendarPage() {
   }
 
   function handleDayClick(day: number) {
-    const dateStr = formatDateStr(day);
     const dayObjectives = getObjectivesForDate(day);
     if (dayObjectives.length > 0) {
       setSelectedObjective(dayObjectives[0]);
       setShowModal(true);
     } else {
-      setSelectedDate(dateStr);
+      setSelectedDate(formatDateStr(day));
       setShowModal(true);
     }
   }
@@ -182,7 +164,6 @@ export default function CalendarPage() {
 
   // Mobile: list view
   if (isMobile) {
-    // Build a combined day-by-day list for the current month
     const monthDays: { day: number; objectives: Objective[]; sessions: CalendarSession[]; logs: WorkoutLog[] }[] = [];
     for (let d = 1; d <= daysInMonth; d++) {
       const objs = getObjectivesForDate(d);
@@ -197,20 +178,20 @@ export default function CalendarPage() {
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-1 hover:bg-sage/10 rounded">←</button>
-            <h2 className="text-xl font-bold text-forest">{MONTHS[month]} {year}</h2>
-            <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-1 hover:bg-sage/10 rounded">→</button>
+            <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-1 hover:bg-dark-card rounded text-dark-muted">←</button>
+            <h2 className="text-xl font-bold text-white">{MONTHS[month]} {year}</h2>
+            <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-1 hover:bg-dark-card rounded text-dark-muted">→</button>
           </div>
           <button
             onClick={() => { setSelectedDate(new Date().toISOString().split("T")[0]); setShowModal(true); }}
-            className="bg-burnt-orange text-white px-3 py-1.5 rounded-lg text-sm font-medium"
+            className="bg-gold text-dark-bg px-3 py-1.5 rounded-lg text-sm font-medium"
           >
             + Add
           </button>
         </div>
 
         {monthDays.length === 0 && (
-          <p className="text-sage text-center py-8">No workouts or objectives this month.</p>
+          <p className="text-dark-muted text-center py-8">No workouts or objectives this month.</p>
         )}
 
         <div className="space-y-2">
@@ -221,14 +202,14 @@ export default function CalendarPage() {
             const loggedSessionNames = dayLogs.map(l => l.session_name);
 
             return (
-              <div key={day} className="bg-white rounded-lg border border-sage/20 p-3">
-                <div className="text-xs text-sage font-semibold mb-1.5">{dayName}, {MONTHS[month]} {day}</div>
+              <div key={day} className="bg-dark-card rounded-lg border border-dark-border p-3">
+                <div className="text-xs text-dark-muted font-semibold mb-1.5">{dayName}, {MONTHS[month]} {day}</div>
 
                 {dayObjs.map((obj) => (
                   <button
                     key={obj.id}
                     onClick={() => { setSelectedObjective(obj); setShowModal(true); }}
-                    className={`w-full text-left text-xs px-2 py-1 rounded mb-1 ${TYPE_COLORS[obj.type] || "bg-gray-200"}`}
+                    className={`w-full text-left text-xs px-2 py-1 rounded mb-1 ${TYPE_COLORS[obj.type] || "bg-dark-border"}`}
                   >
                     {obj.name}
                   </button>
@@ -238,12 +219,12 @@ export default function CalendarPage() {
                   const isLogged = loggedSessionNames.includes(cs.session.name);
                   return (
                     <div key={i} className={`flex items-center justify-between text-xs px-2 py-1.5 rounded mb-1 border ${
-                      isLogged ? "bg-recovery-green/10 border-recovery-green/30 line-through opacity-60" : DIMENSION_COLORS[cs.session.dimension] || "bg-gray-50 border-gray-200"
+                      isLogged ? "bg-green-900/20 border-green-800/40 line-through opacity-60" : DIMENSION_COLORS[cs.session.dimension] || "bg-dark-surface border-dark-border"
                     }`}>
                       <div className="flex items-center gap-1.5">
-                        {cs.session.isBenchmarkSession && <span className="text-test-blue">★</span>}
+                        {cs.session.isBenchmarkSession && <span className="text-blue-300">★</span>}
                         <span>{cs.session.name}</span>
-                        {isLogged && <span className="text-recovery-green no-underline">✓</span>}
+                        {isLogged && <span className="text-green-400 no-underline">✓</span>}
                       </div>
                       <span className="text-[10px] opacity-70">{cs.session.estimatedMinutes}m</span>
                     </div>
@@ -270,22 +251,22 @@ export default function CalendarPage() {
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-2 hover:bg-sage/10 rounded">←</button>
-          <h2 className="text-2xl font-bold text-forest">{MONTHS[month]} {year}</h2>
-          <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-2 hover:bg-sage/10 rounded">→</button>
+          <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-2 hover:bg-dark-card rounded text-dark-muted">←</button>
+          <h2 className="text-2xl font-bold text-white">{MONTHS[month]} {year}</h2>
+          <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-2 hover:bg-dark-card rounded text-dark-muted">→</button>
         </div>
         <button
           onClick={() => { setSelectedDate(new Date().toISOString().split("T")[0]); setShowModal(true); }}
-          className="bg-burnt-orange text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-burnt-orange/90"
+          className="bg-gold text-dark-bg px-4 py-2 rounded-lg text-sm font-medium hover:bg-gold/90"
         >
           + Add Objective
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-sage/20 overflow-hidden">
+      <div className="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
         <div className="grid grid-cols-7">
           {DAYS.map((d) => (
-            <div key={d} className="px-2 py-3 text-center text-xs font-semibold text-sage border-b border-sage/10">
+            <div key={d} className="px-2 py-3 text-center text-xs font-semibold text-dark-muted border-b border-dark-border">
               {d}
             </div>
           ))}
@@ -293,7 +274,7 @@ export default function CalendarPage() {
         <div className="grid grid-cols-7">
           {days.map((day, i) => {
             if (!day) {
-              return <div key={i} className="min-h-[90px] p-1 border-b border-r border-sage/10" />;
+              return <div key={i} className="min-h-[90px] p-1 border-b border-r border-dark-border/50" />;
             }
 
             const dayObjs = getObjectivesForDate(day);
@@ -301,35 +282,32 @@ export default function CalendarPage() {
             const dayLogs = getLogsForDate(day);
             const loggedSessionNames = dayLogs.map(l => l.session_name);
             const isToday = new Date().toISOString().split("T")[0] === formatDateStr(day);
-            // Get week type for this day (from first session if available)
             const weekType = daySessions.length > 0 ? daySessions[0].weekType : null;
 
             return (
               <div
                 key={i}
-                className={`min-h-[90px] p-1 border-b border-r border-sage/10 cursor-pointer hover:bg-sage/5 ${
-                  isToday ? "bg-forest/5" : ""
+                className={`min-h-[90px] p-1 border-b border-r border-dark-border/50 cursor-pointer hover:bg-dark-surface ${
+                  isToday ? "bg-gold/5" : ""
                 }`}
                 onClick={() => handleDayClick(day)}
               >
                 <div className="flex items-center gap-1 mb-0.5">
-                  <span className={`text-xs ${isToday ? "font-bold text-forest" : "text-gray-500"}`}>{day}</span>
+                  <span className={`text-xs ${isToday ? "font-bold text-gold" : "text-dark-muted"}`}>{day}</span>
                   {weekType && daySessions.findIndex(s => s.date === formatDateStr(day)) === 0 && (
                     <WeekBadge type={weekType as "test" | "recovery" | "regular" | "taper"} />
                   )}
                 </div>
 
-                {/* Objectives */}
                 {dayObjs.map((obj) => (
                   <div
                     key={obj.id}
-                    className={`text-[10px] px-1 py-0.5 rounded mb-0.5 truncate font-semibold ${TYPE_COLORS[obj.type] || "bg-gray-200"}`}
+                    className={`text-[10px] px-1 py-0.5 rounded mb-0.5 truncate font-semibold ${TYPE_COLORS[obj.type] || "bg-dark-border"}`}
                   >
                     {obj.name}
                   </div>
                 ))}
 
-                {/* Sessions */}
                 {daySessions.map((cs, j) => {
                   const isLogged = loggedSessionNames.includes(cs.session.name);
                   return (
@@ -339,8 +317,8 @@ export default function CalendarPage() {
                       onClick={(e) => e.stopPropagation()}
                       className={`block text-[10px] px-1 py-0.5 rounded mb-0.5 truncate border ${
                         isLogged
-                          ? "bg-recovery-green/10 border-recovery-green/30 line-through opacity-60"
-                          : DIMENSION_COLORS[cs.session.dimension] || "bg-gray-50 border-gray-200"
+                          ? "bg-green-900/20 border-green-800/40 line-through opacity-60"
+                          : DIMENSION_COLORS[cs.session.dimension] || "bg-dark-surface border-dark-border"
                       }`}
                     >
                       {cs.session.isBenchmarkSession && "★ "}
@@ -357,8 +335,8 @@ export default function CalendarPage() {
 
       {/* All Objectives list below calendar */}
       {objectives.length > 0 && (
-        <div className="mt-6 bg-white rounded-xl shadow-sm border border-sage/20 p-5">
-          <h3 className="font-semibold text-forest mb-3">All Objectives</h3>
+        <div className="mt-6 bg-dark-card rounded-xl border border-dark-border p-5">
+          <h3 className="font-semibold text-white mb-3">All Objectives</h3>
           <div className="space-y-2">
             {objectives.map((obj) => {
               const objDate = new Date(obj.target_date);
@@ -370,16 +348,16 @@ export default function CalendarPage() {
                     setSelectedObjective(obj);
                     setShowModal(true);
                   }}
-                  className="w-full text-left flex items-center justify-between px-3 py-2 rounded-lg hover:bg-sage/5"
+                  className="w-full text-left flex items-center justify-between px-3 py-2 rounded-lg hover:bg-dark-surface"
                 >
                   <div className="flex items-center gap-2">
-                    <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded ${TYPE_COLORS[obj.type] || "bg-gray-200"}`}>
+                    <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded ${TYPE_COLORS[obj.type] || "bg-dark-border"}`}>
                       {obj.type.replace("_", " ")}
                     </span>
-                    <span className="font-medium text-sm text-forest">{obj.name}</span>
+                    <span className="font-medium text-sm text-white">{obj.name}</span>
                     <TierBadgeSmall tier={obj.tier} />
                   </div>
-                  <span className="text-xs text-sage">{objDate.toLocaleDateString()}</span>
+                  <span className="text-xs text-dark-muted">{objDate.toLocaleDateString()}</span>
                 </button>
               );
             })}
@@ -400,9 +378,9 @@ export default function CalendarPage() {
 
 function TierBadgeSmall({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
-    gold: "bg-yellow-100 text-yellow-800",
-    silver: "bg-gray-100 text-gray-700",
-    bronze: "bg-orange-100 text-orange-800",
+    gold: "bg-gold/20 text-gold",
+    silver: "bg-white/10 text-white/70",
+    bronze: "bg-burnt-orange/20 text-burnt-orange",
   };
   return (
     <span className={`ml-2 inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded ${colors[tier] || colors.bronze}`}>

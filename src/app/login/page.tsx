@@ -22,32 +22,32 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-off-white flex flex-col">
-      <header className="bg-forest px-6 py-4">
+    <div className="min-h-screen bg-dark-bg flex flex-col">
+      <header className="bg-dark-surface border-b border-dark-border px-6 py-4">
         <h1 className="text-white text-xl font-bold">Summit Planner</h1>
       </header>
 
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="w-full max-w-md">
-          <h2 className="text-3xl font-bold text-forest text-center mb-8">
+          <h2 className="text-3xl font-bold text-white text-center mb-8">
             Log In
           </h2>
 
           {message && (
-            <div className="bg-forest/10 border border-forest/20 text-forest px-4 py-3 rounded mb-6 text-sm">
+            <div className="bg-gold/10 border border-gold/30 text-gold px-4 py-3 rounded mb-6 text-sm">
               {message}
             </div>
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6 text-sm">
+            <div className="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded mb-6 text-sm">
               {error}
             </div>
           )}
 
           <form action={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-dark-muted mb-1">
                 Email
               </label>
               <input
@@ -55,13 +55,13 @@ function LoginForm() {
                 name="email"
                 type="email"
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-forest focus:border-transparent"
+                className="w-full px-4 py-2.5 bg-dark-surface border border-dark-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-dark-muted mb-1">
                 Password
               </label>
               <input
@@ -69,7 +69,7 @@ function LoginForm() {
                 name="password"
                 type="password"
                 required
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-forest focus:border-transparent"
+                className="w-full px-4 py-2.5 bg-dark-surface border border-dark-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
                 placeholder="••••••••"
               />
             </div>
@@ -77,15 +77,15 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-burnt-orange hover:bg-burnt-orange/90 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+              className="w-full bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
             >
               {loading ? "Logging in..." : "Log In"}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-600">
+          <p className="mt-6 text-center text-sm text-dark-muted">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-burnt-orange hover:underline font-medium">
+            <Link href="/signup" className="text-gold hover:underline font-medium">
               Sign Up
             </Link>
           </p>

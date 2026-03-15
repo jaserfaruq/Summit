@@ -25,8 +25,8 @@ export default function AppShell({
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-off-white flex flex-col">
-      <header className="bg-forest px-4 md:px-6 py-3 flex items-center justify-between">
+    <div className="min-h-screen bg-dark-bg flex flex-col">
+      <header className="bg-dark-surface border-b border-dark-border px-4 md:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/dashboard" className="text-white text-xl font-bold">
             Summit Planner
@@ -38,8 +38,8 @@ export default function AppShell({
                 href={item.href}
                 className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
                   pathname.startsWith(item.href)
-                    ? "bg-white/20 text-white"
-                    : "text-white/70 hover:text-white hover:bg-white/10"
+                    ? "bg-white/10 text-white"
+                    : "text-dark-muted hover:text-white hover:bg-white/5"
                 }`}
               >
                 {item.label}
@@ -50,8 +50,8 @@ export default function AppShell({
                 href="/admin/objectives"
                 className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
                   pathname.startsWith("/admin")
-                    ? "bg-white/20 text-white"
-                    : "text-white/70 hover:text-white hover:bg-white/10"
+                    ? "bg-white/10 text-white"
+                    : "text-dark-muted hover:text-white hover:bg-white/5"
                 }`}
               >
                 Admin
@@ -60,11 +60,11 @@ export default function AppShell({
           </nav>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-white/60 text-sm hidden sm:inline">{email}</span>
+          <span className="text-dark-muted text-sm hidden sm:inline">{email}</span>
           <form action={signout}>
             <button
               type="submit"
-              className="bg-burnt-orange hover:bg-burnt-orange/90 text-white text-sm font-medium py-1.5 px-3 rounded-lg transition-colors"
+              className="bg-gold/90 hover:bg-gold text-dark-bg text-sm font-medium py-1.5 px-3 rounded-lg transition-colors"
             >
               Sign Out
             </button>
@@ -73,15 +73,15 @@ export default function AppShell({
       </header>
 
       {/* Mobile nav */}
-      <nav className="md:hidden bg-forest/95 px-4 py-2 flex gap-1 overflow-x-auto">
+      <nav className="md:hidden bg-dark-surface border-b border-dark-border px-4 py-2 flex gap-1 overflow-x-auto">
         {NAV_ITEMS.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-colors ${
               pathname.startsWith(item.href)
-                ? "bg-white/20 text-white"
-                : "text-white/70 hover:text-white"
+                ? "bg-white/10 text-white"
+                : "text-dark-muted hover:text-white"
             }`}
           >
             {item.label}

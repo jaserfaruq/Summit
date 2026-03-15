@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { ValidatedObjective, ObjectiveType, Difficulty } from "@/lib/types";
 
+const inputClass = "w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50";
+
 export default function AdminObjectivesPage() {
   const [objectives, setObjectives] = useState<ValidatedObjective[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,8 +45,8 @@ export default function AdminObjectivesPage() {
   if (!isValidator && !loading) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold text-forest mb-4">Access Denied</h2>
-        <p className="text-sage">This page is only available to validators.</p>
+        <h2 className="text-2xl font-bold text-white mb-4">Access Denied</h2>
+        <p className="text-dark-muted">This page is only available to validators.</p>
       </div>
     );
   }
@@ -59,31 +61,23 @@ export default function AdminObjectivesPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-forest">Validated Objectives</h2>
+        <h2 className="text-2xl font-bold text-white">Validated Objectives</h2>
         <button
-          onClick={() => {
-            setShowNew(true);
-            setEditing(null);
-          }}
-          className="bg-burnt-orange text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-burnt-orange/90"
+          onClick={() => { setShowNew(true); setEditing(null); }}
+          className="bg-gold text-dark-bg px-4 py-2 rounded-lg text-sm font-medium hover:bg-gold/90"
         >
           + Add New
         </button>
       </div>
 
-      {/* Search/filter */}
       <div className="flex gap-4">
         <input
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
+          className={`flex-1 ${inputClass}`}
           placeholder="Search objectives..."
         />
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
-        >
+        <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className={inputClass} style={{ width: 'auto' }}>
           <option value="all">All Types</option>
           <option value="hike">Hike</option>
           <option value="trail_run">Trail Run</option>
@@ -95,28 +89,27 @@ export default function AdminObjectivesPage() {
         </select>
       </div>
 
-      {/* Objectives list */}
       <div className="space-y-3">
         {filtered.map((obj) => (
           <div
             key={obj.id}
-            className="bg-white rounded-lg shadow-sm border border-sage/20 p-4 flex items-center justify-between"
+            className="bg-dark-card rounded-lg border border-dark-border p-4 flex items-center justify-between"
           >
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-forest">{obj.name}</span>
-                <span className="text-xs bg-sage/10 text-sage px-2 py-0.5 rounded">{obj.type}</span>
-                <span className="text-xs bg-sage/10 text-sage px-2 py-0.5 rounded">{obj.difficulty}</span>
+                <span className="font-semibold text-white">{obj.name}</span>
+                <span className="text-xs bg-dark-border text-dark-muted px-2 py-0.5 rounded">{obj.type}</span>
+                <span className="text-xs bg-dark-border text-dark-muted px-2 py-0.5 rounded">{obj.difficulty}</span>
                 <span className={`text-xs px-2 py-0.5 rounded ${
                   obj.status === "active"
-                    ? "bg-recovery-green/10 text-recovery-green"
-                    : "bg-gray-100 text-gray-500"
+                    ? "bg-green-900/30 text-green-400"
+                    : "bg-dark-border text-dark-muted"
                 }`}>
                   {obj.status}
                 </span>
               </div>
-              <p className="text-sm text-sage mt-1">{obj.route}</p>
-              <div className="flex gap-4 mt-1 text-xs text-sage">
+              <p className="text-sm text-dark-muted mt-1">{obj.route}</p>
+              <div className="flex gap-4 mt-1 text-xs text-dark-muted">
                 {obj.summit_elevation_ft && <span>Elev: {obj.summit_elevation_ft.toLocaleString()} ft</span>}
                 {obj.distance_miles && <span>Dist: {obj.distance_miles} mi</span>}
                 {obj.total_gain_ft && <span>Gain: {obj.total_gain_ft.toLocaleString()} ft</span>}
@@ -124,11 +117,8 @@ export default function AdminObjectivesPage() {
               </div>
             </div>
             <button
-              onClick={() => {
-                setEditing(obj);
-                setShowNew(false);
-              }}
-              className="text-sm text-forest font-medium hover:underline"
+              onClick={() => { setEditing(obj); setShowNew(false); }}
+              className="text-sm text-gold font-medium hover:underline"
             >
               Edit
             </button>
@@ -136,24 +126,16 @@ export default function AdminObjectivesPage() {
         ))}
       </div>
 
-      {loading && <p className="text-sage text-center">Loading...</p>}
+      {loading && <p className="text-dark-muted text-center">Loading...</p>}
       {!loading && filtered.length === 0 && (
-        <p className="text-sage text-center py-8">No objectives found.</p>
+        <p className="text-dark-muted text-center py-8">No objectives found.</p>
       )}
 
-      {/* Edit/New modal */}
       {(editing || showNew) && (
         <ObjectiveEditModal
           objective={editing}
-          onClose={() => {
-            setEditing(null);
-            setShowNew(false);
-          }}
-          onSaved={() => {
-            setEditing(null);
-            setShowNew(false);
-            fetchObjectives();
-          }}
+          onClose={() => { setEditing(null); setShowNew(false); }}
+          onSaved={() => { setEditing(null); setShowNew(false); fetchObjectives(); }}
         />
       )}
     </div>
@@ -184,14 +166,13 @@ function ObjectiveEditModal({
   const [status, setStatus] = useState<"active" | "draft" | "retired">(objective?.status || "active");
   const [loading, setLoading] = useState(false);
 
+  const fieldClass = "w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50";
+
   async function handleSave() {
     setLoading(true);
     const supabase = createClient();
     const data = {
-      name,
-      route,
-      type,
-      difficulty,
+      name, route, type, difficulty,
       description: description || null,
       summit_elevation_ft: elevation ? parseInt(elevation) : null,
       total_gain_ft: gain ? parseInt(gain) : null,
@@ -221,28 +202,28 @@ function ObjectiveEditModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-dark-card rounded-xl shadow-xl border border-dark-border max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-forest">
+            <h3 className="text-xl font-bold text-white">
               {objective ? "Edit Objective" : "New Validated Objective"}
             </h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            <button onClick={onClose} className="text-dark-muted hover:text-white text-xl">×</button>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest" />
+              <label className="block text-sm font-medium text-dark-muted mb-1">Name</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} className={fieldClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Route</label>
-              <input value={route} onChange={(e) => setRoute(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest" />
+              <label className="block text-sm font-medium text-dark-muted mb-1">Route</label>
+              <input value={route} onChange={(e) => setRoute(e.target.value)} className={fieldClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-              <select value={type} onChange={(e) => setType(e.target.value as ObjectiveType)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest">
+              <label className="block text-sm font-medium text-dark-muted mb-1">Type</label>
+              <select value={type} onChange={(e) => setType(e.target.value as ObjectiveType)} className={fieldClass}>
                 <option value="hike">Hike</option>
                 <option value="trail_run">Trail Run</option>
                 <option value="alpine_climb">Alpine Climb</option>
@@ -253,8 +234,8 @@ function ObjectiveEditModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
-              <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest">
+              <label className="block text-sm font-medium text-dark-muted mb-1">Difficulty</label>
+              <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty)} className={fieldClass}>
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
                 <option value="advanced">Advanced</option>
@@ -262,32 +243,32 @@ function ObjectiveEditModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Elevation (ft)</label>
-              <input type="number" value={elevation} onChange={(e) => setElevation(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest" />
+              <label className="block text-sm font-medium text-dark-muted mb-1">Elevation (ft)</label>
+              <input type="number" value={elevation} onChange={(e) => setElevation(e.target.value)} className={fieldClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Total Gain (ft)</label>
-              <input type="number" value={gain} onChange={(e) => setGain(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest" />
+              <label className="block text-sm font-medium text-dark-muted mb-1">Total Gain (ft)</label>
+              <input type="number" value={gain} onChange={(e) => setGain(e.target.value)} className={fieldClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Distance (miles)</label>
-              <input type="number" step="0.1" value={distance} onChange={(e) => setDistance(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest" />
+              <label className="block text-sm font-medium text-dark-muted mb-1">Distance (miles)</label>
+              <input type="number" step="0.1" value={distance} onChange={(e) => setDistance(e.target.value)} className={fieldClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Duration (days)</label>
-              <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest" />
+              <label className="block text-sm font-medium text-dark-muted mb-1">Duration (days)</label>
+              <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} className={fieldClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Technical Grade</label>
-              <input value={grade} onChange={(e) => setGrade(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest" />
+              <label className="block text-sm font-medium text-dark-muted mb-1">Technical Grade</label>
+              <input value={grade} onChange={(e) => setGrade(e.target.value)} className={fieldClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Recommended Weeks</label>
-              <input type="number" value={recommendedWeeks} onChange={(e) => setRecommendedWeeks(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest" />
+              <label className="block text-sm font-medium text-dark-muted mb-1">Recommended Weeks</label>
+              <input type="number" value={recommendedWeeks} onChange={(e) => setRecommendedWeeks(e.target.value)} className={fieldClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select value={status} onChange={(e) => setStatus(e.target.value as "active" | "draft" | "retired")} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest">
+              <label className="block text-sm font-medium text-dark-muted mb-1">Status</label>
+              <select value={status} onChange={(e) => setStatus(e.target.value as "active" | "draft" | "retired")} className={fieldClass}>
                 <option value="active">Active</option>
                 <option value="draft">Draft</option>
                 <option value="retired">Retired</option>
@@ -296,24 +277,24 @@ function ObjectiveEditModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest" />
+            <label className="block text-sm font-medium text-dark-muted mb-1">Description</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={fieldClass} />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Match Aliases (comma-separated)</label>
-            <input value={aliases} onChange={(e) => setAliases(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest" placeholder="mont blanc, mont blanc normal route, ..." />
+            <label className="block text-sm font-medium text-dark-muted mb-1">Match Aliases (comma-separated)</label>
+            <input value={aliases} onChange={(e) => setAliases(e.target.value)} className={fieldClass} placeholder="mont blanc, mont blanc normal route, ..." />
           </div>
 
           <div className="flex gap-3 pt-2">
             <button
               onClick={handleSave}
               disabled={!name || !route || loading}
-              className="flex-1 bg-forest text-white py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-forest/90"
+              className="flex-1 bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90"
             >
               {loading ? "Saving..." : "Save"}
             </button>
-            <button onClick={onClose} className="px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button onClick={onClose} className="px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface">
               Cancel
             </button>
           </div>

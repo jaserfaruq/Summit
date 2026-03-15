@@ -77,7 +77,6 @@ export default function ObjectiveModal({
         graduationBenchmarks = vo.graduation_benchmarks;
         matchedId = vo.id;
       } else if (matchResult?.tier === "silver" || matchResult?.tier === "bronze") {
-        // Call estimate-scores API
         const { data: benchmarks } = await supabase
           .from("benchmark_exercises")
           .select("*")
@@ -117,7 +116,6 @@ export default function ObjectiveModal({
       }
 
       if (objective) {
-        // Update existing
         await supabase
           .from("objectives")
           .update({
@@ -139,7 +137,6 @@ export default function ObjectiveModal({
           })
           .eq("id", objective.id);
       } else {
-        // Insert new
         await supabase.from("objectives").insert({
           user_id: user.id,
           name,
@@ -175,20 +172,20 @@ export default function ObjectiveModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-dark-card rounded-xl shadow-xl border border-dark-border max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-forest">
+            <h3 className="text-xl font-bold text-white">
               {objective ? "Edit Objective" : "New Objective"}
             </h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">
+            <button onClick={onClose} className="text-dark-muted hover:text-white text-xl">
               ×
             </button>
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded mb-4 text-sm">
+            <div className="bg-red-900/30 border border-red-800 text-red-300 px-3 py-2 rounded mb-4 text-sm">
               {error}
             </div>
           )}
@@ -196,21 +193,21 @@ export default function ObjectiveModal({
           {step === "form" && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Objective Name</label>
+                <label className="block text-sm font-medium text-dark-muted mb-1">Objective Name</label>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
+                  className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
                   placeholder="e.g., Mont Blanc, Half Dome"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <label className="block text-sm font-medium text-dark-muted mb-1">Type</label>
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as ObjectiveType)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
+                  className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
                 >
                   {OBJECTIVE_TYPES.map((t) => (
                     <option key={t.value} value={t.value}>{t.label}</option>
@@ -219,42 +216,42 @@ export default function ObjectiveModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Target Date</label>
+                <label className="block text-sm font-medium text-dark-muted mb-1">Target Date</label>
                 <input
                   type="date"
                   value={targetDate}
                   onChange={(e) => setTargetDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
+                  className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Distance (miles)</label>
+                  <label className="block text-sm font-medium text-dark-muted mb-1">Distance (miles)</label>
                   <input
                     type="number"
                     value={distance}
                     onChange={(e) => setDistance(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
+                    className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Elevation Gain (ft)</label>
+                  <label className="block text-sm font-medium text-dark-muted mb-1">Elevation Gain (ft)</label>
                   <input
                     type="number"
                     value={elevation}
                     onChange={(e) => setElevation(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
+                    className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Technical Grade (optional)</label>
+                <label className="block text-sm font-medium text-dark-muted mb-1">Technical Grade (optional)</label>
                 <input
                   value={grade}
                   onChange={(e) => setGrade(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-forest focus:border-transparent"
+                  className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
                   placeholder="e.g., 5.7, Class 3, PD"
                 />
               </div>
@@ -263,14 +260,14 @@ export default function ObjectiveModal({
                 <button
                   onClick={handleMatch}
                   disabled={!name || !targetDate || loading}
-                  className="flex-1 bg-forest text-white py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-forest/90 transition-colors"
+                  className="flex-1 bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
                 >
                   {loading ? "Matching..." : "Find & Save"}
                 </button>
                 {objective && (
                   <button
                     onClick={handleDelete}
-                    className="px-4 py-2.5 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                    className="px-4 py-2.5 text-red-400 border border-red-800 rounded-lg hover:bg-red-900/30 transition-colors"
                   >
                     Delete
                   </button>
@@ -284,29 +281,29 @@ export default function ObjectiveModal({
               <div className="flex items-center gap-2">
                 <span className={`px-2 py-1 text-sm font-bold rounded ${
                   matchResult.tier === "gold"
-                    ? "bg-yellow-100 text-yellow-800"
+                    ? "bg-gold/20 text-gold"
                     : matchResult.tier === "silver"
-                    ? "bg-gray-100 text-gray-700"
-                    : "bg-orange-100 text-orange-800"
+                    ? "bg-white/10 text-white/70"
+                    : "bg-burnt-orange/20 text-burnt-orange"
                 }`}>
                   {matchResult.tier.toUpperCase()} Tier
                 </span>
               </div>
 
               {matchResult.tier === "gold" && matchResult.validatedObjective && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="font-semibold">{matchResult.validatedObjective.name}</p>
-                  <p className="text-sm text-gray-600">{matchResult.validatedObjective.route}</p>
-                  <p className="text-sm text-gray-500 mt-1">{matchResult.validatedObjective.description}</p>
+                <div className="bg-gold/10 border border-gold/30 rounded-lg p-4">
+                  <p className="font-semibold text-white">{matchResult.validatedObjective.name}</p>
+                  <p className="text-sm text-dark-muted">{matchResult.validatedObjective.route}</p>
+                  <p className="text-sm text-dark-muted mt-1">{matchResult.validatedObjective.description}</p>
                 </div>
               )}
 
               {matchResult.tier === "silver" && matchResult.anchors.length > 0 && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-2">
+                <div className="bg-dark-surface border border-dark-border rounded-lg p-4">
+                  <p className="text-sm text-dark-muted mb-2">
                     Similar objectives found. Scores will be AI-estimated using these as calibration anchors:
                   </p>
-                  <ul className="text-sm space-y-1">
+                  <ul className="text-sm text-dark-text space-y-1">
                     {matchResult.anchors.map((a) => (
                       <li key={a.id}>• {a.name} ({a.route})</li>
                     ))}
@@ -315,8 +312,8 @@ export default function ObjectiveModal({
               )}
 
               {matchResult.tier === "bronze" && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">
+                <div className="bg-burnt-orange/10 border border-burnt-orange/30 rounded-lg p-4">
+                  <p className="text-sm text-dark-muted">
                     No similar objectives found. Target scores will be fully AI-estimated.
                   </p>
                 </div>
@@ -326,13 +323,13 @@ export default function ObjectiveModal({
                 <button
                   onClick={handleSave}
                   disabled={loading}
-                  className="flex-1 bg-burnt-orange text-white py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-burnt-orange/90 transition-colors"
+                  className="flex-1 bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
                 >
                   {loading ? "Saving..." : "Confirm & Save"}
                 </button>
                 <button
                   onClick={() => setStep("form")}
-                  className="px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface transition-colors"
                 >
                   Back
                 </button>
