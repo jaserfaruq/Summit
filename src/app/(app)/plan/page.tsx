@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { TrainingPlan, WeeklyTarget, Objective, PlanSession } from "@/lib/types";
@@ -8,6 +8,14 @@ import WeekBadge from "@/components/WeekBadge";
 import Link from "next/link";
 
 export default function PlanPage() {
+  return (
+    <Suspense fallback={<div className="max-w-4xl mx-auto px-4 py-8"><div className="animate-pulse h-8 bg-sage/20 rounded w-1/3" /></div>}>
+      <PlanContent />
+    </Suspense>
+  );
+}
+
+function PlanContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [plan, setPlan] = useState<TrainingPlan | null>(null);
