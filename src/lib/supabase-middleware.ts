@@ -29,6 +29,13 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
+  // Public routes — skip auth check entirely
+  const publicPaths = ["/login", "/signup", "/auth", "/api/auth"];
+  const pathname = request.nextUrl.pathname;
+  if (publicPaths.some((p) => pathname.startsWith(p)) || pathname === "/") {
+    return supabaseResponse;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -36,7 +43,7 @@ export async function updateSession(request: NextRequest) {
   const protectedPaths = ["/dashboard", "/calendar", "/assessment", "/plan", "/log", "/progress", "/admin"];
   if (
     !user &&
-    protectedPaths.some((p) => request.nextUrl.pathname.startsWith(p))
+    protectedPaths.some((p) => pathname.startsWith(p))
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
