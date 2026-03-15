@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { Objective } from "@/lib/types";
+import { Objective, WeeklyTarget, TrainingPlan, PlanSession, WorkoutLog } from "@/lib/types";
 import ObjectiveModal from "@/components/ObjectiveModal";
+import WeekBadge from "@/components/WeekBadge";
+import Link from "next/link";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -18,8 +20,25 @@ const TYPE_COLORS: Record<string, string> = {
   backpacking: "bg-recovery-green text-white",
 };
 
+const DIMENSION_COLORS: Record<string, string> = {
+  cardio: "bg-test-blue/15 text-test-blue border-test-blue/30",
+  strength: "bg-burnt-orange/15 text-burnt-orange border-burnt-orange/30",
+  climbing_technical: "bg-forest/15 text-forest border-forest/30",
+  flexibility: "bg-sage/20 text-sage border-sage/40",
+};
+
+interface CalendarSession {
+  date: string;
+  session: PlanSession;
+  weekNumber: number;
+  weekType: string;
+  planId: string;
+}
+
 export default function CalendarPage() {
   const [objectives, setObjectives] = useState<Objective[]>([]);
+  const [calendarSessions, setCalendarSessions] = useState<CalendarSession[]>([]);
+  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -34,16 +53,84 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
-    fetchObjectives();
+    fetchData();
   }, []);
 
-  async function fetchObjectives() {
+  async function fetchData() {
     const supabase = createClient();
-    const { data } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Fetch objectives
+    const { data: objData } = await supabase
       .from("objectives")
       .select("*")
       .order("target_date");
-    if (data) setObjectives(data as Objective[]);
+    if (objData) setObjectives(objData as Objective[]);
+
+    // Fetch active plan + weekly targets
+    const { data: plans } = await supabase
+      .from("training_plans")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const activePlan = (plans as TrainingPlan[] | null)?.[0];
+    if (activePlan) {
+      const { data: weekData } = await supabase
+        .from("weekly_targets")
+        .select("*")
+        .eq("plan_id", activePlan.id)
+        .order("week_number");
+
+      if (weekData) {
+        const sessions = distributeSessionsToDates(weekData as WeeklyTarget[], activePlan.id);
+        setCalendarSessions(sessions);
+      }
+    }
+
+    // Fetch workout logs
+    const { data: logData } = await supabase
+      .from("workout_logs")
+      .select("*")
+      .eq("user_id", user.id);
+    if (logData) setWorkoutLogs(logData as WorkoutLog[]);
+  }
+
+  // Distribute sessions across the days of each week
+  function distributeSessionsToDates(weeks: WeeklyTarget[], planId: string): CalendarSession[] {
+    const results: CalendarSession[] = [];
+
+    for (const week of weeks) {
+      if (!week.sessions || week.sessions.length === 0) continue;
+
+      const weekStart = new Date(week.week_start + "T00:00:00");
+      const sessionCount = week.sessions.length;
+
+      // Distribute sessions across the week, leaving at least 1 rest day
+      // Spread evenly: for 5 sessions in 7 days, use days 0,1,2,3,4 (Mon-Fri pattern)
+      const availableDays = Math.min(6, 7); // max 6 training days
+      const spacing = sessionCount <= 1 ? 1 : Math.floor(availableDays / sessionCount);
+
+      for (let i = 0; i < sessionCount; i++) {
+        const dayOffset = Math.min(i * spacing, 6); // keep within the week
+        const sessionDate = new Date(weekStart);
+        sessionDate.setDate(sessionDate.getDate() + dayOffset);
+        const dateStr = sessionDate.toISOString().split("T")[0];
+
+        results.push({
+          date: dateStr,
+          session: week.sessions[i],
+          weekNumber: week.week_number,
+          weekType: week.week_type,
+          planId,
+        });
+      }
+    }
+
+    return results;
   }
 
   const year = currentDate.getFullYear();
@@ -55,87 +142,122 @@ export default function CalendarPage() {
   for (let i = 0; i < firstDay; i++) days.push(null);
   for (let i = 1; i <= daysInMonth; i++) days.push(i);
 
+  function formatDateStr(day: number) {
+    return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
   function getObjectivesForDate(day: number) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dateStr = formatDateStr(day);
     return objectives.filter((o) => o.target_date?.substring(0, 10) === dateStr);
   }
 
+  function getSessionsForDate(day: number) {
+    const dateStr = formatDateStr(day);
+    return calendarSessions.filter((s) => s.date === dateStr);
+  }
+
+  function getLogsForDate(day: number) {
+    const dateStr = formatDateStr(day);
+    return workoutLogs.filter((l) => l.logged_date?.substring(0, 10) === dateStr);
+  }
+
   function handleDayClick(day: number) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dateStr = formatDateStr(day);
     const dayObjectives = getObjectivesForDate(day);
     if (dayObjectives.length > 0) {
       setSelectedObjective(dayObjectives[0]);
+      setShowModal(true);
     } else {
       setSelectedDate(dateStr);
+      setShowModal(true);
     }
-    setShowModal(true);
   }
 
   function handleSaved() {
     setShowModal(false);
     setSelectedObjective(null);
     setSelectedDate(null);
-    fetchObjectives();
+    fetchData();
   }
 
   // Mobile: list view
   if (isMobile) {
-    const sortedObjectives = [...objectives].sort(
-      (a, b) => new Date(a.target_date).getTime() - new Date(b.target_date).getTime()
-    );
+    // Build a combined day-by-day list for the current month
+    const monthDays: { day: number; objectives: Objective[]; sessions: CalendarSession[]; logs: WorkoutLog[] }[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const objs = getObjectivesForDate(d);
+      const sess = getSessionsForDate(d);
+      const logs = getLogsForDate(d);
+      if (objs.length > 0 || sess.length > 0 || logs.length > 0) {
+        monthDays.push({ day: d, objectives: objs, sessions: sess, logs: logs });
+      }
+    }
 
     return (
       <div className="px-4 py-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-forest">Objectives</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-1 hover:bg-sage/10 rounded">←</button>
+            <h2 className="text-xl font-bold text-forest">{MONTHS[month]} {year}</h2>
+            <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-1 hover:bg-sage/10 rounded">→</button>
+          </div>
           <button
-            onClick={() => {
-              setSelectedDate(new Date().toISOString().split("T")[0]);
-              setShowModal(true);
-            }}
-            className="bg-burnt-orange text-white px-4 py-2 rounded-lg text-sm font-medium"
+            onClick={() => { setSelectedDate(new Date().toISOString().split("T")[0]); setShowModal(true); }}
+            className="bg-burnt-orange text-white px-3 py-1.5 rounded-lg text-sm font-medium"
           >
-            + Add Objective
+            + Add
           </button>
         </div>
 
-        {sortedObjectives.length === 0 && (
-          <p className="text-sage text-center py-8">No objectives yet. Add one to get started!</p>
+        {monthDays.length === 0 && (
+          <p className="text-sage text-center py-8">No workouts or objectives this month.</p>
         )}
 
-        <div className="space-y-3">
-          {sortedObjectives.map((obj) => (
-            <button
-              key={obj.id}
-              onClick={() => {
-                setSelectedObjective(obj);
-                setShowModal(true);
-              }}
-              className="w-full text-left bg-white rounded-lg p-4 shadow-sm border border-sage/20"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-semibold text-forest">{obj.name}</span>
-                  <span className={`ml-2 inline-block px-2 py-0.5 text-xs font-semibold rounded ${TYPE_COLORS[obj.type] || "bg-gray-200"}`}>
-                    {obj.type.replace("_", " ")}
-                  </span>
-                  <TierBadgeSmall tier={obj.tier} />
-                </div>
-                <span className="text-sm text-sage">{new Date(obj.target_date).toLocaleDateString()}</span>
+        <div className="space-y-2">
+          {monthDays.map(({ day, objectives: dayObjs, sessions: daySessions, logs: dayLogs }) => {
+            const dateStr = formatDateStr(day);
+            const dayDate = new Date(dateStr + "T00:00:00");
+            const dayName = DAYS[dayDate.getDay()];
+            const loggedSessionNames = dayLogs.map(l => l.session_name);
+
+            return (
+              <div key={day} className="bg-white rounded-lg border border-sage/20 p-3">
+                <div className="text-xs text-sage font-semibold mb-1.5">{dayName}, {MONTHS[month]} {day}</div>
+
+                {dayObjs.map((obj) => (
+                  <button
+                    key={obj.id}
+                    onClick={() => { setSelectedObjective(obj); setShowModal(true); }}
+                    className={`w-full text-left text-xs px-2 py-1 rounded mb-1 ${TYPE_COLORS[obj.type] || "bg-gray-200"}`}
+                  >
+                    {obj.name}
+                  </button>
+                ))}
+
+                {daySessions.map((cs, i) => {
+                  const isLogged = loggedSessionNames.includes(cs.session.name);
+                  return (
+                    <div key={i} className={`flex items-center justify-between text-xs px-2 py-1.5 rounded mb-1 border ${
+                      isLogged ? "bg-recovery-green/10 border-recovery-green/30 line-through opacity-60" : DIMENSION_COLORS[cs.session.dimension] || "bg-gray-50 border-gray-200"
+                    }`}>
+                      <div className="flex items-center gap-1.5">
+                        {cs.session.isBenchmarkSession && <span className="text-test-blue">★</span>}
+                        <span>{cs.session.name}</span>
+                        {isLogged && <span className="text-recovery-green no-underline">✓</span>}
+                      </div>
+                      <span className="text-[10px] opacity-70">{cs.session.estimatedMinutes}m</span>
+                    </div>
+                  );
+                })}
               </div>
-            </button>
-          ))}
+            );
+          })}
         </div>
 
         {showModal && (
           <ObjectiveModal
-            date={selectedDate}
-            objective={selectedObjective}
-            onClose={() => {
-              setShowModal(false);
-              setSelectedObjective(null);
-              setSelectedDate(null);
-            }}
+            date={selectedDate} objective={selectedObjective}
+            onClose={() => { setShowModal(false); setSelectedObjective(null); setSelectedDate(null); }}
             onSaved={handleSaved}
           />
         )}
@@ -148,27 +270,12 @@ export default function CalendarPage() {
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => setCurrentDate(new Date(year, month - 1))}
-            className="p-2 hover:bg-sage/10 rounded"
-          >
-            ←
-          </button>
-          <h2 className="text-2xl font-bold text-forest">
-            {MONTHS[month]} {year}
-          </h2>
-          <button
-            onClick={() => setCurrentDate(new Date(year, month + 1))}
-            className="p-2 hover:bg-sage/10 rounded"
-          >
-            →
-          </button>
+          <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-2 hover:bg-sage/10 rounded">←</button>
+          <h2 className="text-2xl font-bold text-forest">{MONTHS[month]} {year}</h2>
+          <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-2 hover:bg-sage/10 rounded">→</button>
         </div>
         <button
-          onClick={() => {
-            setSelectedDate(new Date().toISOString().split("T")[0]);
-            setShowModal(true);
-          }}
+          onClick={() => { setSelectedDate(new Date().toISOString().split("T")[0]); setShowModal(true); }}
           className="bg-burnt-orange text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-burnt-orange/90"
         >
           + Add Objective
@@ -184,29 +291,67 @@ export default function CalendarPage() {
           ))}
         </div>
         <div className="grid grid-cols-7">
-          {days.map((day, i) => (
-            <div
-              key={i}
-              className={`min-h-[80px] p-1 border-b border-r border-sage/10 ${
-                day ? "cursor-pointer hover:bg-sage/5" : ""
-              }`}
-              onClick={() => day && handleDayClick(day)}
-            >
-              {day && (
-                <>
-                  <div className="text-xs text-gray-500 mb-1">{day}</div>
-                  {getObjectivesForDate(day).map((obj) => (
-                    <div
-                      key={obj.id}
-                      className={`text-xs px-1 py-0.5 rounded mb-0.5 truncate ${TYPE_COLORS[obj.type] || "bg-gray-200"}`}
+          {days.map((day, i) => {
+            if (!day) {
+              return <div key={i} className="min-h-[90px] p-1 border-b border-r border-sage/10" />;
+            }
+
+            const dayObjs = getObjectivesForDate(day);
+            const daySessions = getSessionsForDate(day);
+            const dayLogs = getLogsForDate(day);
+            const loggedSessionNames = dayLogs.map(l => l.session_name);
+            const isToday = new Date().toISOString().split("T")[0] === formatDateStr(day);
+            // Get week type for this day (from first session if available)
+            const weekType = daySessions.length > 0 ? daySessions[0].weekType : null;
+
+            return (
+              <div
+                key={i}
+                className={`min-h-[90px] p-1 border-b border-r border-sage/10 cursor-pointer hover:bg-sage/5 ${
+                  isToday ? "bg-forest/5" : ""
+                }`}
+                onClick={() => handleDayClick(day)}
+              >
+                <div className="flex items-center gap-1 mb-0.5">
+                  <span className={`text-xs ${isToday ? "font-bold text-forest" : "text-gray-500"}`}>{day}</span>
+                  {weekType && daySessions.findIndex(s => s.date === formatDateStr(day)) === 0 && (
+                    <WeekBadge type={weekType as "test" | "recovery" | "regular" | "taper"} />
+                  )}
+                </div>
+
+                {/* Objectives */}
+                {dayObjs.map((obj) => (
+                  <div
+                    key={obj.id}
+                    className={`text-[10px] px-1 py-0.5 rounded mb-0.5 truncate font-semibold ${TYPE_COLORS[obj.type] || "bg-gray-200"}`}
+                  >
+                    {obj.name}
+                  </div>
+                ))}
+
+                {/* Sessions */}
+                {daySessions.map((cs, j) => {
+                  const isLogged = loggedSessionNames.includes(cs.session.name);
+                  return (
+                    <Link
+                      key={j}
+                      href={`/log?session=${encodeURIComponent(cs.session.name)}&planId=${cs.planId}&week=${cs.weekNumber}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className={`block text-[10px] px-1 py-0.5 rounded mb-0.5 truncate border ${
+                        isLogged
+                          ? "bg-recovery-green/10 border-recovery-green/30 line-through opacity-60"
+                          : DIMENSION_COLORS[cs.session.dimension] || "bg-gray-50 border-gray-200"
+                      }`}
                     >
-                      {obj.name}
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          ))}
+                      {cs.session.isBenchmarkSession && "★ "}
+                      {cs.session.name}
+                      {isLogged && " ✓"}
+                    </Link>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -244,13 +389,8 @@ export default function CalendarPage() {
 
       {showModal && (
         <ObjectiveModal
-          date={selectedDate}
-          objective={selectedObjective}
-          onClose={() => {
-            setShowModal(false);
-            setSelectedObjective(null);
-            setSelectedDate(null);
-          }}
+          date={selectedDate} objective={selectedObjective}
+          onClose={() => { setShowModal(false); setSelectedObjective(null); setSelectedDate(null); }}
           onSaved={handleSaved}
         />
       )}
