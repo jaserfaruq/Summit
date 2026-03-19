@@ -465,7 +465,8 @@ function PlanContent() {
                 </div>
                 <div className="flex items-center gap-4">
                   <span className="text-xs text-dark-muted">
-                    {new Date(week.week_start).toLocaleDateString()} · {week.total_hours}h
+                    {new Date(week.week_start).toLocaleDateString()}
+                    {sessions.length > 0 ? ` · ${week.total_hours}h` : ""}
                   </span>
                   <span className="text-dark-muted">{isExpanded ? "▾" : "▸"}</span>
                 </div>
