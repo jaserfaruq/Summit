@@ -76,6 +76,12 @@ function PlanContent() {
     for (const w of weeksArr) {
       if (w.sessions && w.sessions.length > 0) {
         cached[w.week_number] = w.sessions;
+        // Recompute total_hours from actual session durations
+        const totalMin = (w.sessions as PlanSession[]).reduce(
+          (sum: number, s: PlanSession) => sum + (s.estimatedMinutes || 0),
+          0
+        );
+        w.total_hours = Math.round((totalMin / 60) * 10) / 10;
       }
     }
     setWeekSessions(cached);
@@ -171,6 +177,18 @@ function PlanContent() {
 
       const { sessions } = await res.json();
       setWeekSessions((prev) => ({ ...prev, [weekNumber]: sessions }));
+
+      // Update the week's total_hours from actual session durations
+      const totalMinutes = (sessions as PlanSession[]).reduce(
+        (sum: number, s: PlanSession) => sum + (s.estimatedMinutes || 0),
+        0
+      );
+      const computedHours = Math.round((totalMinutes / 60) * 10) / 10;
+      setWeeks((prev) =>
+        prev.map((w) =>
+          w.week_number === weekNumber ? { ...w, total_hours: computedHours } : w
+        )
+      );
     } catch (error) {
       console.error(`Error loading sessions for week ${weekNumber}:`, error);
       setSessionErrors((prev) => ({
