@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Objective, ObjectiveType, MatchObjectiveResponse, EstimateScoresResponse, DimensionGraduationBenchmarks, DimensionScores, DimensionTaglines, DimensionRelevanceProfiles } from "@/lib/types";
 
@@ -25,6 +26,7 @@ export default function ObjectiveModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const router = useRouter();
   const [name, setName] = useState(objective?.name || "");
   const [type, setType] = useState<ObjectiveType>(objective?.type || "hike");
   const [targetDate, setTargetDate] = useState(objective?.target_date || date || "");
@@ -136,8 +138,9 @@ export default function ObjectiveModal({
             tier,
           })
           .eq("id", objective.id);
+        onSaved();
       } else {
-        await supabase.from("objectives").insert({
+        const { data: newObj } = await supabase.from("objectives").insert({
           user_id: user.id,
           name,
           type,
@@ -154,10 +157,25 @@ export default function ObjectiveModal({
           graduation_benchmarks: graduationBenchmarks,
           matched_validated_id: matchedId,
           tier,
-        });
-      }
+        }).select("id").single();
 
-      onSaved();
+        if (!newObj) throw new Error("Failed to create objective");
+
+        // Fetch latest assessment to auto-generate a plan
+        const { data: assessments } = await supabase
+          .from("assessments")
+          .select("id")
+          .eq("user_id", user.id)
+          .order("assessed_at", { ascending: false })
+          .limit(1);
+
+        const latestAssessment = assessments?.[0];
+        if (latestAssessment) {
+          router.push(`/plan?generate=true&objectiveId=${newObj.id}&assessmentId=${latestAssessment.id}`);
+        } else {
+          onSaved();
+        }
+      }
     } catch {
       setError("Failed to save objective");
     }
@@ -167,6 +185,21 @@ export default function ObjectiveModal({
   async function handleDelete() {
     if (!objective) return;
     const supabase = createClient();
+
+    // Delete associated plan and weekly targets first (V1: objective and plan are linked 1:1)
+    const { data: plans } = await supabase
+      .from("training_plans")
+      .select("id")
+      .eq("objective_id", objective.id);
+
+    if (plans) {
+      for (const plan of plans) {
+        await supabase.from("weekly_targets").delete().eq("plan_id", plan.id);
+        await supabase.from("training_plans").delete().eq("id", plan.id);
+      }
+    }
+
+    await supabase.from("score_history").delete().eq("objective_id", objective.id);
     await supabase.from("objectives").delete().eq("id", objective.id);
     onSaved();
   }

@@ -111,18 +111,12 @@ export default async function DashboardPage() {
     );
   }
 
-  // Has objective but no plan
+  // Has objective but no plan (shouldn't happen in V1 — objective creation auto-generates a plan)
   if (!activePlan) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-12 text-center">
         <h2 className="text-3xl font-bold text-white mb-4">{activeObjective.name}</h2>
-        <div className="flex justify-center gap-4 mb-4">
-          <TierBadge tier={activeObjective.tier} />
-          <span className="text-dark-muted">
-            Target: {new Date(activeObjective.target_date).toLocaleDateString()}
-          </span>
-        </div>
-        <p className="text-dark-muted mb-8">Generate a training plan to start building toward your objective.</p>
+        <p className="text-dark-muted mb-8">Your plan is being set up. Head to the plan page to get started.</p>
         <Link
           href={`/plan?generate=true&objectiveId=${activeObjective.id}&assessmentId=${latestAssessment.id}`}
           className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
