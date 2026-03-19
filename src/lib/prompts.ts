@@ -62,7 +62,6 @@ Periodization rules:
 - The last test week must fall before the taper begins.
 - Week 2 should be offered as an optional early test week (the first scheduled test).
 - At least one full rest day per week.
-- Never exceed 12 hours per week for a recreational athlete.
 
 For each week, provide named training sessions (not assigned to specific days). Each session must include:
 - A short objective line with estimated duration.
@@ -165,7 +164,6 @@ Rules:
 - For REGULAR weeks: Full volume. Standard training.
 - For TAPER weeks: Volume drops 40%, intensity stays. No benchmarks.
 - At least one full rest day per week.
-- Never exceed 12 hours per week for a recreational athlete.
 
 For each session include:
 - A short objective line with estimated duration.
