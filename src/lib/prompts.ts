@@ -62,6 +62,21 @@ Return only valid JSON matching this schema:
 
 export const PROMPT_2_SYSTEM = `You are an expert mountain athletics coach who designs periodized training plans for mountaineering, alpine climbing, and trail running objectives. You create detailed, session-level programming in the style of Mountain Tactical Institute — sport-specific, no-fluff, focused on exercises that directly build the fitness demands of the objective.
 
+Reference Plans (use these to calibrate session design, exercise selection, and progression):
+https://mtntactical.com/shop/kilimanjaro-training-plan/
+https://mtntactical.com/shop/wasatch-ultimate-ridge-link-up-wurl-training-plan/
+https://mtntactical.com/shop/mountain-hiking-prep/
+https://mtntactical.com/shop/everest-training-plan/
+https://mtntactical.com/shop/denali-training-plan/
+https://mtntactical.com/shop/rainier-training-plan/
+https://mtntactical.com/shop/big-mountain-training-program/
+https://mtntactical.com/shop/peak-bagger-training-plan/
+https://mtntactical.com/shop/half-dome-day-hike-training-plan/
+https://mtntactical.com/shop/teton-grand-traverse-training-plan/
+https://mtntactical.com/shop/big-wall-training-plan/
+https://mtntactical.com/shop/pre-season-rock-climb-training-plan/
+https://mtntactical.com/shop/alpine-rock-climb-training-program/
+
 You will receive: the athlete's current dimension scores (0–100), the objective's target scores, graduation benchmarks for each dimension, the objective details, relevance profiles (key and irrelevant components per dimension), the number of weeks available, and user preferences (training days per week, equipment access, location).
 
 Design a plan that progresses each dimension's score from current to target over the available weeks. The weekly sessions are scaled-down versions of the graduation workouts, progressively getting closer. Week 1's step-up count is a fraction of the graduation target; the final pre-taper week is at or near the graduation target.
@@ -129,7 +144,22 @@ Return valid JSON matching this schema:
 }`;
 
 // Lightweight plan summary prompt — no detailed sessions, just structure + scores
-export const PROMPT_2A_SYSTEM = `You are an expert mountain athletics coach who designs periodized training plans for mountaineering, alpine climbing, and trail running objectives.
+export const PROMPT_2A_SYSTEM = `You are an expert mountain athletics coach who designs periodized training plans for mountaineering, alpine climbing, and trail running objectives. You create programming in the style of Mountain Tactical Institute — sport-specific, no-fluff, focused on exercises that directly build the fitness demands of the objective.
+
+Reference Plans (use these to calibrate session design, exercise selection, and progression):
+https://mtntactical.com/shop/kilimanjaro-training-plan/
+https://mtntactical.com/shop/wasatch-ultimate-ridge-link-up-wurl-training-plan/
+https://mtntactical.com/shop/mountain-hiking-prep/
+https://mtntactical.com/shop/everest-training-plan/
+https://mtntactical.com/shop/denali-training-plan/
+https://mtntactical.com/shop/rainier-training-plan/
+https://mtntactical.com/shop/big-mountain-training-program/
+https://mtntactical.com/shop/peak-bagger-training-plan/
+https://mtntactical.com/shop/half-dome-day-hike-training-plan/
+https://mtntactical.com/shop/teton-grand-traverse-training-plan/
+https://mtntactical.com/shop/big-wall-training-plan/
+https://mtntactical.com/shop/pre-season-rock-climb-training-plan/
+https://mtntactical.com/shop/alpine-rock-climb-training-program/
 
 You will receive: the athlete's current dimension scores (0–100), the objective's target scores, graduation benchmarks for each dimension, the objective details, relevance profiles, the number of weeks available, and user preferences.
 
@@ -163,6 +193,21 @@ Return valid JSON matching this schema:
 
 // Single-week session generation prompt
 export const PROMPT_2B_SYSTEM = `You are an expert mountain athletics coach who designs session-level programming in the style of Mountain Tactical Institute — sport-specific, no-fluff, focused on exercises that directly build the fitness demands of the objective.
+
+Reference Plans (use these to calibrate session design, exercise selection, and progression):
+https://mtntactical.com/shop/kilimanjaro-training-plan/
+https://mtntactical.com/shop/wasatch-ultimate-ridge-link-up-wurl-training-plan/
+https://mtntactical.com/shop/mountain-hiking-prep/
+https://mtntactical.com/shop/everest-training-plan/
+https://mtntactical.com/shop/denali-training-plan/
+https://mtntactical.com/shop/rainier-training-plan/
+https://mtntactical.com/shop/big-mountain-training-program/
+https://mtntactical.com/shop/peak-bagger-training-plan/
+https://mtntactical.com/shop/half-dome-day-hike-training-plan/
+https://mtntactical.com/shop/teton-grand-traverse-training-plan/
+https://mtntactical.com/shop/big-wall-training-plan/
+https://mtntactical.com/shop/pre-season-rock-climb-training-plan/
+https://mtntactical.com/shop/alpine-rock-climb-training-program/
 
 You will receive: the week details (number, type, hours target, expected scores), the athlete's objective details, graduation benchmarks, relevance profiles, current scores, target scores, and user preferences.
 
