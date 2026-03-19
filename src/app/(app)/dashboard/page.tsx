@@ -5,6 +5,7 @@ import { Objective, Assessment, TrainingPlan, WeeklyTarget, ScoreHistory } from 
 import ScoreArc from "@/components/ScoreArc";
 import WeekBadge from "@/components/WeekBadge";
 import DeletePlanButton from "@/components/DeletePlanButton";
+import UpdateAssessmentButton from "@/components/UpdateAssessmentButton";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -102,12 +103,15 @@ export default async function DashboardPage() {
           Climbing: {latestAssessment.climbing_score} | Flexibility: {latestAssessment.flexibility_score}
         </p>
         <p className="text-dark-muted mb-8">Now add your first summit objective to start training.</p>
-        <Link
-          href="/calendar"
-          className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
-        >
-          Add Your First Objective
-        </Link>
+        <div className="flex flex-col items-center gap-3">
+          <Link
+            href="/calendar"
+            className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
+          >
+            Add Your First Objective
+          </Link>
+          <UpdateAssessmentButton />
+        </div>
       </div>
     );
   }
@@ -161,6 +165,7 @@ export default async function DashboardPage() {
             <div className="text-3xl font-bold text-gold">{weeksRemaining}</div>
             <div className="text-sm text-dark-muted">weeks remaining</div>
           </div>
+          <UpdateAssessmentButton planId={activePlan.id} objectiveId={activeObjective.id} />
           <DeletePlanButton planId={activePlan.id} />
         </div>
       </div>

@@ -1,13 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
 export default function AssessmentPage() {
+  return (
+    <Suspense fallback={<div className="max-w-xl mx-auto px-4 py-8 text-dark-muted">Loading...</div>}>
+      <AssessmentWizard />
+    </Suspense>
+  );
+}
+
+function AssessmentWizard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const existingPlanId = searchParams.get("planId");
+  const existingObjectiveId = searchParams.get("objectiveId");
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +89,7 @@ export default function AssessmentPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { error: insertError } = await supabase.from("assessments").insert({
+    const { data: newAssessment, error: insertError } = await supabase.from("assessments").insert({
       user_id: user.id,
       cardio_score: scores.cardio,
       strength_score: scores.strength,
@@ -90,12 +101,49 @@ export default function AssessmentPage() {
         climbing: { highest_grade: highestGrade, experience_level: climbingExperience, exposure_comfort: exposureComfort },
         flexibility: { hip_tightness: hipTightness, ankle_mobility: ankleMobility, regular_routine: hasFlexRoutine },
       },
-    });
+    }).select().single();
 
-    if (insertError) {
-      setError(insertError.message);
+    if (insertError || !newAssessment) {
+      setError(insertError?.message || "Failed to save assessment");
       setLoading(false);
       return;
+    }
+
+    // If we came from a plan, delete the old plan and regenerate with new scores
+    if (existingPlanId && existingObjectiveId) {
+      try {
+        // Delete existing plan
+        const deleteRes = await fetch("/api/delete-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId: existingPlanId }),
+        });
+
+        if (!deleteRes.ok) {
+          const data = await deleteRes.json().catch(() => ({}));
+          throw new Error(data.error || "Failed to delete old plan");
+        }
+
+        // Generate new plan with the new assessment
+        const genRes = await fetch("/api/generate-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            objectiveId: existingObjectiveId,
+            assessmentId: newAssessment.id,
+          }),
+        });
+
+        if (!genRes.ok) {
+          const data = await genRes.json().catch(() => ({}));
+          throw new Error(data.error || "Failed to generate new plan");
+        }
+      } catch (err) {
+        console.error("Error regenerating plan:", err);
+        setError(err instanceof Error ? err.message : "Failed to regenerate plan");
+        setLoading(false);
+        return;
+      }
     }
 
     router.push("/dashboard");
