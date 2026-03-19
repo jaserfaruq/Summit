@@ -14,7 +14,7 @@ const config: Config = {
         "off-white": "#F4F1EC",
         "sage": "#8B9D83",
         "test-blue": "#1A5276",
-        "recovery-green": "#2E7D32",
+        "hiking-green": "#2E7D32",
         "taper-amber": "#F57F17",
         // Dark theme colors
         "dark-bg": "#111111",

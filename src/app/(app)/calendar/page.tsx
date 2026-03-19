@@ -11,13 +11,13 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July", 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const TYPE_COLORS: Record<string, string> = {
-  hike: "bg-recovery-green text-white",
+  hike: "bg-hiking-green text-white",
   trail_run: "bg-test-blue text-white",
   alpine_climb: "bg-burnt-orange text-white",
   rock_climb: "bg-burnt-orange text-white",
   mountaineering: "bg-gold text-dark-bg",
   scramble: "bg-dark-muted text-white",
-  backpacking: "bg-recovery-green text-white",
+  backpacking: "bg-hiking-green text-white",
 };
 
 const DIMENSION_COLORS: Record<string, string> = {

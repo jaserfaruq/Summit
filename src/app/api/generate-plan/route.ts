@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
   });
 
   const planSummary = {
-    philosophy: `Progressive ${totalWeeks}-week plan building from current fitness to ${objective.name} readiness. Test weeks every ~4 weeks for calibration, recovery weeks to consolidate gains, and a 2-week taper to peak on target date.`,
+    philosophy: `Progressive ${totalWeeks}-week plan building from current fitness to ${objective.name} readiness. Test weeks for calibration at week 2 and the midpoint, and a 2-week taper to peak on target date.`,
     weeklyStructure: `${daysPerWeek} sessions per week across cardio, strength, climbing/technical, and flexibility. Sessions are generated on-demand when you expand each week.`,
     equipmentNeeded: profile?.equipment_access || ["basic gym equipment"],
     keyExercises: extractKeyExercises(objective.graduation_benchmarks),
