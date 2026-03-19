@@ -1,0 +1,299 @@
+import { createClient } from "@/lib/supabase-server";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Objective, Assessment, TrainingPlan, WeeklyTarget, ScoreHistory } from "@/lib/types";
+import ScoreArc from "@/components/ScoreArc";
+import WeekBadge from "@/components/WeekBadge";
+import DeletePlanButton from "@/components/DeletePlanButton";
+import UpdateAssessmentButton from "@/components/UpdateAssessmentButton";
+
+export default async function DashboardPage() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  // Fetch latest assessment
+  const { data: assessments } = await supabase
+    .from("assessments")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("assessed_at", { ascending: false })
+    .limit(1);
+
+  const latestAssessment = (assessments as Assessment[] | null)?.[0];
+
+  // Fetch objectives
+  const { data: objectives } = await supabase
+    .from("objectives")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("target_date", { ascending: true });
+
+  const userObjectives = objectives as Objective[] | null;
+
+  // Fetch active plan
+  const { data: plans } = await supabase
+    .from("training_plans")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const activePlan = (plans as TrainingPlan[] | null)?.[0];
+
+  // Fetch current week's targets if plan exists
+  let currentWeekTarget: WeeklyTarget | null = null;
+  let allWeekTargets: WeeklyTarget[] = [];
+  if (activePlan) {
+    const { data: weekTargets } = await supabase
+      .from("weekly_targets")
+      .select("*")
+      .eq("plan_id", activePlan.id)
+      .order("week_number");
+
+    allWeekTargets = (weekTargets as WeeklyTarget[]) || [];
+
+    const today = new Date();
+    currentWeekTarget = allWeekTargets.find((w) => {
+      const weekStart = new Date(w.week_start);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      return today >= weekStart && today < weekEnd;
+    }) || allWeekTargets[0] || null;
+  }
+
+  // Fetch score history for the active objective
+  const activeObjective = userObjectives?.[0];
+  let scoreHistory: ScoreHistory[] = [];
+  if (activeObjective) {
+    const { data: history } = await supabase
+      .from("score_history")
+      .select("*")
+      .eq("objective_id", activeObjective.id)
+      .order("week_ending");
+    scoreHistory = (history as ScoreHistory[]) || [];
+  }
+
+  // No assessment state
+  if (!latestAssessment) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-12 text-center">
+        <h2 className="text-3xl font-bold text-white mb-4">Welcome to Summit Planner</h2>
+        <p className="text-dark-muted mb-8">
+          Start by taking a quick fitness assessment to establish your baseline scores.
+        </p>
+        <Link
+          href="/assessment"
+          className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
+        >
+          Take Your Fitness Assessment
+        </Link>
+      </div>
+    );
+  }
+
+  // Has assessment but no objective
+  if (!activeObjective) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-12 text-center">
+        <h2 className="text-3xl font-bold text-white mb-4">Assessment Complete</h2>
+        <p className="text-dark-muted mb-2">
+          Cardio: {latestAssessment.cardio_score} | Strength: {latestAssessment.strength_score} |
+          Climbing: {latestAssessment.climbing_score} | Flexibility: {latestAssessment.flexibility_score}
+        </p>
+        <p className="text-dark-muted mb-8">Now add your first summit objective to start training.</p>
+        <div className="flex flex-col items-center gap-3">
+          <Link
+            href="/calendar"
+            className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
+          >
+            Add Your First Objective
+          </Link>
+          <UpdateAssessmentButton />
+        </div>
+      </div>
+    );
+  }
+
+  // Has objective but no plan (shouldn't happen in V1 — objective creation auto-generates a plan)
+  if (!activePlan) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-12 text-center">
+        <h2 className="text-3xl font-bold text-white mb-4">{activeObjective.name}</h2>
+        <p className="text-dark-muted mb-8">Your plan is being set up. Head to the plan page to get started.</p>
+        <Link
+          href={`/plan?generate=true&objectiveId=${activeObjective.id}&assessmentId=${latestAssessment.id}`}
+          className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
+        >
+          Generate Training Plan
+        </Link>
+      </div>
+    );
+  }
+
+  // Full dashboard with plan
+  const weeksRemaining = Math.ceil(
+    (new Date(activeObjective.target_date).getTime() - Date.now()) /
+      (7 * 24 * 60 * 60 * 1000)
+  );
+
+  const hasTestWeekData = scoreHistory.some((s) => s.is_test_week);
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
+      {/* Estimated scores banner */}
+      {!hasTestWeekData && (
+        <div className="bg-test-blue/20 border border-test-blue/30 text-blue-300 px-4 py-3 rounded-lg text-sm">
+          Estimated scores — take your first benchmark test to calibrate.
+        </div>
+      )}
+
+      {/* Objective countdown */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-white">{activeObjective.name}</h2>
+          <div className="flex items-center gap-3 mt-1">
+            <TierBadge tier={activeObjective.tier} />
+            <span className="text-dark-muted text-sm">
+              {new Date(activeObjective.target_date).toLocaleDateString()}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <div className="text-3xl font-bold text-gold">{weeksRemaining}</div>
+            <div className="text-sm text-dark-muted">weeks remaining</div>
+          </div>
+          <UpdateAssessmentButton planId={activePlan.id} objectiveId={activeObjective.id} />
+          <DeletePlanButton planId={activePlan.id} />
+        </div>
+      </div>
+
+      {/* Readiness section: 4 progress arcs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <ScoreArc
+          label="Cardio"
+          tagline={activeObjective.taglines?.cardio || ""}
+          current={activeObjective.current_cardio_score}
+          target={activeObjective.target_cardio_score}
+        />
+        <ScoreArc
+          label="Strength"
+          tagline={activeObjective.taglines?.strength || ""}
+          current={activeObjective.current_strength_score}
+          target={activeObjective.target_strength_score}
+        />
+        <ScoreArc
+          label="Climbing"
+          tagline={activeObjective.taglines?.climbing_technical || ""}
+          current={activeObjective.current_climbing_score}
+          target={activeObjective.target_climbing_score}
+        />
+        <ScoreArc
+          label="Flexibility"
+          tagline={activeObjective.taglines?.flexibility || ""}
+          current={activeObjective.current_flexibility_score}
+          target={activeObjective.target_flexibility_score}
+        />
+      </div>
+
+      {/* This week summary */}
+      {currentWeekTarget && (
+        <div className="bg-dark-card rounded-xl border border-dark-border p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <h3 className="text-lg font-semibold text-white">This Week</h3>
+            <WeekBadge type={currentWeekTarget.week_type} />
+            <span className="text-dark-muted text-sm ml-auto">
+              Week {currentWeekTarget.week_number} · {currentWeekTarget.total_hours}h planned
+            </span>
+          </div>
+          <div className="space-y-2">
+            {currentWeekTarget.sessions.map((session, i) => (
+              <div
+                key={i}
+                className={`flex items-center justify-between p-3 rounded-lg border ${
+                  session.isBenchmarkSession
+                    ? "border-test-blue/30 bg-test-blue/10"
+                    : "border-dark-border bg-dark-surface"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {session.isBenchmarkSession && (
+                    <span className="text-blue-300">★</span>
+                  )}
+                  <span className="font-medium text-sm text-white">{session.name}</span>
+                  <span className="text-dark-muted text-xs">{session.estimatedMinutes} min</span>
+                </div>
+                <Link
+                  href={`/log?session=${encodeURIComponent(session.name)}&planId=${activePlan.id}&week=${currentWeekTarget.week_number}`}
+                  className="text-sm bg-gold/90 text-dark-bg px-3 py-1 rounded hover:bg-gold transition-colors font-medium"
+                >
+                  Mark Complete
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Graduation benchmarks */}
+      {activeObjective.graduation_benchmarks && (
+        <div className="bg-dark-card rounded-xl border border-dark-border p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Graduation Benchmarks</h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            {(["cardio", "strength", "climbing_technical", "flexibility"] as const).map((dim) => {
+              const benchmarks = activeObjective.graduation_benchmarks?.[dim];
+              if (!benchmarks || benchmarks.length === 0) return null;
+              return (
+                <div key={dim} className="space-y-2">
+                  <h4 className="text-sm font-semibold text-gold capitalize">
+                    {dim.replace("_", " / ")}
+                  </h4>
+                  {benchmarks.map((b, i) => (
+                    <div key={i} className="text-sm text-dark-muted pl-3 border-l-2 border-dark-border">
+                      <span className="font-medium text-dark-text">{b.exerciseName}</span>: {b.graduationTarget}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Quick links */}
+      <div className="flex gap-3">
+        <Link
+          href="/plan"
+          className="flex-1 text-center py-3 bg-gold text-dark-bg rounded-lg font-medium hover:bg-gold/90 transition-colors"
+        >
+          View Full Plan
+        </Link>
+        <Link
+          href="/progress"
+          className="flex-1 text-center py-3 border border-dark-border text-dark-text rounded-lg font-medium hover:bg-dark-card transition-colors"
+        >
+          View Progress
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function TierBadge({ tier }: { tier: string }) {
+  const colors = {
+    gold: "bg-gold/20 text-gold border-gold/30",
+    silver: "bg-white/10 text-white/70 border-white/20",
+    bronze: "bg-burnt-orange/20 text-burnt-orange border-burnt-orange/30",
+  };
+  return (
+    <span
+      className={`inline-block px-2 py-0.5 text-xs font-semibold rounded border ${
+        colors[tier as keyof typeof colors] || colors.bronze
+      }`}
+    >
+      {tier.charAt(0).toUpperCase() + tier.slice(1)}
+    </span>
+  );
+}
