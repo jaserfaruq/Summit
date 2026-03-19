@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_2B_SYSTEM } from "@/lib/prompts";
 import { PlanSession } from "@/lib/types";
+import { calculateAllSessionMinutes } from "@/lib/scoring";
 
 export const maxDuration = 60;
 
@@ -96,6 +97,7 @@ Progress fraction: Week ${weekNumber} sessions should be at approximately ${Math
   try {
     const responseText = await callClaude(PROMPT_2B_SYSTEM, userMessage);
     const result = parseClaudeJSON<{ sessions: PlanSession[] }>(responseText);
+    calculateAllSessionMinutes(result.sessions);
 
     // Save sessions to the weekly target
     const { error: updateError } = await supabase

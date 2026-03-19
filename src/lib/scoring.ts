@@ -1,4 +1,4 @@
-import { DimensionScores, WeekType } from "./types";
+import { DimensionScores, PlanSession, WeekType } from "./types";
 
 /**
  * Calculate dimension score from benchmark results.
@@ -111,4 +111,34 @@ export function scoreArcColor(current: number, target: number): "green" | "yello
   if (gap <= 10) return "green";
   if (gap <= 25) return "yellow";
   return "red";
+}
+
+/**
+ * Calculate estimatedMinutes for a session by summing its component durations.
+ * Falls back to 45 if no duration data is available.
+ */
+export function calculateSessionMinutes(session: PlanSession): number {
+  const warmUp = session.warmUp?.warmUpMinutes ?? 10;
+  const training = session.training?.reduce(
+    (sum, ex) => sum + (ex.durationMinutes ?? 0),
+    0
+  ) ?? 0;
+  const cooldown = session.cooldownMinutes ?? 5;
+
+  const total = warmUp + training + cooldown;
+  // If AI didn't provide any per-exercise durations, fall back to existing value or default
+  if (training === 0) {
+    return session.estimatedMinutes || 45;
+  }
+  return Math.round(total);
+}
+
+/**
+ * Calculate estimatedMinutes for each session in an array, mutating in place.
+ */
+export function calculateAllSessionMinutes(sessions: PlanSession[]): PlanSession[] {
+  for (const session of sessions) {
+    session.estimatedMinutes = calculateSessionMinutes(session);
+  }
+  return sessions;
 }

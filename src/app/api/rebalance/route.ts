@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_4_SYSTEM } from "@/lib/prompts";
 import { RebalanceRequest, PlanWeek } from "@/lib/types";
+import { calculateAllSessionMinutes } from "@/lib/scoring";
 
 export const maxDuration = 60;
 
@@ -65,6 +66,13 @@ ${weeksToRebalance.map((w) => `Week ${w.week_number}: ${w.week_start}, currently
   try {
     const responseText = await callClaude(PROMPT_4_SYSTEM, userMessage);
     const parsed = parseClaudeJSON<{ weeks: PlanWeek[] }>(responseText);
+
+    // Calculate realistic durations for each rebalanced week's sessions
+    for (const updatedWeek of parsed.weeks) {
+      if (updatedWeek.sessions) {
+        calculateAllSessionMinutes(updatedWeek.sessions);
+      }
+    }
 
     // Update each rebalanced week
     for (const updatedWeek of parsed.weeks) {

@@ -92,11 +92,14 @@ Periodization rules:
 - At least one full rest day per week.
 
 For each week, provide named training sessions (not assigned to specific days). Each session must include:
-- A short objective line with estimated duration.
+- A short objective line (without duration — duration is calculated separately).
 - A warm-up block with specific exercises and reps.
 - A numbered training block with exact reps, sets, weight, distance, duration, or pace as appropriate.
+- For EVERY training exercise, include a "durationMinutes" field with a realistic estimate of how long that single exercise takes (including rest between sets). Use realistic paces: Zone 2 running = 11-13 min/mile for recreational athletes, trail/uphill = 14-18 min/mile. Strength exercises: account for sets × reps × time-per-rep + rest between sets.
 - Intensity descriptors in plain language: "Moderate = comfortable but not easy", "Zone 2 = conversational pace, nose-breathing", "Threshold = fastest sustainable pace".
 - Foam rolling or recovery notes where appropriate.
+- A "warmUpMinutes" field on the warmUp block (typically 8-12 minutes).
+- A "cooldownMinutes" field (typically 5-10 minutes, or 0 if no cooldown).
 
 Every prescribed exercise must directly train a key component from the relevance profiles. Never prescribe exercises that target irrelevant components. If a dimension's target score is under 15, limit to one session per week focused on basic competence.
 
@@ -122,23 +125,25 @@ Return valid JSON matching this schema:
     "expectedScores": { "cardio": number, "strength": number, "climbing_technical": number, "flexibility": number },
     "sessions": [{
       "name": "string",
-      "objective": "string (with duration)",
-      "estimatedMinutes": number,
+      "objective": "string",
       "dimension": "string (primary dimension)",
       "isBenchmarkSession": boolean,
       "warmUp": {
         "rounds": number,
+        "warmUpMinutes": number,
         "exercises": [{ "name": "string", "reps": "string" }]
       },
       "training": [{
         "exerciseNumber": number,
         "description": "string",
         "details": "string",
+        "durationMinutes": number,
         "isBenchmark": boolean,
         "graduationTarget": "string | null",
         "intensityNote": "string | null"
       }],
-      "cooldown": "string | null"
+      "cooldown": "string | null",
+      "cooldownMinutes": number
     }]
   }]
 }`;
@@ -221,17 +226,14 @@ Rules:
 - At least one full rest day per week.
 
 For each session include:
-- A short objective line with estimated duration.
+- A short objective line (without duration — duration is calculated separately).
 - A warm-up block with specific exercises and reps.
 - A numbered training block with exact reps, sets, weight, distance, duration, or pace.
+- For EVERY training exercise, include a "durationMinutes" field with a realistic estimate of how long that single exercise takes (including rest between sets). Use realistic paces: Zone 2 running = 11-13 min/mile for recreational athletes, trail/uphill = 14-18 min/mile. Strength exercises: account for sets × reps × time-per-rep + rest between sets.
 - Intensity descriptors in plain language.
 - Foam rolling or recovery notes where appropriate.
-
-CRITICAL — estimatedMinutes must be realistic:
-- Calculate the ACTUAL time each exercise takes. For runs: distance ÷ realistic pace (Zone 2 = 11-13 min/mile for most recreational athletes; trail/uphill = 14-18 min/mile). For strength circuits: sets × reps × time-per-rep + rest between sets. For climbing: approach + climb time + descent.
-- Add warm-up time (typically 8-12 minutes) and cooldown time (5-10 minutes) to the training block time.
-- The estimatedMinutes field must equal the sum of warm-up + all training blocks + cooldown, not just the main training block.
-- Do NOT compress durations to fit the weekly hours target. If the prescribed exercises genuinely take 120 minutes, report 120 minutes. Adjust the NUMBER of exercises or distance/volume to fit the hours target instead.
+- A "warmUpMinutes" field on the warmUp block (typically 8-12 minutes).
+- A "cooldownMinutes" field (typically 5-10 minutes, or 0 if no cooldown).
 
 Every prescribed exercise must directly train a key component from the relevance profiles. Never prescribe exercises that target irrelevant components. If a dimension's target score is under 15, limit to one session per week focused on basic competence.
 
@@ -243,23 +245,25 @@ Return valid JSON matching this schema:
 {
   "sessions": [{
     "name": "string",
-    "objective": "string (with duration)",
-    "estimatedMinutes": number,
+    "objective": "string",
     "dimension": "string (primary dimension)",
     "isBenchmarkSession": boolean,
     "warmUp": {
       "rounds": number,
+      "warmUpMinutes": number,
       "exercises": [{ "name": "string", "reps": "string" }]
     },
     "training": [{
       "exerciseNumber": number,
       "description": "string",
       "details": "string",
+      "durationMinutes": number,
       "isBenchmark": boolean,
       "graduationTarget": "string | null",
       "intensityNote": "string | null"
     }],
-    "cooldown": "string | null"
+    "cooldown": "string | null",
+    "cooldownMinutes": number
   }]
 }`;
 

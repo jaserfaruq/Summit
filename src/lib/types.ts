@@ -268,17 +268,20 @@ export interface PlanSession {
   isBenchmarkSession: boolean;
   warmUp: {
     rounds: number;
+    warmUpMinutes?: number;
     exercises: { name: string; reps: string }[];
   };
   training: {
     exerciseNumber: number;
     description: string;
     details: string;
+    durationMinutes?: number;
     isBenchmark: boolean;
     graduationTarget: string | null;
     intensityNote: string | null;
   }[];
   cooldown: string | null;
+  cooldownMinutes?: number;
 }
 
 // ============================================
