@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_4_SYSTEM } from "@/lib/prompts";
 import { RebalanceRequest, PlanWeek } from "@/lib/types";
-import { calculateAllSessionMinutes } from "@/lib/scoring";
+import { calculateAllSessionMinutes, calculateWeekTotalHours } from "@/lib/scoring";
 
 export const maxDuration = 60;
 
@@ -80,11 +80,14 @@ ${weeksToRebalance.map((w) => `Week ${w.week_number}: ${w.week_start}, currently
         (w) => w.week_number === updatedWeek.weekNumber
       );
       if (matchingTarget) {
+        const totalHours = updatedWeek.sessions
+          ? calculateWeekTotalHours(updatedWeek.sessions)
+          : updatedWeek.totalHoursTarget;
         await supabase
           .from("weekly_targets")
           .update({
             sessions: updatedWeek.sessions,
-            total_hours: updatedWeek.totalHoursTarget,
+            total_hours: totalHours,
             expected_scores: updatedWeek.expectedScores,
           })
           .eq("id", matchingTarget.id);

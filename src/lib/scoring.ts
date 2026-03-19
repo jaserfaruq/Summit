@@ -142,3 +142,11 @@ export function calculateAllSessionMinutes(sessions: PlanSession[]): PlanSession
   }
   return sessions;
 }
+
+/**
+ * Calculate total hours for a week by summing all session durations.
+ */
+export function calculateWeekTotalHours(sessions: PlanSession[]): number {
+  const totalMinutes = sessions.reduce((sum, s) => sum + (s.estimatedMinutes || 0), 0);
+  return Math.round(totalMinutes / 60 * 10) / 10;
+}
