@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog } from "@/lib/types";
 import WeekBadge from "@/components/WeekBadge";
+import DeletePlanButton from "@/components/DeletePlanButton";
 import Link from "next/link";
 
 export default function PlanPage() {
@@ -36,8 +37,6 @@ function PlanContent() {
     updatedScores: Record<string, number>;
     rebalanceTriggered: boolean;
   }>>({});
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   const shouldGenerate = searchParams.get("generate") === "true";
   const objectiveId = searchParams.get("objectiveId");
@@ -253,30 +252,6 @@ function PlanContent() {
     setCompletingWeek(null);
   }
 
-  async function handleDeletePlan() {
-    if (!plan) return;
-    setDeleting(true);
-    try {
-      const res = await fetch("/api/delete-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to delete plan");
-      }
-
-      router.push("/dashboard");
-    } catch (error) {
-      console.error("Error deleting plan:", error);
-      alert(error instanceof Error ? error.message : "Failed to delete plan");
-      setDeleting(false);
-      setShowDeleteConfirm(false);
-    }
-  }
-
   function getLogsForWeek(week: WeeklyTarget): WorkoutLog[] {
     const weekStart = new Date(week.week_start + "T00:00:00");
     const weekEnd = new Date(weekStart);
@@ -377,41 +352,8 @@ function PlanContent() {
             </div>
           )}
         </div>
-        <button
-          onClick={() => setShowDeleteConfirm(true)}
-          className="text-sm text-red-400 hover:text-red-300 border border-red-800/50 hover:border-red-700 px-3 py-1.5 rounded-lg transition-colors"
-        >
-          Delete Plan
-        </button>
+        <DeletePlanButton planId={plan.id} />
       </div>
-
-      {/* Delete confirmation modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
-          <div className="bg-dark-card border border-dark-border rounded-xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-bold text-white mb-2">Delete Training Plan?</h3>
-            <p className="text-sm text-dark-muted mb-6">
-              This will permanently delete your current plan and all weekly targets. Your workout logs and scores will be kept.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={deleting}
-                className="px-4 py-2 text-sm text-dark-muted hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeletePlan}
-                disabled={deleting}
-                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                {deleting ? "Deleting..." : "Delete Plan"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Plan summary */}
       {planSummary && (

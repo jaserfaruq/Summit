@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Objective, Assessment, TrainingPlan, WeeklyTarget, ScoreHistory } from "@/lib/types";
 import ScoreArc from "@/components/ScoreArc";
 import WeekBadge from "@/components/WeekBadge";
+import DeletePlanButton from "@/components/DeletePlanButton";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -155,9 +156,12 @@ export default async function DashboardPage() {
             </span>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-3xl font-bold text-gold">{weeksRemaining}</div>
-          <div className="text-sm text-dark-muted">weeks remaining</div>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <div className="text-3xl font-bold text-gold">{weeksRemaining}</div>
+            <div className="text-sm text-dark-muted">weeks remaining</div>
+          </div>
+          <DeletePlanButton planId={activePlan.id} />
         </div>
       </div>
 
