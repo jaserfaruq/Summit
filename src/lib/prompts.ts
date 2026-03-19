@@ -227,6 +227,12 @@ For each session include:
 - Intensity descriptors in plain language.
 - Foam rolling or recovery notes where appropriate.
 
+CRITICAL — estimatedMinutes must be realistic:
+- Calculate the ACTUAL time each exercise takes. For runs: distance ÷ realistic pace (Zone 2 = 11-13 min/mile for most recreational athletes; trail/uphill = 14-18 min/mile). For strength circuits: sets × reps × time-per-rep + rest between sets. For climbing: approach + climb time + descent.
+- Add warm-up time (typically 8-12 minutes) and cooldown time (5-10 minutes) to the training block time.
+- The estimatedMinutes field must equal the sum of warm-up + all training blocks + cooldown, not just the main training block.
+- Do NOT compress durations to fit the weekly hours target. If the prescribed exercises genuinely take 120 minutes, report 120 minutes. Adjust the NUMBER of exercises or distance/volume to fit the hours target instead.
+
 Every prescribed exercise must directly train a key component from the relevance profiles. Never prescribe exercises that target irrelevant components. If a dimension's target score is under 15, limit to one session per week focused on basic competence.
 
 On test weeks, mark benchmark sessions clearly. Include the graduation target inline.
