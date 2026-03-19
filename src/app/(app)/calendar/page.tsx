@@ -295,7 +295,7 @@ export default function CalendarPage() {
                 <div className="flex items-center gap-1 mb-0.5">
                   <span className={`text-xs ${isToday ? "font-bold text-gold" : "text-dark-muted"}`}>{day}</span>
                   {weekType && daySessions.findIndex(s => s.date === formatDateStr(day)) === 0 && (
-                    <WeekBadge type={weekType as "test" | "recovery" | "regular" | "taper"} />
+                    <WeekBadge type={weekType as "test" | "regular" | "taper"} />
                   )}
                 </div>
 

@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Recovery and taper weeks: no score changes
-  if (weekType === "recovery" || weekType === "taper") {
+  // Taper weeks: no score changes
+  if (weekType === "taper") {
     return NextResponse.json({
       updatedScores: {
         cardio: objective.current_cardio_score as number,

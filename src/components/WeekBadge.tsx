@@ -1,7 +1,6 @@
 export default function WeekBadge({ type }: { type: string }) {
   const config: Record<string, { bg: string; text: string; label: string }> = {
     test: { bg: "bg-test-blue/20", text: "text-blue-300", label: "Test Week" },
-    recovery: { bg: "bg-recovery-green/20", text: "text-green-300", label: "Recovery" },
     regular: { bg: "bg-dark-border", text: "text-dark-muted", label: "Regular" },
     taper: { bg: "bg-taper-amber/20", text: "text-amber-300", label: "Taper" },
   };

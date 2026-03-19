@@ -183,7 +183,7 @@ export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 
 export type MeasurementType = 'reps' | 'time' | 'distance' | 'pass_fail' | 'self_rated';
 
-export type WeekType = 'test' | 'recovery' | 'regular' | 'taper';
+export type WeekType = 'test' | 'regular' | 'taper';
 
 export type Tier = 'gold' | 'silver' | 'bronze';
 

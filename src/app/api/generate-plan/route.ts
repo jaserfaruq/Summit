@@ -80,7 +80,6 @@ export async function POST(request: NextRequest) {
     // Volume scaling by week type
     let volumeMultiplier = 1.0;
     if (weekType === "test") volumeMultiplier = 0.8;
-    else if (weekType === "recovery") volumeMultiplier = 0.5;
     else if (weekType === "taper") volumeMultiplier = 0.6;
 
     // Progressive volume: ramp up ~5% per week, capped by week type

@@ -54,13 +54,11 @@ Design a plan that progresses each dimension's score from current to target over
 Periodization rules:
 - Increase total volume by no more than 10% per week.
 - Default to 5 sessions per week (adjust if user specifies fewer).
-- Three non-overlapping week types:
-  - TEST weeks: 3 of 5 sessions contain benchmark exercises. Volume at 75–80%. Scheduled approximately every 4 weeks.
-  - RECOVERY weeks: 50% volume. No benchmarks. No scoring. Scheduled between test weeks.
+- Two non-overlapping special week types:
+  - TEST weeks: 3 of 5 sessions contain benchmark exercises. Volume at 75–80%. Scheduled on week 2 and at the midpoint of the plan.
   - REGULAR weeks: Full volume. Standard training.
 - Include a 2-week TAPER before the objective date. Volume drops 40%, intensity stays. No benchmarks, no scoring.
 - The last test week must fall before the taper begins.
-- Week 2 should be offered as an optional early test week (the first scheduled test).
 - At least one full rest day per week.
 
 For each week, provide named training sessions (not assigned to specific days). Each session must include:
@@ -89,7 +87,7 @@ Return valid JSON matching this schema:
   "weeks": [{
     "weekNumber": number,
     "weekStartDate": "YYYY-MM-DD",
-    "weekType": "test | recovery | regular | taper",
+    "weekType": "test | regular | taper",
     "totalHoursTarget": number,
     "expectedScores": { "cardio": number, "strength": number, "climbing_technical": number, "flexibility": number },
     "sessions": [{
@@ -124,11 +122,9 @@ Design the STRUCTURE of a plan that progresses each dimension from current to ta
 
 Periodization rules:
 - Default to 5 sessions per week (adjust if user specifies fewer).
-- TEST weeks: scheduled approximately every 4 weeks. Volume at 75–80%.
-- RECOVERY weeks: 50% volume. Scheduled between test blocks.
+- TEST weeks: scheduled on week 2 and at the midpoint of the plan. Volume at 75–80%.
 - REGULAR weeks: Full volume.
 - 2-week TAPER before objective date.
-- Week 2 should be the first test week (optional early calibration).
 - The last test week must fall before the taper begins.
 
 Include expected scores per week as linear interpolation from current to target scores.
@@ -144,7 +140,7 @@ Return valid JSON matching this schema:
   "weeks": [{
     "weekNumber": number,
     "weekStartDate": "YYYY-MM-DD",
-    "weekType": "test | recovery | regular | taper",
+    "weekType": "test | regular | taper",
     "totalHoursTarget": number,
     "expectedScores": { "cardio": number, "strength": number, "climbing_technical": number, "flexibility": number }
   }]
@@ -160,7 +156,6 @@ Design the training sessions for THIS SINGLE WEEK. The weekly sessions are scale
 Rules:
 - Increase total volume by no more than 10% per week from the prior week.
 - For TEST weeks: 3 of 5 sessions contain benchmark exercises. Volume at 75–80%.
-- For RECOVERY weeks: 50% volume. No benchmarks.
 - For REGULAR weeks: Full volume. Standard training.
 - For TAPER weeks: Volume drops 40%, intensity stays. No benchmarks.
 - At least one full rest day per week.
@@ -231,7 +226,7 @@ Rules:
 - Total weekly hours stay roughly the same.
 - If behind in multiple dimensions, prioritize the highest target score.
 - Maintain the same session format (warm-up, training blocks, intensity notes).
-- Do not modify test week, recovery week, or taper week scheduling.
+- Do not modify test week or taper week scheduling.
 
 For Tier 1 (post-test week): regenerate ALL remaining regular weeks.
 For Tier 2 (emergency): regenerate only the next 1–2 weeks.
