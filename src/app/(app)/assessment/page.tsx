@@ -29,7 +29,7 @@ function AssessmentWizard() {
   const [pushupReps, setPushupReps] = useState("");
   const [pullupReps, setPullupReps] = useState("");
   const [squatLevel, setSquatLevel] = useState("beginner");
-  const [highestGrade, setHighestGrade] = useState("");
+  const [highestGrade, setHighestGrade] = useState("none");
   const [climbingSkills, setClimbingSkills] = useState<string[]>([]);
   const [exposureComfort, setExposureComfort] = useState(3);
   const [toeTouch, setToeTouch] = useState("");
@@ -73,16 +73,17 @@ function AssessmentWizard() {
     else if (pullups >= 1) pullupBonus = 5;
     strength = Math.min(strength + (squatBonus[squatLevel] || 0) + pullupBonus, 100);
 
-    const skillPoints: Record<string, number> = {
-      indoor_gym: 8,
-      outdoor_sport: 12,
-      trad: 12,
-      multi_pitch: 10,
-      glacier: 12,
-      crevasse_rescue: 8,
+    const gradeScores: Record<string, number> = {
+      none: 5,
+      class_3_4: 20,
+      "5.0-5.6": 30,
+      "5.7-5.8": 40,
+      "5.9-5.10a": 50,
+      "5.10b-5.10d": 58,
+      "5.11+": 65,
+      "5.12+": 72,
     };
-    const skillTotal = climbingSkills.reduce((sum, s) => sum + (skillPoints[s] || 0), 0);
-    const climbing = Math.min(5 + skillTotal + (exposureComfort - 1) * 3, 100);
+    const climbing = Math.min((gradeScores[highestGrade] || 5) + (exposureComfort - 1) * 3, 100);
 
     const toeTouchScore: Record<string, number> = { yes: 20, barely: 12, no: 5 };
     const deepSquatScore: Record<string, number> = { yes: 20, difficulty: 12, no: 5 };
@@ -245,11 +246,21 @@ function AssessmentWizard() {
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-white">Climbing / Technical</h2>
           <div>
-            <label className="block text-sm font-medium text-dark-muted mb-1">Highest climbing grade (optional)</label>
-            <input value={highestGrade} onChange={(e) => setHighestGrade(e.target.value)} className={inputClass} placeholder="e.g., 5.10a, V4, WI3" />
+            <label className="block text-sm font-medium text-dark-muted mb-1">Highest climbing grade</label>
+            <select value={highestGrade} onChange={(e) => setHighestGrade(e.target.value)} className={inputClass}>
+              <option value="none">None / no climbing experience</option>
+              <option value="class_3_4">Class 3–4 scrambling</option>
+              <option value="5.0-5.6">5.0–5.6 (easy roped climbing)</option>
+              <option value="5.7-5.8">5.7–5.8 (moderate)</option>
+              <option value="5.9-5.10a">5.9–5.10a (intermediate)</option>
+              <option value="5.10b-5.10d">5.10b–5.10d (upper intermediate)</option>
+              <option value="5.11+">5.11+ (advanced)</option>
+              <option value="5.12+">5.12+ (expert)</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-dark-muted mb-2">Skills &amp; experience (check all that apply)</label>
+            <p className="text-xs text-dark-muted mb-2">These help tailor your training plan to focus on skills you need to develop.</p>
             <div className="space-y-2">
               {[
                 { id: "indoor_gym", label: "Indoor / gym climbing (top-rope or bouldering)" },
