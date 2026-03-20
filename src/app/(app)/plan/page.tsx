@@ -605,7 +605,7 @@ function PlanContent() {
               };
               const currentWeekData = weeks.find(w => w.week_number === plan.current_week_number);
               if (!currentWeekData?.expected_scores) return false;
-              const expected = currentWeekData.expected_scores as Record<string, number>;
+              const expected = currentWeekData.expected_scores as unknown as Record<string, number>;
               return Object.keys(current).some(
                 dim => Math.abs((expected[dim] || 0) - current[dim as keyof typeof current]) >= 5
               );
