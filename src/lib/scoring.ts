@@ -13,26 +13,36 @@ export function calculateDimensionScore(
   targetScore: number,
   currentScore?: number
 ): number {
-  if (benchmarkResults.length === 0) return 0;
+  // Filter out invalid results (NaN, zero denominators)
+  const validResults = benchmarkResults.filter(
+    (b) => Number.isFinite(b.result) && Number.isFinite(b.graduationTarget) && b.graduationTarget > 0
+  );
+
+  if (validResults.length === 0) {
+    // No valid benchmarks: preserve current score instead of returning 0
+    return currentScore ?? 0;
+  }
 
   const isMaintenanceDim = currentScore !== undefined && currentScore >= targetScore;
 
   if (isMaintenanceDim) {
     // Uncapped: allow scores above targetScore for strong athletes
     const avg =
-      benchmarkResults.reduce((sum, b) => {
+      validResults.reduce((sum, b) => {
         return sum + b.result / b.graduationTarget;
-      }, 0) / benchmarkResults.length;
+      }, 0) / validResults.length;
+    const calculated = Math.round(avg * targetScore);
     // Never drop below current score due to benchmark testing
-    return Math.max(Math.round(avg * targetScore), currentScore);
+    return Number.isFinite(calculated) ? Math.max(calculated, currentScore) : currentScore;
   }
 
   // Standard capped formula for dimensions still building toward target
   const avg =
-    benchmarkResults.reduce((sum, b) => {
+    validResults.reduce((sum, b) => {
       return sum + Math.min(b.result / b.graduationTarget, 1.0);
-    }, 0) / benchmarkResults.length;
-  return Math.round(avg * targetScore);
+    }, 0) / validResults.length;
+  const calculated = Math.round(avg * targetScore);
+  return Number.isFinite(calculated) ? calculated : (currentScore ?? 0);
 }
 
 /**

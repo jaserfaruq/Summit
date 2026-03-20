@@ -205,6 +205,24 @@ ${workoutLogs.map((l) => `- ${l.dimension}: ${l.session_name || "custom"}, ${l.d
     });
   }
 
+  // Validate scores are finite numbers before writing; fall back to current scores
+  const safeScore = (score: number, fallback: number) =>
+    Number.isFinite(score) ? score : fallback;
+
+  const currentFallback: DimensionScores = {
+    cardio: objective.current_cardio_score as number ?? 0,
+    strength: objective.current_strength_score as number ?? 0,
+    climbing_technical: objective.current_climbing_score as number ?? 0,
+    flexibility: objective.current_flexibility_score as number ?? 0,
+  };
+
+  updatedScores = {
+    cardio: safeScore(updatedScores.cardio, currentFallback.cardio),
+    strength: safeScore(updatedScores.strength, currentFallback.strength),
+    climbing_technical: safeScore(updatedScores.climbing_technical, currentFallback.climbing_technical),
+    flexibility: safeScore(updatedScores.flexibility, currentFallback.flexibility),
+  };
+
   // Update current scores on objective
   await supabase
     .from("objectives")
