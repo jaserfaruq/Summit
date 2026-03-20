@@ -111,7 +111,7 @@ function LogForm() {
 
     const finalRating = overrideRating ?? rating;
 
-    await supabase.from("workout_logs").insert({
+    const { error } = await supabase.from("workout_logs").insert({
       user_id: user.id,
       logged_date: new Date().toISOString().split("T")[0],
       dimension,
@@ -125,7 +125,15 @@ function LogForm() {
       rating: finalRating,
     });
 
-    router.push(planId ? "/plan" : "/dashboard");
+    if (error) {
+      console.error("Failed to save workout:", error);
+      alert("Failed to save workout. Please try again.");
+      setLoading(false);
+      return;
+    }
+
+    router.refresh();
+    router.push(planId ? `/plan?logged=${Date.now()}` : "/dashboard");
     setLoading(false);
   }
 

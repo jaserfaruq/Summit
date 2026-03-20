@@ -45,6 +45,7 @@ function PlanContent() {
   const shouldGenerate = searchParams.get("generate") === "true";
   const objectiveId = searchParams.get("objectiveId");
   const assessmentId = searchParams.get("assessmentId");
+  const loggedParam = searchParams.get("logged");
 
   const fetchPlan = useCallback(async () => {
     const supabase = createClient();
@@ -123,38 +124,14 @@ function PlanContent() {
     setLoading(false);
   }, []);
 
-  // Re-fetch workout logs when user navigates back to this page
-  const refetchLogs = useCallback(async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data: logData } = await supabase
-      .from("workout_logs")
-      .select("*")
-      .eq("user_id", user.id);
-    setWorkoutLogs((logData as WorkoutLog[]) || []);
-  }, []);
-
   useEffect(() => {
     if (shouldGenerate && objectiveId && assessmentId) {
       generatePlan(objectiveId, assessmentId);
     } else {
       fetchPlan();
     }
-
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        refetchLogs();
-      }
-    };
-    window.addEventListener("focus", refetchLogs);
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => {
-      window.removeEventListener("focus", refetchLogs);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loggedParam]);
 
   async function generateAllSessions(planId: string) {
     setBatchGenerating(true);
