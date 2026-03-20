@@ -107,9 +107,10 @@ export function generateWeekSchedule(totalWeeks: number): WeekType[] {
  * Score arc color based on distance from target.
  */
 export function scoreArcColor(current: number, target: number): "green" | "yellow" | "red" {
-  const gap = Math.abs(target - current);
+  if (current >= target) return "green";
+  const gap = target - current;
   if (gap <= 10) return "green";
-  if (gap <= 25) return "yellow";
+  if (gap < 25) return "yellow";
   return "red";
 }
 
