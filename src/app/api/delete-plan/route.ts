@@ -28,6 +28,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
+  // Detach workout_logs from this plan (keep logs, just remove the FK reference)
+  await supabase
+    .from("workout_logs")
+    .update({ plan_id: null })
+    .eq("plan_id", planId);
+
   // Delete weekly_targets first (foreign key dependency)
   const { error: weeksError } = await supabase
     .from("weekly_targets")

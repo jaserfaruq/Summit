@@ -152,8 +152,25 @@ export async function POST(request: NextRequest) {
       .filter(([, v]) => v.maintenance)
       .map(([dim]) => dim);
 
+    // Compute per-dimension trajectory data for dynamic clamp and prompt context
+    const { count: totalWeeks } = await supabase
+      .from("weekly_targets")
+      .select("*", { count: "exact", head: true })
+      .eq("plan_id", planId);
+
+    const expectedWeeklyGains: Record<string, number> = {};
+    const maxAdjustments: Record<string, number> = {};
+    for (const dim of DIMENSIONS) {
+      const remaining = (totalWeeks || 12) - weekNumber + 1;
+      const gain = remaining > 0 ? (targetDimScores[dim] - currentScores[dim]) / remaining : 0;
+      expectedWeeklyGains[dim] = Math.round(gain * 10) / 10;
+      maxAdjustments[dim] = Math.min(8, Math.max(3, Math.ceil(Math.max(gain, 0) * 1.5)));
+    }
+
     const userMessage = `Current scores: ${JSON.stringify(currentScores)}
 Expected scores this week: ${JSON.stringify(weekTarget.expected_scores)}
+Expected weekly gains to stay on trajectory: ${JSON.stringify(expectedWeeklyGains)}
+Maximum adjustment per dimension: ${JSON.stringify(maxAdjustments)}
 Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}
 ${maintenanceInfo.length > 0 ? `\nMaintenance dimensions (intentionally reduced volume — do NOT penalize): ${maintenanceInfo.join(", ")}` : ""}
 
@@ -174,18 +191,35 @@ ${workoutLogs.map((l) => `- ${l.dimension}: ${l.session_name || "custom"}, ${l.d
       for (const dim of DIMENSIONS) {
         const adj = parsed.adjustments[dim];
         if (adj) {
-          const clamped = Math.max(-3, Math.min(3, adj.change));
+          const dynamicCap = maxAdjustments[dim] || 3;
+          const clamped = Math.max(-3, Math.min(dynamicCap, adj.change));
           updatedScores[dim] = currentScores[dim] + clamped;
         }
       }
 
       rebalanceTriggered = parsed.emergencyRebalance;
     } catch {
-      // Fallback: if AI fails, apply small positive adjustments for completed sessions
+      // Fallback: trajectory-aware adjustments for completed sessions
       updatedScores = { ...currentScores };
+      // Count completed sessions per dimension
+      const completedPerDim: Record<string, number> = {};
+      const totalPerDim: Record<string, number> = {};
       for (const log of workoutLogs) {
+        const dim = log.dimension as string;
+        totalPerDim[dim] = (totalPerDim[dim] || 0) + 1;
         if (log.completed_as_prescribed) {
-          updatedScores[log.dimension as Dimension] += 1;
+          completedPerDim[dim] = (completedPerDim[dim] || 0) + 1;
+        }
+      }
+      for (const dim of DIMENSIONS) {
+        const completed = completedPerDim[dim] || 0;
+        const total = totalPerDim[dim] || 1;
+        if (completed > 0) {
+          const gain = Math.max(expectedWeeklyGains[dim] || 0, 0);
+          const proportional = Math.round(gain * (completed / total));
+          const adjustment = Math.max(1, proportional);
+          const dynamicCap = maxAdjustments[dim] || 3;
+          updatedScores[dim] = currentScores[dim] + Math.min(adjustment, dynamicCap);
         }
       }
     }
@@ -204,6 +238,24 @@ ${workoutLogs.map((l) => `- ${l.dimension}: ${l.session_name || "custom"}, ${l.d
       confidence: "low",
     });
   }
+
+  // Validate scores are finite numbers before writing; fall back to current scores
+  const safeScore = (score: number, fallback: number) =>
+    Number.isFinite(score) ? score : fallback;
+
+  const currentFallback: DimensionScores = {
+    cardio: objective.current_cardio_score as number ?? 0,
+    strength: objective.current_strength_score as number ?? 0,
+    climbing_technical: objective.current_climbing_score as number ?? 0,
+    flexibility: objective.current_flexibility_score as number ?? 0,
+  };
+
+  updatedScores = {
+    cardio: safeScore(updatedScores.cardio, currentFallback.cardio),
+    strength: safeScore(updatedScores.strength, currentFallback.strength),
+    climbing_technical: safeScore(updatedScores.climbing_technical, currentFallback.climbing_technical),
+    flexibility: safeScore(updatedScores.flexibility, currentFallback.flexibility),
+  };
 
   // Update current scores on objective
   await supabase

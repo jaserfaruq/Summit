@@ -2,8 +2,13 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-dark-bg flex flex-col">
-      <header className="bg-dark-card border-b border-dark-border px-6 py-4">
+    <div className="min-h-screen flex flex-col relative">
+      {/* Fixed blurred background */}
+      <div className="fixed inset-0 -z-10">
+        <img src="/bg-mountain.jpg" alt="" className="w-full h-full object-cover blur-md scale-110" />
+        <div className="absolute inset-0 bg-black/50" />
+      </div>
+      <header className="bg-dark-card/80 backdrop-blur-md border-b border-dark-border/50 px-6 py-4">
         <h1 className="text-gold text-xl font-bold">Summit Planner</h1>
       </header>
 

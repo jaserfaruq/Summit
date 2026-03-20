@@ -293,7 +293,7 @@ function AssessmentWizard() {
               { label: "Climbing", score: scores.climbing },
               { label: "Flexibility", score: scores.flexibility },
             ].map((dim) => (
-              <div key={dim.label} className="bg-dark-card rounded-xl p-4 border border-dark-border text-center">
+              <div key={dim.label} className="bg-dark-card/80 backdrop-blur-sm rounded-xl p-4 border border-dark-border/50 text-center">
                 <div className="text-3xl font-bold text-gold">{dim.score}</div>
                 <div className="text-sm text-dark-muted mt-1">{dim.label}</div>
                 <div className="w-full bg-dark-border rounded-full h-2 mt-2">

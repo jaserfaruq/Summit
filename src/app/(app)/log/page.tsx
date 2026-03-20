@@ -120,16 +120,23 @@ function LogForm() {
 
     const benchmarkData = benchmarkResults.length > 0
       ? benchmarkResults
-          .filter((b) => b.result)
-          .map((b) => ({
-            exerciseId: b.exerciseId,
-            result: parseFloat(b.result),
-            graduationTarget: parseFloat(b.graduationTarget),
-            percentComplete: Math.min(
-              (parseFloat(b.result) / parseFloat(b.graduationTarget)) * 100,
-              100
-            ),
-          }))
+          .filter((b) => b.result !== "" && b.result !== undefined)
+          .map((b) => {
+            const resultNum = parseFloat(b.result);
+            // Extract first number from graduation target strings like "Lead 5.10a cleanly" or "200 step-ups in 30 min"
+            const targetMatch = b.graduationTarget.match(/[\d.]+/);
+            const targetNum = targetMatch ? parseFloat(targetMatch[0]) : NaN;
+            const validTarget = Number.isFinite(targetNum) && targetNum > 0;
+            return {
+              exerciseId: b.exerciseId,
+              result: Number.isFinite(resultNum) ? resultNum : 0,
+              graduationTarget: validTarget ? targetNum : 0,
+              percentComplete: validTarget && Number.isFinite(resultNum)
+                ? Math.min((resultNum / targetNum) * 100, 100)
+                : 0,
+            };
+          })
+          .filter((b) => b.graduationTarget > 0)
       : null;
 
     await supabase.from("workout_logs").insert({
@@ -162,7 +169,7 @@ function LogForm() {
       </h2>
 
       {prescribedSession && (
-        <div className="bg-dark-card border border-dark-border rounded-lg p-4">
+        <div className="bg-dark-card/80 backdrop-blur-sm border border-dark-border/50 rounded-lg p-4">
           <p className="text-sm text-dark-muted italic mb-3">{prescribedSession.objective}</p>
           <button
             onClick={handleMarkComplete}

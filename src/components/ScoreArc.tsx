@@ -27,7 +27,7 @@ export default function ScoreArc({
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   return (
-    <div className="bg-dark-card rounded-xl p-4 text-center border border-dark-border">
+    <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl p-4 text-center border border-dark-border/50">
       <div className="relative inline-block">
         <svg width="100" height="100" className="-rotate-90">
           <circle
