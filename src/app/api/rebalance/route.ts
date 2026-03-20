@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_4_SYSTEM } from "@/lib/prompts";
-import { RebalanceRequest, PlanWeek } from "@/lib/types";
+import { RebalanceRequest, PlanWeek, DimensionScores } from "@/lib/types";
 import { calculateAllSessionMinutes, calculateWeekTotalHours, dimensionProgressFractions, DimensionProgress } from "@/lib/scoring";
 
 export const maxDuration = 60;
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body: RebalanceRequest = await request.json();
-  const { planId, currentWeek, actualScores, expectedScores, targetScores, tier } = body;
+  const { planId, currentWeek } = body;
 
   // Fetch remaining weekly targets
   const { data: remainingWeeks, error } = await supabase
@@ -42,9 +42,32 @@ export async function POST(request: NextRequest) {
 
   const objective = (plan as Record<string, unknown>).objectives as Record<string, unknown>;
 
-  const weeksToRebalance = tier === 1
-    ? remainingWeeks?.filter((w) => w.week_type === "regular") || []
-    : remainingWeeks?.filter((w) => w.week_type === "regular").slice(0, 2) || [];
+  const actualScores: DimensionScores = {
+    cardio: objective.current_cardio_score as number,
+    strength: objective.current_strength_score as number,
+    climbing_technical: objective.current_climbing_score as number,
+    flexibility: objective.current_flexibility_score as number,
+  };
+
+  const targetScores: DimensionScores = {
+    cardio: objective.target_cardio_score as number,
+    strength: objective.target_strength_score as number,
+    climbing_technical: objective.target_climbing_score as number,
+    flexibility: objective.target_flexibility_score as number,
+  };
+
+  // Get expected scores for current week
+  const { data: currentWeekTarget } = await supabase
+    .from("weekly_targets")
+    .select("expected_scores")
+    .eq("plan_id", planId)
+    .eq("week_number", currentWeek)
+    .single();
+
+  const expectedScores = (currentWeekTarget?.expected_scores as DimensionScores) || actualScores;
+
+  // All remaining weeks get rebalanced
+  const weeksToRebalance = remainingWeeks || [];
 
   if (weeksToRebalance.length === 0) {
     return NextResponse.json({ updatedWeeks: [] });
@@ -70,9 +93,8 @@ export async function POST(request: NextRequest) {
 Actual scores: ${JSON.stringify(actualScores)}
 Expected scores: ${JSON.stringify(expectedScores)}
 Target scores: ${JSON.stringify(targetScores)}
-Rebalance tier: ${tier} (${tier === 1 ? "full rebalance of all remaining regular weeks" : "emergency - next 1-2 weeks only"})
 
-Objective: ${objective.name}. Type: ${objective.type}.
+Objective: ${objective.name}. Type: ${objective.type}. Target date: ${objective.target_date}.
 Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}
 Graduation benchmarks: ${JSON.stringify(objective.graduation_benchmarks)}
 
@@ -80,7 +102,7 @@ Per-dimension status:
 ${dimStatusLines}
 ${maintenanceDims.length > 0 ? `\nDimensions in MAINTENANCE MODE: ${maintenanceDims.join(", ")}. Prescribe only 1 session/week at 60% volume for these. Reallocate freed time to behind-schedule dimensions.` : ""}
 
-Remaining regular weeks to regenerate (${weeksToRebalance.length} weeks):
+Remaining weeks to regenerate (${weeksToRebalance.length} weeks):
 ${weeksToRebalance.map((w) => `Week ${w.week_number}: ${w.week_start}, currently ${w.total_hours}h`).join("\n")}`;
 
   try {

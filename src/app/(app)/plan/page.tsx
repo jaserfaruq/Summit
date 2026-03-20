@@ -3,8 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective } from "@/lib/types";
-import WeekBadge from "@/components/WeekBadge";
+import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback } from "@/lib/types";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import Link from "next/link";
 
@@ -37,10 +36,8 @@ function PlanContent() {
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [validatedObj, setValidatedObj] = useState<ValidatedObjective | null>(null);
   const [completingWeek, setCompletingWeek] = useState<number | null>(null);
-  const [weekCompleteResult, setWeekCompleteResult] = useState<Record<number, {
-    updatedScores: Record<string, number>;
-    rebalanceTriggered: boolean;
-  }>>({});
+  const [weekCompleteResult, setWeekCompleteResult] = useState<Record<number, WeekCompletionFeedback>>({});
+  const [rebalancing, setRebalancing] = useState(false);
   const [batchGenerating, setBatchGenerating] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ generated: number; total: number } | null>(null);
   const [deletingLog, setDeletingLog] = useState<string | null>(null);
@@ -251,21 +248,18 @@ function PlanContent() {
     if (!plan) return;
     setCompletingWeek(week.week_number);
 
-    // Get logs for this week by week_number (not calendar dates)
+    // Get logs for this week — extract ratings per session
     const weekLogs = workoutLogs.filter(
       (log) => log.week_number === week.week_number && log.plan_id === plan.id
     );
 
-    const logsForApi = weekLogs.map((log) => ({
-      logged_date: log.logged_date,
-      dimension: log.dimension,
-      duration_min: log.duration_min,
-      details: log.details,
-      benchmark_results: log.benchmark_results,
-      completed_as_prescribed: log.completed_as_prescribed,
-      session_name: log.session_name,
-      notes: log.notes,
-    }));
+    const ratings = weekLogs
+      .filter((log) => log.rating != null)
+      .map((log) => ({
+        sessionName: log.session_name || "",
+        dimension: log.dimension as Dimension,
+        rating: (log.rating || 3) as 1 | 2 | 3 | 4 | 5,
+      }));
 
     try {
       const res = await fetch("/api/complete-week", {
@@ -274,7 +268,7 @@ function PlanContent() {
         body: JSON.stringify({
           planId: plan.id,
           weekNumber: week.week_number,
-          workoutLogs: logsForApi,
+          ratings,
         }),
       });
 
@@ -283,7 +277,7 @@ function PlanContent() {
         throw new Error(data.error || "Failed to complete week");
       }
 
-      const result = await res.json();
+      const result: WeekCompletionFeedback = await res.json();
       setWeekCompleteResult((prev) => ({
         ...prev,
         [week.week_number]: result,
@@ -308,6 +302,33 @@ function PlanContent() {
     }
 
     setCompletingWeek(null);
+  }
+
+  async function handleRebalance() {
+    if (!plan) return;
+    setRebalancing(true);
+    try {
+      const res = await fetch("/api/rebalance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId: plan.id,
+          currentWeek: plan.current_week_number,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to rebalance plan");
+      }
+
+      // Refresh plan data to pick up rebalanced sessions
+      await fetchPlan();
+    } catch (error) {
+      console.error("Error rebalancing:", error);
+      alert(error instanceof Error ? error.message : "Failed to rebalance plan");
+    }
+    setRebalancing(false);
   }
 
   function getLogsForWeek(week: WeeklyTarget): WorkoutLog[] {
@@ -568,6 +589,35 @@ function PlanContent() {
         </div>
       )}
 
+      {/* Rebalance Plan button */}
+      {objective && (
+        <button
+          onClick={handleRebalance}
+          disabled={rebalancing}
+          className={`w-full py-3 rounded-xl font-medium text-sm transition-colors border ${
+            // Check if any dimension is 5+ pts off — highlight with accent color
+            (() => {
+              const current = {
+                cardio: objective.current_cardio_score,
+                strength: objective.current_strength_score,
+                climbing_technical: objective.current_climbing_score,
+                flexibility: objective.current_flexibility_score,
+              };
+              const currentWeekData = weeks.find(w => w.week_number === plan.current_week_number);
+              if (!currentWeekData?.expected_scores) return false;
+              const expected = currentWeekData.expected_scores as Record<string, number>;
+              return Object.keys(current).some(
+                dim => Math.abs((expected[dim] || 0) - current[dim as keyof typeof current]) >= 5
+              );
+            })()
+              ? "bg-burnt-orange/20 border-burnt-orange/40 text-burnt-orange hover:bg-burnt-orange/30"
+              : "bg-dark-card/80 border-dark-border/50 text-dark-muted hover:bg-dark-card hover:text-white"
+          } disabled:opacity-50`}
+        >
+          {rebalancing ? "Rebalancing..." : "Rebalance Plan"}
+        </button>
+      )}
+
       {/* Batch generation progress */}
       {batchGenerating && (
         <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-gold/30 p-4 flex items-center gap-3">
@@ -617,7 +667,6 @@ function PlanContent() {
               >
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-white">Week {week.week_number}</span>
-                  <WeekBadge type={week.week_type} />
                   {isCurrent && (
                     <span className="text-xs bg-gold text-dark-bg px-2 py-0.5 rounded font-medium">Current</span>
                   )}
@@ -690,8 +739,6 @@ function PlanContent() {
                         className={`rounded-lg border ${
                           logged
                             ? "border-green-800/40 bg-green-900/10"
-                            : session.isBenchmarkSession
-                            ? "border-test-blue/30 bg-test-blue/10"
                             : "border-dark-border bg-dark-surface"
                         }`}
                       >
@@ -704,9 +751,6 @@ function PlanContent() {
                         >
                           <div className="flex items-center gap-2">
                             {logged && <span className="text-green-400 text-sm">✓</span>}
-                            {!logged && session.isBenchmarkSession && (
-                              <span className="text-blue-300 text-sm">★</span>
-                            )}
                             <span className={`font-medium text-sm ${logged ? "line-through opacity-60" : "text-white"}`}>
                               {session.name}
                             </span>
@@ -761,7 +805,7 @@ function PlanContent() {
                                 <h5 className="text-xs font-semibold text-gold uppercase mb-1">Training</h5>
                                 <ol className="text-sm text-dark-muted space-y-1.5">
                                   {session.training.map((ex) => (
-                                    <li key={ex.exerciseNumber} className={ex.isBenchmark ? "bg-test-blue/10 p-2 rounded border border-test-blue/20" : ""}>
+                                    <li key={ex.exerciseNumber}>
                                       <span className="font-medium text-dark-text">
                                         {ex.exerciseNumber}. {ex.description}
                                         {ex.durationMinutes ? (
@@ -770,11 +814,6 @@ function PlanContent() {
                                       </span>
                                       <br />
                                       <span className="text-dark-muted">{ex.details}</span>
-                                      {ex.isBenchmark && ex.graduationTarget && (
-                                        <span className="block text-blue-300 text-xs mt-0.5">
-                                          Graduation target: {ex.graduationTarget}
-                                        </span>
-                                      )}
                                       {ex.intensityNote && (
                                         <span className="block text-dark-muted text-xs italic">{ex.intensityNote}</span>
                                       )}
@@ -801,40 +840,37 @@ function PlanContent() {
                     <button
                       onClick={() => handleCompleteWeek(week)}
                       disabled={isCompleting}
-                      className={`w-full mt-3 py-3 rounded-lg font-medium text-sm transition-colors ${
-                        week.week_type === "test"
-                          ? "bg-test-blue text-white hover:bg-test-blue/90"
-                          : "bg-gold text-dark-bg hover:bg-gold/90"
-                      } disabled:opacity-50`}
+                      className="w-full mt-3 py-3 rounded-lg font-medium text-sm transition-colors bg-gold text-dark-bg hover:bg-gold/90 disabled:opacity-50"
                     >
                       {isCompleting
-                        ? "Recalculating Scores..."
-                        : week.week_type === "test"
-                        ? `Complete Test Week ${week.week_number} & Recalculate Scores`
+                        ? "Updating Scores..."
                         : `Complete Week ${week.week_number} & Update Scores`
                       }
                     </button>
                   )}
 
-                  {/* Score update result */}
+                  {/* Score update result with trajectory feedback */}
                   {completeResult && (
                     <div className={`mt-3 rounded-lg p-4 border ${
-                      completeResult.rebalanceTriggered
+                      completeResult.rebalanceRecommended
                         ? "bg-burnt-orange/10 border-burnt-orange/30"
                         : "bg-green-900/20 border-green-800/40"
                     }`}>
-                      <h4 className="text-sm font-semibold text-white mb-2">
-                        {completeResult.rebalanceTriggered
-                          ? "Scores Updated — Rebalancing Triggered"
-                          : "Scores Updated"
-                        }
-                      </h4>
-                      <div className="flex gap-4 text-xs text-dark-text">
+                      <h4 className="text-sm font-semibold text-white mb-2">Scores Updated</h4>
+                      <div className="flex gap-4 text-xs text-dark-text mb-2">
                         <span>C: {completeResult.updatedScores.cardio}</span>
                         <span>S: {completeResult.updatedScores.strength}</span>
                         <span>CT: {completeResult.updatedScores.climbing_technical}</span>
                         <span>F: {completeResult.updatedScores.flexibility}</span>
                       </div>
+                      {completeResult.summary && (
+                        <p className="text-xs text-dark-muted">{completeResult.summary}</p>
+                      )}
+                      {completeResult.rebalanceRecommended && (
+                        <p className="text-xs text-burnt-orange mt-1">
+                          Consider rebalancing your plan — some dimensions are significantly off track.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { GeneratePlanRequest } from "@/lib/types";
-import { generateWeekSchedule, expectedScoresAtWeek } from "@/lib/scoring";
+import { expectedScoresAtWeek } from "@/lib/scoring";
 import { fetchHeroImageUrl } from "@/lib/unsplash";
 
 export async function POST(request: NextRequest) {
@@ -51,8 +51,7 @@ export async function POST(request: NextRequest) {
     Math.floor((targetDate.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000))
   );
 
-  // Build week schedule algorithmically — no Claude call needed
-  const weekTypes = generateWeekSchedule(totalWeeks);
+  // All weeks are regular — no special week types
   const daysPerWeek = profile?.training_days_per_week || 5;
 
   const currentScores = {
@@ -72,25 +71,24 @@ export async function POST(request: NextRequest) {
   // Base hours: scale by training days, cap at 10 for recreational athletes
   const baseHours = Math.min(daysPerWeek * 1.2, 10);
 
-  const weeks = weekTypes.map((weekType, i) => {
+  const weeks = Array.from({ length: totalWeeks }, (_, i) => {
     const weekNumber = i + 1;
     const weekStart = new Date(now);
     weekStart.setDate(weekStart.getDate() + i * 7);
     const weekStartStr = weekStart.toISOString().split("T")[0];
 
-    // Volume scaling by week type
-    let volumeMultiplier = 1.0;
-    if (weekType === "test") volumeMultiplier = 0.8;
-    else if (weekType === "taper") volumeMultiplier = 0.6;
+    // Taper: reduce volume in last 2 weeks
+    const isTaper = weekNumber > totalWeeks - 2;
+    const volumeMultiplier = isTaper ? 0.6 : 1.0;
 
-    // Progressive volume: ramp up ~5% per week, capped by week type
+    // Progressive volume: ramp up ~5% per week
     const progressionFactor = Math.min(1.0, 0.7 + (weekNumber / totalWeeks) * 0.3);
     const totalHours = Math.round(baseHours * volumeMultiplier * progressionFactor * 10) / 10;
 
     return {
       weekNumber,
       weekStartDate: weekStartStr,
-      weekType,
+      weekType: "regular" as const,
       totalHoursTarget: totalHours,
       expectedScores: expectedScoresAtWeek(currentScores, targetScores, weekNumber, totalWeeks),
     };
@@ -264,8 +262,7 @@ function buildPlanPhilosophy(
   }
 
   // Periodization note
-  const testWeekCount = Math.floor(totalWeeks / 4);
-  parts.push(`Test weeks every ~4 weeks (${testWeekCount} total) calibrate your progress with benchmark workouts, followed by a 2-week taper to peak on your target date.`);
+  parts.push(`Rate each workout on a 1-5 scale to track your progress. The plan includes a 2-week taper to peak on your target date.`);
 
   return parts.join(" ");
 }

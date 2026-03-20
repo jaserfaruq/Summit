@@ -83,7 +83,6 @@ Current scores: Cardio ${objective.current_cardio_score}, Strength ${objective.c
 Target scores: Cardio ${objective.target_cardio_score}, Strength ${objective.target_strength_score}, Climbing/Technical ${objective.target_climbing_score}, Flexibility ${objective.target_flexibility_score}.
 
 THIS IS WEEK ${weekNumber} of ${totalWeeks || "?"} total weeks.
-Week type: ${weekTarget.week_type}.
 Week start date: ${weekTarget.week_start}.
 Target hours: ${weekTarget.total_hours}.
 Expected scores this week: ${JSON.stringify(weekTarget.expected_scores)}.

@@ -18,9 +18,6 @@
 - **Accent:** #D4782F (burnt orange) — callouts, warnings, CTAs
 - **Background:** #F4F1EC (warm cream) — page backgrounds
 - **Mid:** #8B9D83 (sage) — secondary text, borders
-- **Test week blue:** #1A5276 — test week banners, benchmark indicators
-- **Recovery green:** #2E7D32 — recovery week banners
-- **Taper amber:** #F57F17 — taper week banners
 - **Score arc colors:** Green (within 10 of target), Yellow (10–25 away), Red (25+ away)
 
 -----
@@ -185,7 +182,7 @@ CREATE TABLE weekly_targets (
   plan_id UUID NOT NULL REFERENCES training_plans(id),
   week_number INT NOT NULL,
   week_start DATE NOT NULL,
-  week_type TEXT NOT NULL,       -- test | recovery | regular | taper
+  week_type TEXT NOT NULL,       -- regular (all weeks are regular; taper is baked into volume)
   total_hours FLOAT,
   expected_scores JSONB NOT NULL, -- {cardio: 48, strength: 35, ...} linear interpolation
   sessions JSONB NOT NULL         -- array of session objects (full detail)
@@ -203,10 +200,11 @@ CREATE TABLE workout_logs (
   dimension TEXT NOT NULL,        -- cardio | strength | climbing_technical | flexibility
   duration_min INT,
   details JSONB,                  -- free-form: {activity, distance, elevation, exercises, etc.}
-  benchmark_results JSONB,        -- test week only: {exerciseId, result, graduationTarget, percentComplete}
+  benchmark_results JSONB,        -- deprecated, kept for backward compat
   completed_as_prescribed BOOLEAN DEFAULT FALSE,
   session_name TEXT,              -- which plan session this corresponds to
   notes TEXT,
+  rating INT CHECK (rating >= 1 AND rating <= 5), -- 1-5 self-rating (1=way too hard, 3=just right, 5=way too easy)
   created_at TIMESTAMPTZ DEFAULT now()
 );
 -- RLS: users own their logs
@@ -259,7 +257,7 @@ CREATE TABLE component_feedback (
 
 1. Fetch objective (with target scores, current scores, graduation benchmarks, relevance profiles).
 1. Fetch assessment.
-1. Calculate weeks available from now to target_date minus 2 (taper).
+1. Calculate weeks available from now to target_date.
 1. Call Claude API with Prompt 2 (see below).
 1. Parse JSON response.
 1. Store plan in `training_plans`.
@@ -268,29 +266,22 @@ CREATE TABLE component_feedback (
 
 ### POST /api/complete-week
 
-**Input:** `{ planId, weekNumber, workoutLogs[] }`
+**Input:** `{ planId, weekNumber, ratings: SessionRating[] }`
+where `SessionRating = { sessionName, dimension, rating: 1-5 }`
 **Logic:**
 
-1. Fetch the weekly_target to get `week_type`.
-1. **If week_type = “test”:**
-- For each dimension, find benchmark_results in the logs.
-- Calculate: `dimensionScore = (avg of min(result/target, 1.0) across benchmarks) × targetScore`.
-- Write to score_history with `is_test_week = true, confidence = "high"`.
-- Update current scores on objective.
-- Compare actual scores to expected_scores. If any dimension is 3+ points off, trigger rebalancing (call Prompt 4).
-1. **If week_type = “regular”:**
-- Call Claude API with Prompt 3, passing logs + relevance profiles.
-- Apply adjustments (max ±3 per dimension).
-- Write to score_history with `is_test_week = false, confidence = "low"`.
-- Update current scores on objective.
-- If any dimension estimated 5+ points below expected, trigger Tier 2 emergency rebalancing.
-1. **If week_type = “recovery” or “taper”:** No score changes. Skip.
-   **Output:** `{ updatedScores, rebalanceTriggered, adjustmentDetails }`
+1. Fetch weekly_target to get expected_scores.
+1. For each dimension, collect all ratings from that dimension's sessions.
+1. Calculate new score: `newScore = currentScore + expectedGain × multiplier` where expectedGain = expectedScore - currentScore and multiplier is from RATING_MULTIPLIERS (see Scoring Rules).
+1. Write to score_history with `change_reason = “weekly_rating”`.
+1. Update current scores on objective.
+1. Return completion feedback: updated scores, expected scores, gaps, plain-language summary, and whether rebalancing is recommended (any dimension 5+ pts off trajectory).
+   **Output:** `{ updatedScores, expectedScores, gaps, summary, rebalanceRecommended }`
 
 ### POST /api/rebalance
 
-**Input:** `{ planId, currentWeek, actualScores, expectedScores, targetScores, tier (1 or 2) }`
-**Logic:** Call Claude API with Prompt 4. If Tier 1, regenerate all remaining weeks. If Tier 2, adjust next 1–2 weeks only. Update weekly_targets in database.
+**Input:** `{ planId, currentWeek }`
+**Logic:** Fetch current and target scores from objective. Call Claude API with Prompt 4. Regenerate all remaining weeks. Update weekly_targets in database.
 **Output:** `{ updatedWeeks[] }`
 
 ### POST /api/find-routes
@@ -303,60 +294,56 @@ CREATE TABLE component_feedback (
 
 ## Scoring Rules
 
-### Formula
+### Self-Rating System
+
+After each workout session, the user rates the session on a 1–5 scale:
+- **1** = Way too hard / couldn't complete
+- **2** = Harder than expected
+- **3** = Just right (as prescribed)
+- **4** = Easier than expected
+- **5** = Way too easy
+
+### Rating Multipliers
 
 ```
-dimensionScore = avg(min(benchmarkResult / graduationTarget, 1.0) for each benchmark) × targetScore
+RATING_MULTIPLIERS = { 1: 0, 2: 0.5, 3: 1.0, 4: 1.25, 5: 1.5 }
 ```
 
-### Week types (never overlap)
-
-|Type    |Volume|Benchmarks           |Scoring                   |Rebalancing                 |
-|--------|------|---------------------|--------------------------|----------------------------|
-|test    |75–80%|Yes (3 of 5 sessions)|High-confidence formula   |Full rebalance if 3+ pts off|
-|recovery|50%   |No                   |No changes                |No                          |
-|regular |100%  |No                   |AI estimate ±1–3 pts      |Emergency if 5+ pts behind  |
-|taper   |60%   |No                   |No changes (scores locked)|No                          |
-
-### Week scheduling (16-week example)
+### Score Calculation
 
 ```
-W1: regular (self-assessment scores)
-W2: test (optional early calibration — highlighted in UI)
-W3-W4: regular
-W5: test
-W6: recovery
-W7-W8: regular
-W9: test
-W10: recovery
-W11-W12: regular
-W13: test (final)
-W14-W15: taper
-W16: taper → OBJECTIVE
+expectedGain = expectedScore[dimension] - currentScore[dimension]
+newScore = currentScore + expectedGain × multiplier
 ```
 
-### Expected scores
+Where `multiplier` is the RATING_MULTIPLIER for the average rounded rating across all sessions in that dimension for the week. If no sessions were logged for a dimension, the score regresses by 1 point.
+
+### Week Types
+
+All weeks are `regular`. There are no test, recovery, or taper week types. Taper volume (~40% reduction) is baked into plan generation for the final 2 weeks.
+
+### Expected Scores
 
 Linear interpolation from current to target across plan duration. If cardio starts at 35 and target is 78 over 16 weeks: expected at week N = 35 + (78-35) × (N/16).
 
-### Exceeded benchmarks
+### Graduation Benchmarks
 
-Cap at 100% for scoring. Surface to user: “Your cardio exceeds requirements.”
+Graduation benchmarks are generated by Prompt 1 and displayed as aspirational “finish line” targets. They are **not used for scoring** — scoring is entirely based on self-ratings.
 
 ### Quick-log
 
-- “Mark Complete” button on each session → sets `completed_as_prescribed = true`, logs session data from plan.
-- “Log Different” → free-form entry.
-- Benchmark sessions on test weeks always require structured entry (exact numbers).
+- “Mark Complete” button on each session → defaults to rating 3 (“just right”), sets `completed_as_prescribed = true`.
+- “Log Different” → free-form entry with manual rating selection (1–5).
 
-### Dynamic rebalancing
+### Manual Rebalancing
 
-- After test week: compare actual vs expected per dimension. If any 3+ pts off → Tier 1 full rebalance.
-- During regular week: if AI estimates any dimension 5+ pts below trajectory → Tier 2 emergency (next 1–2 weeks only).
-- Ahead dimension drops to maintenance (never below 60% of planned volume).
+- Rebalance button is always visible on the plan page.
+- Button is highlighted when any dimension's current score is 5+ points off the expected trajectory.
+- Triggered manually by user (no automatic rebalancing).
+- Regenerates all remaining weeks via Prompt 4.
+- Ahead dimensions drop to maintenance (never below 60% of planned volume).
 - Behind dimensions get the freed time.
 - Multiple behind → prioritize highest target score.
-- Never rebalance during recovery or taper weeks.
 
 -----
 
@@ -458,13 +445,8 @@ Design a plan that progresses each dimension's score from current to target over
 Periodization rules:
 - Increase total volume by no more than 10% per week.
 - Default to 5 sessions per week (adjust if user specifies fewer).
-- Three non-overlapping week types:
-  - TEST weeks: 3 of 5 sessions contain benchmark exercises. Volume at 75–80%. Scheduled approximately every 4 weeks.
-  - RECOVERY weeks: 50% volume. No benchmarks. No scoring. Scheduled between test weeks.
-  - REGULAR weeks: Full volume. Standard training.
-- Include a 2-week TAPER before the objective date. Volume drops 40%, intensity stays. No benchmarks, no scoring.
-- The last test week must fall before the taper begins.
-- Week 2 should be offered as an optional early test week (the first scheduled test).
+- All weeks are regular. No test, recovery, or taper week types.
+- Reduce volume by ~40% in the final 2 weeks before the objective date (taper baked into plan generation).
 - At least one full rest day per week.
 - Never exceed 12 hours per week for a recreational athlete.
 
@@ -479,8 +461,6 @@ Every prescribed exercise must directly train a key component from the relevance
 
 Exercise names must be approachable and generic — "single-leg box step-downs" not proprietary names. Each exercise clear enough to follow without a coach.
 
-On test weeks, mark benchmark sessions clearly. Include the graduation target inline so the user sees what they're measuring against.
-
 Include expected scores per week as linear interpolation from current to target scores.
 
 Return valid JSON matching this schema:
@@ -494,7 +474,7 @@ Return valid JSON matching this schema:
   "weeks": [{
     "weekNumber": number,
     "weekStartDate": "YYYY-MM-DD",
-    "weekType": "test | recovery | regular | taper",
+    "weekType": "regular",
     "totalHoursTarget": number,
     "expectedScores": { "cardio": number, "strength": number, "climbing_technical": number, "flexibility": number },
     "sessions": [{
@@ -502,7 +482,6 @@ Return valid JSON matching this schema:
       "objective": "string (with duration)",
       "estimatedMinutes": number,
       "dimension": "string (primary dimension)",
-      "isBenchmarkSession": boolean,
       "warmUp": {
         "rounds": number,
         "exercises": [{ "name": "string", "reps": "string" }]
@@ -511,8 +490,6 @@ Return valid JSON matching this schema:
         "exerciseNumber": number,
         "description": "string",
         "details": "string",
-        "isBenchmark": boolean,
-        "graduationTarget": "string | null",
         "intensityNote": "string | null"
       }],
       "cooldown": "string | null"
@@ -537,32 +514,9 @@ Graduation benchmarks: {JSON of graduation benchmarks per dimension}
 Relevance profiles: {JSON of full relevance profiles per dimension}
 ```
 
-### Prompt 3: Weekly Score Evaluation (Regular Weeks Only)
+### Prompt 3: (Removed)
 
-**System prompt:**
-
-```
-You are evaluating an athlete's weekly training against their objective-specific relevance profiles. For each dimension, assess whether the logged training contributed to readiness for the specific objective.
-
-Rules:
-- Maximum adjustment: ±3 points per dimension.
-- Training that targets key components → positive adjustment (up to +3).
-- Training that targets irrelevant components → no adjustment or slight negative (0 to -1).
-- Completed-as-prescribed sessions always contribute positively since they were designed around key components.
-- If any dimension's estimated score would fall 5+ points below the expected trajectory, flag it for emergency rebalancing.
-
-Return JSON:
-{
-  "adjustments": {
-    "cardio": { "change": number, "reasoning": "string" },
-    "strength": { "change": number, "reasoning": "string" },
-    "climbing_technical": { "change": number, "reasoning": "string" },
-    "flexibility": { "change": number, "reasoning": "string" }
-  },
-  "emergencyRebalance": boolean,
-  "rebalanceDimensions": ["string"] // which dimensions are 5+ below
-}
-```
+Weekly score evaluation is no longer done by AI. Scores are calculated from self-ratings using the multiplier formula (see Scoring Rules).
 
 ### Prompt 4: Plan Rebalancing
 
@@ -577,10 +531,7 @@ Rules:
 - Total weekly hours stay roughly the same.
 - If behind in multiple dimensions, prioritize the highest target score.
 - Maintain the same session format (warm-up, training blocks, intensity notes).
-- Do not modify test week, recovery week, or taper week scheduling.
-
-For Tier 1 (post-test week): regenerate ALL remaining regular weeks.
-For Tier 2 (emergency): regenerate only the next 1–2 weeks.
+- Regenerate ALL remaining weeks.
 
 Return the same weekly session JSON format as Prompt 2.
 ```
@@ -623,11 +574,10 @@ Standard Supabase Auth UI. Email/password. Redirect to /dashboard after login.
 - If objective but no plan: “Generate Training Plan” button.
 - If plan exists:
   - **Readiness section:** 4 progress arcs (current vs target per dimension). Tagline under each. Green/yellow/red coloring.
-  - **This week summary:** Week type badge (test/recovery/regular/taper). Sessions with “Mark Complete” buttons.
-  - **Graduation benchmarks:** Latest test results vs targets.
+  - **This week summary:** Sessions with “Mark Complete” buttons.
+  - **Graduation benchmarks:** Display-only aspirational targets.
   - **Objective countdown:** Name, date, weeks remaining.
-  - **Score chart:** Line chart over time. Solid dots = test weeks. Dashed line = regular weeks. Horizontal dashed lines = targets.
-  - Banner if scores are estimates: “Estimated scores — take your first benchmark test to calibrate.”
+  - **Score chart:** Line chart over time from self-ratings. Horizontal dashed lines = targets.
 
 ### /calendar
 
@@ -659,27 +609,26 @@ Standard Supabase Auth UI. Email/password. Redirect to /dashboard after login.
   - Session cards (collapsed by default, current week expanded).
 - **Session card:**
   - Session name, objective line, duration.
-  - If benchmark: star icon + blue highlight.
   - “Mark Complete” button (or “Log Different”).
   - Expandable to show full warm-up + training + cooldown.
-- **Week type banners:** Test = blue, Recovery = green, Taper = amber.
+- **Rebalance button:** Always visible. Highlighted when any dimension is 5+ points off trajectory.
 
 ### /log
 
-- If accessed from “Mark Complete” on a plan session: pre-filled with session data, one-tap confirm.
+- If accessed from “Mark Complete” on a plan session: pre-filled with session data, defaults to rating 3 (“just right”), one-tap confirm.
 - If accessed from “Log Different” or standalone:
   - Dimension selector (cardio/strength/climbing/flexibility).
+  - 1–5 rating selector with descriptive labels.
   - Dimension-specific fields:
     - Cardio: activity type, distance, duration, elevation, avg HR.
     - Strength: add-exercise pattern (name, sets, reps, weight).
     - Climbing: type, grade, pitches, duration.
     - Flexibility: routine name, duration, body areas worked.
-  - If test week benchmark session: structured fields for exact results (number inputs, timers).
 
 ### /progress
 
 - Line chart of all four scores over time from score_history.
-- Solid dots for test weeks (high confidence), lighter dots for regular weeks (low confidence).
+- Uniform data points (all from self-ratings).
 - Horizontal dashed lines for target scores.
 - Date range selector.
 
@@ -730,9 +679,9 @@ Full data for each (target scores, taglines, relevance profiles, graduation benc
 1. **Foundation tables:** validated_objectives, benchmark_exercises. Seed with 15 objectives. Admin page.
 1. **User objectives + calendar:** objectives table, /calendar, /api/match-objective, /api/estimate-scores (Prompt 1), tier badging.
 1. **Assessment:** /assessment wizard, scoring, “estimated” labeling, graduation workout display.
-1. **Plan generation:** /api/generate-plan (Prompt 2), /plan view with week types, session cards, score trajectory.
-1. **Logging + scoring:** /log with quick-log, /api/complete-week (test week math + regular week AI), score_history, /progress chart.
-1. **Rebalancing:** /api/rebalance (Prompt 4), Tier 1 and Tier 2 triggers.
+1. **Plan generation:** /api/generate-plan (Prompt 2), /plan view with session cards, score trajectory.
+1. **Logging + scoring:** /log with quick-log and 1–5 ratings, /api/complete-week (rating-based scoring), score_history, /progress chart.
+1. **Rebalancing:** /api/rebalance (Prompt 4), manual trigger with highlight when 5+ pts off.
 1. **Readiness dashboard:** /dashboard with arcs, countdown, score chart.
 1. **Validator feedback:** component_feedback table, overlay UI, wire into Prompt 1.
 1. **Route recommendations:** /api/find-routes (Prompt 5), UI integration on cardio cards.

@@ -1,48 +1,49 @@
-import { DimensionScores, PlanSession, WeekType } from "./types";
+import { DimensionScores, PlanSession, Dimension, WorkoutRating, RATING_MULTIPLIERS } from "./types";
+
+const DIMENSIONS: Dimension[] = ["cardio", "strength", "climbing_technical", "flexibility"];
 
 /**
- * Calculate dimension score from benchmark results.
- * Formula: avg(min(result/target, 1.0)) × targetScore
- *
- * When currentScore is provided and exceeds targetScore (maintenance dimension),
- * the score is uncapped: avg(result/graduationTarget) × targetScore, floored
- * at currentScore to prevent regression from testing.
+ * Calculate updated score for a dimension based on 1-5 self-ratings.
+ * Averages ratings for the dimension, maps to a multiplier, and applies
+ * that multiplier to the expected weekly gain.
  */
-export function calculateDimensionScore(
-  benchmarkResults: { result: number; graduationTarget: number }[],
-  targetScore: number,
-  currentScore?: number
+export function calculateScoreFromRatings(
+  ratings: WorkoutRating[],
+  expectedGain: number,
+  currentScore: number
 ): number {
-  // Filter out invalid results (NaN, zero denominators)
-  const validResults = benchmarkResults.filter(
-    (b) => Number.isFinite(b.result) && Number.isFinite(b.graduationTarget) && b.graduationTarget > 0
-  );
-
-  if (validResults.length === 0) {
-    // No valid benchmarks: preserve current score instead of returning 0
-    return currentScore ?? 0;
+  if (ratings.length === 0) {
+    // No training logged for this dimension — slight regression
+    return Math.max(0, currentScore - 1);
   }
 
-  const isMaintenanceDim = currentScore !== undefined && currentScore >= targetScore;
+  const avgRating = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+  // Round to nearest valid rating for multiplier lookup
+  const roundedRating = Math.max(1, Math.min(5, Math.round(avgRating))) as WorkoutRating;
+  const multiplier = RATING_MULTIPLIERS[roundedRating];
 
-  if (isMaintenanceDim) {
-    // Uncapped: allow scores above targetScore for strong athletes
-    const avg =
-      validResults.reduce((sum, b) => {
-        return sum + b.result / b.graduationTarget;
-      }, 0) / validResults.length;
-    const calculated = Math.round(avg * targetScore);
-    // Never drop below current score due to benchmark testing
-    return Number.isFinite(calculated) ? Math.max(calculated, currentScore) : currentScore;
+  const newScore = currentScore + expectedGain * multiplier;
+  return Math.round(Math.max(0, newScore));
+}
+
+/**
+ * Calculate scores for all dimensions from session ratings.
+ */
+export function calculateAllScoresFromRatings(
+  ratings: { dimension: Dimension; rating: WorkoutRating }[],
+  currentScores: DimensionScores,
+  expectedScores: DimensionScores
+): DimensionScores {
+  const result = { ...currentScores };
+
+  for (const dim of DIMENSIONS) {
+    const dimRatings = ratings.filter(r => r.dimension === dim).map(r => r.rating);
+    const expectedGain = expectedScores[dim] - currentScores[dim];
+
+    result[dim] = calculateScoreFromRatings(dimRatings, expectedGain, currentScores[dim]);
   }
 
-  // Standard capped formula for dimensions still building toward target
-  const avg =
-    validResults.reduce((sum, b) => {
-      return sum + Math.min(b.result / b.graduationTarget, 1.0);
-    }, 0) / validResults.length;
-  const calculated = Math.round(avg * targetScore);
-  return Number.isFinite(calculated) ? calculated : (currentScore ?? 0);
+  return result;
 }
 
 /**
@@ -83,59 +84,72 @@ export function expectedScoresAtWeek(
 }
 
 /**
- * Check if any dimension deviates enough to trigger rebalancing.
+ * Check if rebalancing should be highlighted (any dimension 5+ pts off trajectory).
  */
-export function checkRebalanceTrigger(
+export function shouldHighlightRebalance(
   actual: DimensionScores,
-  expected: DimensionScores,
-  weekType: WeekType
-): { triggered: boolean; dimensions: string[]; tier: 1 | 2 } {
-  if (weekType === "taper") {
-    return { triggered: false, dimensions: [], tier: 1 };
-  }
+  expected: DimensionScores
+): { recommended: boolean; dimensions: Dimension[] } {
+  const offTrackDims: Dimension[] = [];
 
-  const threshold = weekType === "test" ? 3 : 5;
-  const tier = weekType === "test" ? 1 : 2;
-  const dimensions: string[] = [];
-
-  for (const dim of ["cardio", "strength", "climbing_technical", "flexibility"] as const) {
-    if (expected[dim] - actual[dim] >= threshold) {
-      dimensions.push(dim);
+  for (const dim of DIMENSIONS) {
+    const gap = Math.abs(expected[dim] - actual[dim]);
+    if (gap >= 5) {
+      offTrackDims.push(dim);
     }
   }
 
-  return { triggered: dimensions.length > 0, dimensions, tier };
+  return { recommended: offTrackDims.length > 0, dimensions: offTrackDims };
 }
 
 /**
- * Generate week schedule for a plan of N weeks.
- * Test weeks on week 2 and the middle of the plan. No recovery weeks.
+ * Generate a plain-language summary of weekly progress.
  */
-export function generateWeekSchedule(totalWeeks: number): WeekType[] {
-  const schedule: WeekType[] = new Array(totalWeeks).fill("regular");
+export function generateCompletionSummary(
+  actual: DimensionScores,
+  expected: DimensionScores,
+  target: DimensionScores
+): string {
+  const dimLabels: Record<Dimension, string> = {
+    cardio: "Cardio",
+    strength: "Strength",
+    climbing_technical: "Climbing/Technical",
+    flexibility: "Flexibility",
+  };
 
-  // Last 2 weeks are always taper
-  if (totalWeeks >= 2) {
-    schedule[totalWeeks - 1] = "taper";
-    schedule[totalWeeks - 2] = "taper";
-  }
+  const ahead: string[] = [];
+  const onTrack: string[] = [];
+  const behind: string[] = [];
 
-  const taperStart = totalWeeks - 2;
+  for (const dim of DIMENSIONS) {
+    const gap = actual[dim] - expected[dim];
+    const label = dimLabels[dim];
 
-  // Test week on week 2 (0-indexed: 1)
-  if (totalWeeks > 4 && 1 < taperStart) {
-    schedule[1] = "test";
-  }
-
-  // Test week at the midpoint of the plan (before taper)
-  if (totalWeeks > 4) {
-    const midWeek = Math.floor(taperStart / 2);
-    if (midWeek > 1 && midWeek < taperStart) {
-      schedule[midWeek] = "test";
+    if (actual[dim] >= target[dim]) {
+      ahead.push(`${label} has reached its target`);
+    } else if (gap >= 3) {
+      ahead.push(`${label} is ahead of schedule (+${gap})`);
+    } else if (gap <= -5) {
+      behind.push(`${label} is falling behind (${gap})`);
+    } else if (gap <= -3) {
+      behind.push(`${label} is slightly behind (${gap})`);
+    } else {
+      onTrack.push(label);
     }
   }
 
-  return schedule;
+  const parts: string[] = [];
+  if (onTrack.length > 0) {
+    parts.push(`${onTrack.join(" and ")} ${onTrack.length === 1 ? "is" : "are"} on track.`);
+  }
+  if (ahead.length > 0) {
+    parts.push(ahead.join(". ") + ".");
+  }
+  if (behind.length > 0) {
+    parts.push(behind.join(". ") + ".");
+  }
+
+  return parts.join(" ") || "All dimensions are progressing as expected.";
 }
 
 /**
@@ -211,10 +225,9 @@ export function dimensionProgressFractions(
   weekNumber: number,
   totalWeeks: number
 ): Record<string, DimensionProgress> {
-  const dimensions = ["cardio", "strength", "climbing_technical", "flexibility"] as const;
   const result: Record<string, DimensionProgress> = {};
 
-  for (const dim of dimensions) {
+  for (const dim of DIMENSIONS) {
     const current = currentScores[dim];
     const target = targetScores[dim];
 

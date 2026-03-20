@@ -161,9 +161,9 @@ export default function ProgressPage() {
                     key={`${dim.key}-${i}`}
                     cx={xScale(i)}
                     cy={yScale(point[dim.key])}
-                    r={point.is_test_week ? 5 : 3}
+                    r={4}
                     fill={dim.color}
-                    opacity={point.is_test_week ? 1 : 0.5}
+                    opacity={0.8}
                   />
                 ))
               )}
@@ -197,12 +197,8 @@ export default function ProgressPage() {
 
           <div className="flex items-center gap-6 justify-center text-xs text-dark-muted">
             <div className="flex items-center gap-1">
-              <div className="w-2.5 h-2.5 rounded-full bg-dark-muted" />
-              <span>Regular week (estimated)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3.5 h-3.5 rounded-full bg-white" />
-              <span>Test week (measured)</span>
+              <div className="w-3 h-3 rounded-full bg-dark-muted" />
+              <span>Weekly score (from self-ratings)</span>
             </div>
           </div>
 
@@ -212,7 +208,6 @@ export default function ProgressPage() {
               <thead>
                 <tr className="border-b border-dark-border">
                   <th className="px-4 py-3 text-left text-dark-muted font-medium">Week</th>
-                  <th className="px-4 py-3 text-center text-dark-muted font-medium">Type</th>
                   <th className="px-4 py-3 text-center text-dark-muted font-medium">Cardio</th>
                   <th className="px-4 py-3 text-center text-dark-muted font-medium">Strength</th>
                   <th className="px-4 py-3 text-center text-dark-muted font-medium">Climbing</th>
@@ -223,15 +218,6 @@ export default function ProgressPage() {
                 {scoreHistory.map((entry) => (
                   <tr key={entry.id} className="border-b border-dark-border/50">
                     <td className="px-4 py-2 text-dark-text">{new Date(entry.week_ending).toLocaleDateString()}</td>
-                    <td className="px-4 py-2 text-center">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                        entry.is_test_week
-                          ? "bg-test-blue/20 text-blue-300"
-                          : "bg-dark-border text-dark-muted"
-                      }`}>
-                        {entry.is_test_week ? "Test" : "Estimate"}
-                      </span>
-                    </td>
                     <td className="px-4 py-2 text-center font-mono text-dark-text">{entry.cardio_score}</td>
                     <td className="px-4 py-2 text-center font-mono text-dark-text">{entry.strength_score}</td>
                     <td className="px-4 py-2 text-center font-mono text-dark-text">{entry.climbing_score}</td>

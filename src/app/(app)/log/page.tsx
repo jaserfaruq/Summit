@@ -3,13 +3,21 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { Dimension, PlanSession, WeeklyTarget } from "@/lib/types";
+import { Dimension, PlanSession, WeeklyTarget, WorkoutRating } from "@/lib/types";
 
 const DIMENSIONS: { value: Dimension; label: string }[] = [
   { value: "cardio", label: "Cardio" },
   { value: "strength", label: "Strength" },
   { value: "climbing_technical", label: "Climbing / Technical" },
   { value: "flexibility", label: "Flexibility" },
+];
+
+const RATING_OPTIONS: { value: WorkoutRating; label: string; description: string }[] = [
+  { value: 1, label: "1", description: "Way too hard — couldn't complete" },
+  { value: 2, label: "2", description: "Struggled — barely finished" },
+  { value: 3, label: "3", description: "Just right — good challenge" },
+  { value: 4, label: "4", description: "Slightly easy — could do more" },
+  { value: 5, label: "5", description: "Way too easy — need harder work" },
 ];
 
 const inputClass = "w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50";
@@ -25,10 +33,9 @@ function LogForm() {
   const [dimension, setDimension] = useState<Dimension>("cardio");
   const [durationMin, setDurationMin] = useState("");
   const [notes, setNotes] = useState("");
-  const [completedAsPrescribed, setCompletedAsPrescribed] = useState(false);
+  const [rating, setRating] = useState<WorkoutRating>(3);
   const [loading, setLoading] = useState(false);
   const [prescribedSession, setPrescribedSession] = useState<PlanSession | null>(null);
-  const [, setWeekType] = useState<string>("regular");
 
   const [activityType, setActivityType] = useState("run");
   const [cardioDistance, setCardioDistance] = useState("");
@@ -41,9 +48,6 @@ function LogForm() {
   const [pitches, setPitches] = useState("");
   const [routineName, setRoutineName] = useState("");
   const [bodyAreas, setBodyAreas] = useState("");
-  const [benchmarkResults, setBenchmarkResults] = useState<
-    { exerciseId: string; exerciseName: string; result: string; graduationTarget: string }[]
-  >([]);
 
   useEffect(() => {
     if (planId && weekNumber && sessionName) {
@@ -62,7 +66,6 @@ function LogForm() {
       .single();
 
     if (weekTarget) {
-      setWeekType(weekTarget.week_type);
       const session = (weekTarget as WeeklyTarget).sessions.find(
         (s: PlanSession) => s.name === sessionName
       );
@@ -70,18 +73,6 @@ function LogForm() {
         setPrescribedSession(session);
         setDimension(session.dimension as Dimension);
         setDurationMin(session.estimatedMinutes.toString());
-
-        if (session.isBenchmarkSession) {
-          const benchmarks = session.training
-            .filter((t) => t.isBenchmark)
-            .map((t) => ({
-              exerciseId: "",
-              exerciseName: t.description,
-              result: "",
-              graduationTarget: t.graduationTarget || "",
-            }));
-          setBenchmarkResults(benchmarks);
-        }
       }
     }
   }
@@ -96,7 +87,7 @@ function LogForm() {
     setExercises(updated);
   }
 
-  async function handleSubmit(overridePrescribed?: boolean, benchmarkOverride?: typeof benchmarkResults) {
+  async function handleSubmit(overrideRating?: WorkoutRating) {
     setLoading(true);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -118,27 +109,7 @@ function LogForm() {
       details.bodyAreas = bodyAreas;
     }
 
-    const effectiveBenchmarks = benchmarkOverride ?? benchmarkResults;
-    const benchmarkData = effectiveBenchmarks.length > 0
-      ? effectiveBenchmarks
-          .filter((b) => b.result !== "" && b.result !== undefined)
-          .map((b) => {
-            const resultNum = parseFloat(b.result);
-            // Extract first number from graduation target strings like "Lead 5.10a cleanly" or "200 step-ups in 30 min"
-            const targetMatch = b.graduationTarget.match(/[\d.]+/);
-            const targetNum = targetMatch ? parseFloat(targetMatch[0]) : NaN;
-            const validTarget = Number.isFinite(targetNum) && targetNum > 0;
-            return {
-              exerciseId: b.exerciseId,
-              result: Number.isFinite(resultNum) ? resultNum : 0,
-              graduationTarget: validTarget ? targetNum : 0,
-              percentComplete: validTarget && Number.isFinite(resultNum)
-                ? Math.min((resultNum / targetNum) * 100, 100)
-                : 0,
-            };
-          })
-          .filter((b) => b.graduationTarget > 0)
-      : null;
+    const finalRating = overrideRating ?? rating;
 
     await supabase.from("workout_logs").insert({
       user_id: user.id,
@@ -146,12 +117,12 @@ function LogForm() {
       dimension,
       duration_min: parseInt(durationMin) || null,
       details,
-      benchmark_results: benchmarkData,
-      completed_as_prescribed: overridePrescribed ?? completedAsPrescribed,
+      completed_as_prescribed: finalRating === 3,
       session_name: sessionName || null,
       notes: notes || null,
       week_number: weekNumber ? parseInt(weekNumber) : null,
       plan_id: planId || null,
+      rating: finalRating,
     });
 
     router.push(planId ? "/plan" : "/dashboard");
@@ -159,14 +130,8 @@ function LogForm() {
   }
 
   function handleMarkComplete() {
-    // For benchmark sessions, auto-fill results with graduation targets
-    const filledBenchmarks = benchmarkResults.map((b) => {
-      const targetMatch = b.graduationTarget.match(/[\d.]+/);
-      const targetNum = targetMatch ? parseFloat(targetMatch[0]) : 0;
-      return { ...b, result: targetNum.toString() };
-    });
-    setCompletedAsPrescribed(true);
-    handleSubmit(true, filledBenchmarks.length > 0 ? filledBenchmarks : undefined);
+    // Mark complete = rated 3 (as prescribed, right challenge)
+    handleSubmit(3);
   }
 
   return (
@@ -185,11 +150,34 @@ function LogForm() {
           >
             {loading ? "Saving..." : "Mark Complete as Prescribed"}
           </button>
-          <p className="text-xs text-dark-muted text-center mt-2">Or log a different workout below</p>
+          <p className="text-xs text-dark-muted text-center mt-2">Or rate your performance and log below</p>
         </div>
       )}
 
       <div className="space-y-4">
+        {/* Rating selector */}
+        <div>
+          <label className="block text-sm font-medium text-dark-muted mb-2">How did it go?</label>
+          <div className="grid grid-cols-5 gap-2">
+            {RATING_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setRating(opt.value)}
+                className={`flex flex-col items-center p-2 rounded-lg border transition-all ${
+                  rating === opt.value
+                    ? "border-gold bg-gold/20 text-gold"
+                    : "border-dark-border bg-dark-surface text-dark-muted hover:border-dark-muted"
+                }`}
+              >
+                <span className="text-lg font-bold">{opt.label}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-dark-muted mt-1.5 text-center">
+            {RATING_OPTIONS.find(o => o.value === rating)?.description}
+          </p>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-dark-muted mb-1">Dimension</label>
           <select value={dimension} onChange={(e) => setDimension(e.target.value as Dimension)} className={inputClass}>
@@ -249,32 +237,6 @@ function LogForm() {
           <div className="space-y-3">
             <input value={routineName} onChange={(e) => setRoutineName(e.target.value)} className={inputClass} placeholder="Routine name" />
             <input value={bodyAreas} onChange={(e) => setBodyAreas(e.target.value)} className={inputClass} placeholder="Body areas worked (e.g., hips, shoulders)" />
-          </div>
-        )}
-
-        {benchmarkResults.length > 0 && (
-          <div className="bg-test-blue/10 border border-test-blue/30 rounded-lg p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-blue-300">Benchmark Results</h3>
-            {benchmarkResults.map((b, i) => (
-              <div key={i} className="space-y-1">
-                <label className="text-sm font-medium text-dark-text">
-                  {b.exerciseName}
-                  <span className="text-dark-muted font-normal ml-2">Target: {b.graduationTarget}</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={b.result}
-                  onChange={(e) => {
-                    const updated = [...benchmarkResults];
-                    updated[i] = { ...updated[i], result: e.target.value };
-                    setBenchmarkResults(updated);
-                  }}
-                  className="w-full px-3 py-2 bg-dark-surface border border-test-blue/30 rounded-lg text-white focus:ring-2 focus:ring-test-blue focus:border-transparent"
-                  placeholder="Your result"
-                />
-              </div>
-            ))}
           </div>
         )}
 
