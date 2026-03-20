@@ -304,7 +304,7 @@ function PlanContent() {
       }));
 
       // Mark this week as scored locally
-      setScoredWeekNumbers((prev) => new Set([...prev, week.week_number]));
+      setScoredWeekNumbers((prev) => { const next = new Set(Array.from(prev)); next.add(week.week_number); return next; });
 
       // Only advance current week if this was the current week
       if (plan.current_week_number === week.week_number) {
