@@ -277,7 +277,7 @@ function LogForm() {
         </div>
 
         <button
-          onClick={handleSubmit}
+          onClick={() => handleSubmit()}
           disabled={loading}
           className="w-full bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
         >
