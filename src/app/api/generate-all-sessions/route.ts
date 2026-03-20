@@ -189,7 +189,8 @@ function buildProgressFractionBlock(
     const target = targetScores[dim as keyof typeof targetScores];
 
     if (prog.maintenance) {
-      lines.push(`- ${label}: MAINTENANCE MODE (1 session/week, 60% volume) — current ${current} vs target ${target}. Athlete significantly exceeds this requirement.`);
+      const performanceRatio = target > 0 ? Math.round((current / target) * 100) : 100;
+      lines.push(`- ${label}: MAINTENANCE MODE (1 session/week, 60% volume) — current ${current} vs target ${target}. Athlete performs at ~${performanceRatio}% of graduation benchmarks. Prescribe the single session at this higher level, not at graduation target level.`);
       maintenanceDims.push(label);
     } else if (current >= target) {
       lines.push(`- ${label}: ${prog.fraction}% (already meets target — maintenance with slight progression)`);

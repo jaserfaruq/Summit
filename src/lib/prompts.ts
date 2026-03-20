@@ -245,9 +245,10 @@ You will receive PER-DIMENSION PROGRESS FRACTIONS that tell you what percentage 
 
 MAINTENANCE MODE: Some dimensions may be marked "MAINTENANCE MODE" in the progress fractions. This means the athlete significantly exceeds the target for that dimension (current >= 1.25x target). For maintenance dimensions:
 - Prescribe only 1 session per week at 60% of normal volume for that dimension.
-- The session should be at the athlete's CURRENT fitness level — not scaled down to graduation targets. Keep them sharp.
+- The progress fractions will include a performance ratio (e.g., "~190% of graduation benchmarks"). Use this to calibrate the session — if the graduation benchmark is "2000 ft/hr with 25lb pack" and the athlete is at 190%, prescribe at approximately that higher level. Do NOT scale down to graduation targets.
 - Reallocate the freed training time to dimensions that are furthest below their target scores, prioritizing the dimension with the highest target score.
 - On TEST WEEKS, still include benchmark testing for maintenance dimensions — all dimensions are always tested.
+- Maintenance mode takes precedence over the "target score under 15" rule. If a dimension is in maintenance, follow maintenance rules regardless of target score.
 
 TRAINING OVERSHOOT: The graduation targets already include overshoot above the objective's actual requirements (~150% for distance/elevation, +1 climbing sub-grade outdoor, +2 indoor). Design sessions that progress toward these higher targets. By the final pre-taper weeks, cardio sessions should reach the full overshoot distances/elevation, and climbing sessions should be at the overshoot grade. Strength, flexibility, and pack weight stay at objective level.
 
@@ -279,7 +280,7 @@ For each session include:
 - A "warmUpMinutes" field on the warmUp block (typically 8-12 minutes).
 - A "cooldownMinutes" field (typically 5-10 minutes, or 0 if no cooldown).
 
-Every prescribed exercise must directly train a key component from the relevance profiles. Never prescribe exercises that target irrelevant components. If a dimension's target score is under 15, limit to one session per week focused on basic competence.
+Every prescribed exercise must directly train a key component from the relevance profiles. Never prescribe exercises that target irrelevant components. If a dimension's target score is under 15 and the dimension is NOT in maintenance mode, limit to one session per week focused on basic competence.
 
 On test weeks, mark benchmark sessions clearly. Include the graduation target inline.
 
@@ -320,6 +321,11 @@ Rules:
 - Completed-as-prescribed sessions always contribute positively since they were designed around key components.
 - If any dimension's estimated score would fall 5+ points below the expected trajectory, flag it for emergency rebalancing.
 
+MAINTENANCE DIMENSIONS: Some dimensions may be flagged as "MAINTENANCE" in the input. These dimensions intentionally receive reduced volume (1 session/week, 60% volume) because the athlete significantly exceeds the target. Do NOT penalize maintenance dimensions for low training volume — the reduced volume is by design. For maintenance dimensions:
+- If the single maintenance session was completed: apply +0 to +1 adjustment (holding steady).
+- If no training was logged: apply 0 adjustment (no penalty).
+- Never flag a maintenance dimension for emergency rebalancing due to low volume.
+
 Return JSON:
 {
   "adjustments": {
@@ -341,6 +347,12 @@ Rules:
 - If behind in multiple dimensions, prioritize the highest target score.
 - Maintain the same session format (warm-up, training blocks, intensity notes).
 - Do not modify test week or taper week scheduling.
+
+MAINTENANCE MODE: You will receive per-dimension status flags. Dimensions marked "MAINTENANCE" have current scores significantly exceeding their target (current >= 1.25x target). For these dimensions:
+- Prescribe only 1 session per week at 60% of normal volume.
+- The session should be at the athlete's current performance level — use the benchmark scaling provided.
+- Reallocate freed time to dimensions furthest below target, prioritizing highest target score.
+- On test weeks, still include benchmark testing for all dimensions.
 
 For Tier 1 (post-test week): regenerate ALL remaining regular weeks.
 For Tier 2 (emergency): regenerate only the next 1–2 weeks.

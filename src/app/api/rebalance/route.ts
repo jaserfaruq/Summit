@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_4_SYSTEM } from "@/lib/prompts";
 import { RebalanceRequest, PlanWeek } from "@/lib/types";
-import { calculateAllSessionMinutes, calculateWeekTotalHours } from "@/lib/scoring";
+import { calculateAllSessionMinutes, calculateWeekTotalHours, dimensionProgressFractions, DimensionProgress } from "@/lib/scoring";
 
 export const maxDuration = 60;
 
@@ -50,6 +50,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ updatedWeeks: [] });
   }
 
+  // Calculate maintenance status per dimension
+  const totalWeekCount = remainingWeeks ? Math.max(...remainingWeeks.map(w => w.week_number)) : currentWeek;
+  const dimStatus = dimensionProgressFractions(actualScores, targetScores, currentWeek, totalWeekCount);
+  const maintenanceDims = Object.entries(dimStatus)
+    .filter(([, v]) => (v as DimensionProgress).maintenance)
+    .map(([k]) => k);
+
+  const dimStatusLines = Object.entries(dimStatus).map(([dim, prog]) => {
+    const p = prog as DimensionProgress;
+    const dimLabel = dim === "climbing_technical" ? "Climbing/Technical" : dim.charAt(0).toUpperCase() + dim.slice(1);
+    if (p.maintenance) {
+      return `- ${dimLabel}: MAINTENANCE (current ${actualScores[dim as keyof typeof actualScores]} vs target ${targetScores[dim as keyof typeof targetScores]}) — 1 session/week, 60% volume`;
+    }
+    return `- ${dimLabel}: ${p.fraction}% of graduation targets`;
+  }).join("\n");
+
   const userMessage = `Current week: ${currentWeek}
 Actual scores: ${JSON.stringify(actualScores)}
 Expected scores: ${JSON.stringify(expectedScores)}
@@ -59,6 +75,10 @@ Rebalance tier: ${tier} (${tier === 1 ? "full rebalance of all remaining regular
 Objective: ${objective.name}. Type: ${objective.type}.
 Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}
 Graduation benchmarks: ${JSON.stringify(objective.graduation_benchmarks)}
+
+Per-dimension status:
+${dimStatusLines}
+${maintenanceDims.length > 0 ? `\nDimensions in MAINTENANCE MODE: ${maintenanceDims.join(", ")}. Prescribe only 1 session/week at 60% volume for these. Reallocate freed time to behind-schedule dimensions.` : ""}
 
 Remaining regular weeks to regenerate (${weeksToRebalance.length} weeks):
 ${weeksToRebalance.map((w) => `Week ${w.week_number}: ${w.week_start}, currently ${w.total_hours}h`).join("\n")}`;

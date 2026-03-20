@@ -3,12 +3,31 @@ import { DimensionScores, PlanSession, WeekType } from "./types";
 /**
  * Calculate dimension score from benchmark results.
  * Formula: avg(min(result/target, 1.0)) × targetScore
+ *
+ * When currentScore is provided and exceeds targetScore (maintenance dimension),
+ * the score is uncapped: avg(result/graduationTarget) × targetScore, floored
+ * at currentScore to prevent regression from testing.
  */
 export function calculateDimensionScore(
   benchmarkResults: { result: number; graduationTarget: number }[],
-  targetScore: number
+  targetScore: number,
+  currentScore?: number
 ): number {
   if (benchmarkResults.length === 0) return 0;
+
+  const isMaintenanceDim = currentScore !== undefined && currentScore >= targetScore;
+
+  if (isMaintenanceDim) {
+    // Uncapped: allow scores above targetScore for strong athletes
+    const avg =
+      benchmarkResults.reduce((sum, b) => {
+        return sum + b.result / b.graduationTarget;
+      }, 0) / benchmarkResults.length;
+    // Never drop below current score due to benchmark testing
+    return Math.max(Math.round(avg * targetScore), currentScore);
+  }
+
+  // Standard capped formula for dimensions still building toward target
   const avg =
     benchmarkResults.reduce((sum, b) => {
       return sum + Math.min(b.result / b.graduationTarget, 1.0);
@@ -18,6 +37,8 @@ export function calculateDimensionScore(
 
 /**
  * Linear interpolation for expected scores at a given week.
+ * When current exceeds target (maintenance dimension), holds at current
+ * score rather than interpolating downward.
  */
 export function expectedScoreAtWeek(
   currentScore: number,
@@ -25,6 +46,10 @@ export function expectedScoreAtWeek(
   weekNumber: number,
   totalWeeks: number
 ): number {
+  if (currentScore >= targetScore) {
+    // Maintenance dimension: hold at current score, never interpolate down
+    return currentScore;
+  }
   return Math.round(
     currentScore + (targetScore - currentScore) * (weekNumber / totalWeeks)
   );
@@ -153,8 +178,11 @@ export function calculateWeekTotalHours(sessions: PlanSession[]): number {
 }
 
 export interface DimensionProgress {
-  fraction: number;      // percentage of graduation targets (0-100)
-  maintenance: boolean;  // true if dimension significantly exceeds target
+  /** For normal dimensions: percentage of graduation targets (0-100).
+   *  For maintenance dimensions: volume percentage (always 60). */
+  fraction: number;
+  /** True if dimension significantly exceeds target (current >= 1.25x target) */
+  maintenance: boolean;
 }
 
 /**
