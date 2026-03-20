@@ -27,12 +27,14 @@ function AssessmentWizard() {
   const [longestRunDuration, setLongestRunDuration] = useState("");
   const [weeklyCardioHours, setWeeklyCardioHours] = useState("");
   const [pushupReps, setPushupReps] = useState("");
+  const [pullupReps, setPullupReps] = useState("");
   const [squatLevel, setSquatLevel] = useState("beginner");
   const [highestGrade, setHighestGrade] = useState("");
-  const [climbingExperience, setClimbingExperience] = useState("none");
+  const [climbingSkills, setClimbingSkills] = useState<string[]>([]);
   const [exposureComfort, setExposureComfort] = useState(3);
-  const [hipTightness, setHipTightness] = useState(3);
-  const [ankleMobility, setAnkleMobility] = useState(3);
+  const [toeTouch, setToeTouch] = useState("");
+  const [deepSquat, setDeepSquat] = useState("");
+  const [shoulderMobility, setShoulderMobility] = useState("");
   const [hasFlexRoutine, setHasFlexRoutine] = useState(false);
 
   const [scores, setScores] = useState<{
@@ -64,16 +66,28 @@ function AssessmentWizard() {
     else if (pushups <= 50) strength = 55;
     else strength = 70;
     const squatBonus: Record<string, number> = { beginner: 0, intermediate: 10, advanced: 20, expert: 30 };
-    strength = Math.min(strength + (squatBonus[squatLevel] || 0), 100);
+    const pullups = parseInt(pullupReps) || 0;
+    let pullupBonus = 0;
+    if (pullups >= 9) pullupBonus = 15;
+    else if (pullups >= 4) pullupBonus = 10;
+    else if (pullups >= 1) pullupBonus = 5;
+    strength = Math.min(strength + (squatBonus[squatLevel] || 0) + pullupBonus, 100);
 
-    let climbing = 0;
-    const expMap: Record<string, number> = { none: 5, beginner: 15, sport_only: 30, trad_beginner: 40, trad_intermediate: 55, alpine: 70 };
-    climbing = expMap[climbingExperience] || 5;
-    climbing = Math.min(climbing + (exposureComfort - 1) * 3, 100);
+    const skillPoints: Record<string, number> = {
+      indoor_gym: 8,
+      outdoor_sport: 12,
+      trad: 12,
+      multi_pitch: 10,
+      glacier: 12,
+      crevasse_rescue: 8,
+    };
+    const skillTotal = climbingSkills.reduce((sum, s) => sum + (skillPoints[s] || 0), 0);
+    const climbing = Math.min(5 + skillTotal + (exposureComfort - 1) * 3, 100);
 
-    const hipScore = (6 - hipTightness) * 10;
-    const ankleScore = ankleMobility * 10;
-    let flexibility = Math.round((hipScore + ankleScore) / 2);
+    const toeTouchScore: Record<string, number> = { yes: 20, barely: 12, no: 5 };
+    const deepSquatScore: Record<string, number> = { yes: 20, difficulty: 12, no: 5 };
+    const shoulderScore: Record<string, number> = { none: 15, some: 8, significant: 3 };
+    let flexibility = (toeTouchScore[toeTouch] || 5) + (deepSquatScore[deepSquat] || 5) + (shoulderScore[shoulderMobility] || 3);
     if (hasFlexRoutine) flexibility = Math.min(flexibility + 15, 100);
 
     setScores({ cardio, strength, climbing, flexibility });
@@ -97,9 +111,9 @@ function AssessmentWizard() {
       flexibility_score: scores.flexibility,
       raw_data: {
         cardio: { longest_zone2_distance_miles: parseFloat(longestRunDistance) || 0, longest_zone2_duration_min: parseFloat(longestRunDuration) || 0, weekly_cardio_hours: parseFloat(weeklyCardioHours) || 0 },
-        strength: { pushup_reps: parseInt(pushupReps) || 0, squat_reps_or_level: squatLevel },
-        climbing: { highest_grade: highestGrade, experience_level: climbingExperience, exposure_comfort: exposureComfort },
-        flexibility: { hip_tightness: hipTightness, ankle_mobility: ankleMobility, regular_routine: hasFlexRoutine },
+        strength: { pushup_reps: parseInt(pushupReps) || 0, pullup_reps: parseInt(pullupReps) || 0, squat_reps_or_level: squatLevel },
+        climbing: { highest_grade: highestGrade, skills: climbingSkills, exposure_comfort: exposureComfort },
+        flexibility: { toe_touch: toeTouch, deep_squat: deepSquat, shoulder_mobility: shoulderMobility, regular_routine: hasFlexRoutine },
       },
     }).select().single();
 
@@ -207,6 +221,11 @@ function AssessmentWizard() {
             <input type="number" value={pushupReps} onChange={(e) => setPushupReps(e.target.value)} className={inputClass} placeholder="e.g., 25" />
           </div>
           <div>
+            <label className="block text-sm font-medium text-dark-muted mb-1">Max pull-ups in one set</label>
+            <p className="text-xs text-dark-muted mb-2">Strict pull-ups, full hang to chin over bar. Enter 0 if none.</p>
+            <input type="number" value={pullupReps} onChange={(e) => setPullupReps(e.target.value)} className={inputClass} placeholder="e.g., 8" />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-dark-muted mb-1">Squat experience level</label>
             <select value={squatLevel} onChange={(e) => setSquatLevel(e.target.value)} className={inputClass}>
               <option value="beginner">Beginner (bodyweight only)</option>
@@ -230,15 +249,33 @@ function AssessmentWizard() {
             <input value={highestGrade} onChange={(e) => setHighestGrade(e.target.value)} className={inputClass} placeholder="e.g., 5.10a, V4, WI3" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-dark-muted mb-1">Climbing experience level</label>
-            <select value={climbingExperience} onChange={(e) => setClimbingExperience(e.target.value)} className={inputClass}>
-              <option value="none">None</option>
-              <option value="beginner">Beginner (gym only, &lt;1 year)</option>
-              <option value="sport_only">Sport climbing (outdoor experience)</option>
-              <option value="trad_beginner">Trad beginner</option>
-              <option value="trad_intermediate">Trad intermediate</option>
-              <option value="alpine">Alpine climbing experience</option>
-            </select>
+            <label className="block text-sm font-medium text-dark-muted mb-2">Skills &amp; experience (check all that apply)</label>
+            <div className="space-y-2">
+              {[
+                { id: "indoor_gym", label: "Indoor / gym climbing (top-rope or bouldering)" },
+                { id: "outdoor_sport", label: "Outdoor sport climbing (including leading)" },
+                { id: "trad", label: "Trad climbing (placing own gear)" },
+                { id: "multi_pitch", label: "Multi-pitch climbing" },
+                { id: "glacier", label: "Glacier travel (crampon & ice axe)" },
+                { id: "crevasse_rescue", label: "Crevasse rescue / rope team skills" },
+              ].map((skill) => (
+                <label key={skill.id} className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={climbingSkills.includes(skill.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setClimbingSkills([...climbingSkills, skill.id]);
+                      } else {
+                        setClimbingSkills(climbingSkills.filter((s) => s !== skill.id));
+                      }
+                    }}
+                    className="accent-gold w-4 h-4"
+                  />
+                  <span className="text-sm text-dark-text">{skill.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-dark-muted mb-1">Comfort on exposure (1–5)</label>
@@ -255,21 +292,78 @@ function AssessmentWizard() {
 
       {step === 4 && (
         <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-white">Flexibility</h2>
+          <h2 className="text-2xl font-bold text-white">Flexibility &amp; Mobility</h2>
           <div>
-            <label className="block text-sm font-medium text-dark-muted mb-1">Hip tightness (1–5)</label>
-            <p className="text-xs text-dark-muted mb-2">1 = very loose, 5 = very tight</p>
-            <input type="range" min="1" max="5" value={hipTightness} onChange={(e) => setHipTightness(parseInt(e.target.value))} className="w-full accent-gold" />
-            <div className="flex justify-between text-xs text-dark-muted"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+            <label className="block text-sm font-medium text-dark-muted mb-2">Can you touch your toes with straight legs?</label>
+            <div className="flex gap-2">
+              {[
+                { value: "yes", label: "Yes, easily" },
+                { value: "barely", label: "Barely" },
+                { value: "no", label: "No" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setToeTouch(opt.value)}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border transition-colors ${
+                    toeTouch === opt.value
+                      ? "bg-gold/20 border-gold text-gold"
+                      : "border-dark-border text-dark-muted hover:border-dark-text"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-dark-muted mb-1">Ankle mobility (1–5)</label>
-            <p className="text-xs text-dark-muted mb-2">1 = very limited, 5 = full range</p>
-            <input type="range" min="1" max="5" value={ankleMobility} onChange={(e) => setAnkleMobility(parseInt(e.target.value))} className="w-full accent-gold" />
-            <div className="flex justify-between text-xs text-dark-muted"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+            <label className="block text-sm font-medium text-dark-muted mb-2">Can you hold a deep squat (heels flat) for 30 seconds?</label>
+            <div className="flex gap-2">
+              {[
+                { value: "yes", label: "Yes, easily" },
+                { value: "difficulty", label: "With difficulty" },
+                { value: "no", label: "No" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setDeepSquat(opt.value)}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border transition-colors ${
+                    deepSquat === opt.value
+                      ? "bg-gold/20 border-gold text-gold"
+                      : "border-dark-border text-dark-muted hover:border-dark-text"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-dark-muted mb-2">Do you have shoulder mobility limitations?</label>
+            <div className="flex gap-2">
+              {[
+                { value: "none", label: "None" },
+                { value: "some", label: "Some" },
+                { value: "significant", label: "Significant" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setShoulderMobility(opt.value)}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium border transition-colors ${
+                    shoulderMobility === opt.value
+                      ? "bg-gold/20 border-gold text-gold"
+                      : "border-dark-border text-dark-muted hover:border-dark-text"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex items-center gap-3">
-            <input type="checkbox" id="flexRoutine" checked={hasFlexRoutine} onChange={(e) => setHasFlexRoutine(e.target.checked)} className="accent-gold" />
+            <input type="checkbox" id="flexRoutine" checked={hasFlexRoutine} onChange={(e) => setHasFlexRoutine(e.target.checked)} className="accent-gold w-4 h-4" />
             <label htmlFor="flexRoutine" className="text-sm text-dark-text">I have a regular stretching/mobility routine</label>
           </div>
           <div className="flex gap-3">
