@@ -142,6 +142,8 @@ function LogForm() {
       completed_as_prescribed: completedAsPrescribed,
       session_name: sessionName || null,
       notes: notes || null,
+      week_number: weekNumber ? parseInt(weekNumber) : null,
+      plan_id: planId || null,
     });
 
     router.push(planId ? "/plan" : "/dashboard");

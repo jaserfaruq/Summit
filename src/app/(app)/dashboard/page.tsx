@@ -54,13 +54,9 @@ export default async function DashboardPage() {
 
     allWeekTargets = (weekTargets as WeeklyTarget[]) || [];
 
-    const today = new Date();
-    currentWeekTarget = allWeekTargets.find((w) => {
-      const weekStart = new Date(w.week_start);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 7);
-      return today >= weekStart && today < weekEnd;
-    }) || allWeekTargets[0] || null;
+    currentWeekTarget = allWeekTargets.find(
+      (w) => w.week_number === activePlan.current_week_number
+    ) || allWeekTargets[0] || null;
   }
 
   // Fetch score history for the active objective

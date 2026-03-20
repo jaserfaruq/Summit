@@ -131,6 +131,7 @@ export interface TrainingPlan {
   plan_data: PlanData;
   graduation_workouts: DimensionGraduationBenchmarks;
   status: 'active' | 'completed' | 'superseded';
+  current_week_number: number;
 }
 
 export interface WeeklyTarget {
@@ -155,6 +156,8 @@ export interface WorkoutLog {
   completed_as_prescribed: boolean;
   session_name: string | null;
   notes: string | null;
+  week_number: number | null;
+  plan_id: string | null;
   created_at: string;
 }
 

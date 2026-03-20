@@ -117,14 +117,10 @@ function PlanContent() {
 
     setWorkoutLogs((logData as WorkoutLog[]) || []);
 
-    const today = new Date();
-    const currentWeek = weeksArr.find((w) => {
-      const start = new Date(w.week_start);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 7);
-      return today >= start && today < end;
-    });
-    if (currentWeek) setExpandedWeek(currentWeek.week_number);
+    // Auto-expand the active week (tracked by current_week_number, not calendar)
+    if (activePlan.current_week_number) {
+      setExpandedWeek(activePlan.current_week_number);
+    }
 
     setLoading(false);
   }, []);
@@ -254,14 +250,10 @@ function PlanContent() {
     if (!plan) return;
     setCompletingWeek(week.week_number);
 
-    const weekStart = new Date(week.week_start + "T00:00:00");
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 7);
-
-    const weekLogs = workoutLogs.filter((log) => {
-      const logDate = new Date(log.logged_date + "T00:00:00");
-      return logDate >= weekStart && logDate < weekEnd;
-    });
+    // Get logs for this week by week_number (not calendar dates)
+    const weekLogs = workoutLogs.filter(
+      (log) => log.week_number === week.week_number && log.plan_id === plan.id
+    );
 
     const logsForApi = weekLogs.map((log) => ({
       logged_date: log.logged_date,
@@ -296,6 +288,10 @@ function PlanContent() {
         [week.week_number]: result,
       }));
 
+      // Advance local state to next week
+      setPlan((prev) => prev ? { ...prev, current_week_number: week.week_number + 1 } : null);
+      setExpandedWeek(week.week_number + 1);
+
       if (objective) {
         const supabase = createClient();
         const { data: updatedObj } = await supabase
@@ -314,13 +310,9 @@ function PlanContent() {
   }
 
   function getLogsForWeek(week: WeeklyTarget): WorkoutLog[] {
-    const weekStart = new Date(week.week_start + "T00:00:00");
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 7);
-    return workoutLogs.filter((log) => {
-      const logDate = new Date(log.logged_date + "T00:00:00");
-      return logDate >= weekStart && logDate < weekEnd;
-    });
+    return workoutLogs.filter(
+      (log) => log.week_number === week.week_number && log.plan_id === plan?.id
+    );
   }
 
   function isSessionLogged(sessionName: string, week: WeeklyTarget): boolean {
@@ -569,12 +561,7 @@ function PlanContent() {
       <div className="space-y-3">
         {weeks.map((week) => {
           const isExpanded = expandedWeek === week.week_number;
-          const today = new Date();
-          const weekStart = new Date(week.week_start);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekEnd.getDate() + 7);
-          const isCurrent = today >= weekStart && today < weekEnd;
-          const isPast = today >= weekEnd;
+          const isCurrent = plan.current_week_number === week.week_number;
 
           const sessions = weekSessions[week.week_number] || [];
           const isLoadingSessions = loadingSessions[week.week_number];
@@ -583,7 +570,7 @@ function PlanContent() {
           const hasLogs = weekLogs.length > 0;
           const completeResult = weekCompleteResult[week.week_number];
           const isCompleting = completingWeek === week.week_number;
-          const canComplete = (week.week_type === "test" || week.week_type === "regular") && hasLogs && !completeResult;
+          const canComplete = isCurrent && hasLogs && !completeResult;
 
           return (
             <div
@@ -766,7 +753,7 @@ function PlanContent() {
                   })}
 
                   {/* Complete Week button */}
-                  {canComplete && (isPast || isCurrent) && (
+                  {canComplete && (
                     <button
                       onClick={() => handleCompleteWeek(week)}
                       disabled={isCompleting}

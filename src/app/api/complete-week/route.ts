@@ -56,8 +56,13 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Taper weeks: no score changes
+  // Taper weeks: no score changes, but still advance the active week
   if (weekType === "taper") {
+    await supabase
+      .from("training_plans")
+      .update({ current_week_number: weekNumber + 1 })
+      .eq("id", planId);
+
     return NextResponse.json({
       updatedScores: {
         cardio: objective.current_cardio_score as number,
@@ -210,6 +215,12 @@ ${workoutLogs.map((l) => `- ${l.dimension}: ${l.session_name || "custom"}, ${l.d
       current_flexibility_score: updatedScores.flexibility,
     })
     .eq("id", objective.id as string);
+
+  // Advance the active week
+  await supabase
+    .from("training_plans")
+    .update({ current_week_number: weekNumber + 1 })
+    .eq("id", planId);
 
   return NextResponse.json({
     updatedScores,
