@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { Objective, ObjectiveType, MatchObjectiveResponse, EstimateScoresResponse, DimensionGraduationBenchmarks, DimensionScores, DimensionTaglines, DimensionRelevanceProfiles } from "@/lib/types";
+import { Objective, ObjectiveType, MatchObjectiveResponse, EstimateScoresResponse, DimensionGraduationBenchmarks, DimensionScores, DimensionTaglines, DimensionRelevanceProfiles, SearchMatch } from "@/lib/types";
 
 const OBJECTIVE_TYPES: { value: ObjectiveType; label: string }[] = [
   { value: "hike", label: "Hike" },
@@ -14,6 +14,8 @@ const OBJECTIVE_TYPES: { value: ObjectiveType; label: string }[] = [
   { value: "scramble", label: "Scramble" },
   { value: "backpacking", label: "Backpacking" },
 ];
+
+type Step = "choose-mode" | "search" | "search-results" | "manual-form" | "matching" | "confirm";
 
 export default function ObjectiveModal({
   date,
@@ -27,17 +29,75 @@ export default function ObjectiveModal({
   onSaved: () => void;
 }) {
   const router = useRouter();
+
+  // Shared state
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [targetDate, setTargetDate] = useState(objective?.target_date || date || "");
+
+  // Search mode state
+  const [searchName, setSearchName] = useState("");
+  const [searchMatches, setSearchMatches] = useState<SearchMatch[]>([]);
+  const [selectedMatch, setSelectedMatch] = useState<SearchMatch | null>(null);
+
+  // Manual mode state
   const [name, setName] = useState(objective?.name || "");
   const [type, setType] = useState<ObjectiveType>(objective?.type || "hike");
-  const [targetDate, setTargetDate] = useState(objective?.target_date || date || "");
   const [distance, setDistance] = useState(objective?.distance_miles?.toString() || "");
   const [elevation, setElevation] = useState(objective?.elevation_gain_ft?.toString() || "");
   const [grade, setGrade] = useState(objective?.technical_grade || "");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [matchResult, setMatchResult] = useState<MatchObjectiveResponse | null>(null);
-  const [step, setStep] = useState<"form" | "matching" | "confirm">("form");
 
+  // Match/confirm state
+  const [matchResult, setMatchResult] = useState<MatchObjectiveResponse | null>(null);
+  const [step, setStep] = useState<Step>(objective ? "manual-form" : "choose-mode");
+
+  // Search for objectives by name
+  async function handleSearch() {
+    if (!searchName.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/match-objective", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: searchName, mode: "search" }),
+      });
+      const data: MatchObjectiveResponse = await res.json();
+      setSearchMatches(data.matches || []);
+      setStep("search-results");
+    } catch {
+      setError("Failed to search objectives");
+    }
+    setLoading(false);
+  }
+
+  // User selected a match from search results
+  function handleSelectMatch(match: SearchMatch) {
+    setSelectedMatch(match);
+    const vo = match.validatedObjective;
+    // Pre-fill form fields from the validated objective
+    setName(vo.name);
+    setType(vo.type);
+    setDistance(vo.distance_miles?.toString() || "");
+    setElevation(vo.total_gain_ft?.toString() || "");
+    setGrade(vo.technical_grade || "");
+    // Set up match result for saving
+    if (match.tier === "gold") {
+      setMatchResult({
+        tier: "gold",
+        validatedObjective: vo,
+        anchors: [],
+      });
+    } else {
+      setMatchResult({
+        tier: "silver",
+        anchors: [vo],
+      });
+    }
+    setStep("confirm");
+  }
+
+  // Manual mode: match and go to confirm
   async function handleMatch() {
     setLoading(true);
     setError(null);
@@ -45,7 +105,7 @@ export default function ObjectiveModal({
       const res = await fetch("/api/match-objective", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, type, route: name }),
+        body: JSON.stringify({ name, type, route: name, mode: "manual" }),
       });
       const data: MatchObjectiveResponse = await res.json();
       setMatchResult(data);
@@ -186,7 +246,7 @@ export default function ObjectiveModal({
     if (!objective) return;
     const supabase = createClient();
 
-    // Delete associated plan and weekly targets first (V1: objective and plan are linked 1:1)
+    // Delete associated plan and weekly targets first
     const { data: plans } = await supabase
       .from("training_plans")
       .select("id")
@@ -202,6 +262,18 @@ export default function ObjectiveModal({
     await supabase.from("score_history").delete().eq("objective_id", objective.id);
     await supabase.from("objectives").delete().eq("id", objective.id);
     onSaved();
+  }
+
+  function tierBadge(tier: "gold" | "silver") {
+    return (
+      <span className={`px-2 py-0.5 text-xs font-bold rounded ${
+        tier === "gold"
+          ? "bg-gold/20 text-gold"
+          : "bg-white/10 text-white/70"
+      }`}>
+        {tier.toUpperCase()}
+      </span>
+    );
   }
 
   return (
@@ -223,7 +295,144 @@ export default function ObjectiveModal({
             </div>
           )}
 
-          {step === "form" && (
+          {/* Step: Choose Mode */}
+          {step === "choose-mode" && (
+            <div className="space-y-4">
+              <p className="text-dark-muted text-sm">How would you like to add your objective?</p>
+              <button
+                onClick={() => setStep("search")}
+                className="w-full p-4 bg-dark-surface border border-dark-border rounded-lg text-left hover:border-gold/50 transition-colors group"
+              >
+                <p className="font-semibold text-white group-hover:text-gold transition-colors">Search by Name</p>
+                <p className="text-sm text-dark-muted mt-1">
+                  Find a known peak, route, or race from our library of validated objectives.
+                </p>
+              </button>
+              <button
+                onClick={() => setStep("manual-form")}
+                className="w-full p-4 bg-dark-surface border border-dark-border rounded-lg text-left hover:border-gold/50 transition-colors group"
+              >
+                <p className="font-semibold text-white group-hover:text-gold transition-colors">Manual Entry</p>
+                <p className="text-sm text-dark-muted mt-1">
+                  Enter all the details yourself — name, type, distance, elevation, and grade.
+                </p>
+              </button>
+            </div>
+          )}
+
+          {/* Step: Search */}
+          {step === "search" && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-dark-muted mb-1">
+                  What are you training for?
+                </label>
+                <input
+                  value={searchName}
+                  onChange={(e) => setSearchName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
+                  placeholder="e.g., Mont Blanc, Half Dome, Rainier"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSearch}
+                  disabled={!searchName.trim() || loading}
+                  className="flex-1 bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
+                >
+                  {loading ? "Searching..." : "Search"}
+                </button>
+                <button
+                  onClick={() => setStep("choose-mode")}
+                  className="px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface transition-colors"
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step: Search Results — pick from 3 matches */}
+          {step === "search-results" && (
+            <div className="space-y-4">
+              <p className="text-sm text-dark-muted">
+                {searchMatches.length > 0
+                  ? `We found ${searchMatches.length} matching objective${searchMatches.length !== 1 ? "s" : ""} for "${searchName}". Pick one to continue.`
+                  : `No matches found for "${searchName}". Try a different name or enter details manually.`
+                }
+              </p>
+
+              {searchMatches.map((match, index) => {
+                const vo = match.validatedObjective;
+                return (
+                  <button
+                    key={vo.id}
+                    onClick={() => handleSelectMatch(match)}
+                    className="w-full p-4 bg-dark-surface border border-dark-border rounded-lg text-left hover:border-gold/50 transition-colors group"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-dark-muted font-mono">{index + 1}.</span>
+                          <p className="font-semibold text-white group-hover:text-gold transition-colors truncate">
+                            {vo.name}
+                          </p>
+                          {tierBadge(match.tier)}
+                        </div>
+                        <p className="text-sm text-dark-muted">{vo.route}</p>
+                        {vo.description && (
+                          <p className="text-xs text-dark-muted mt-1 line-clamp-2">{vo.description}</p>
+                        )}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-dark-muted">
+                          {vo.type && (
+                            <span className="capitalize">{vo.type.replace("_", " ")}</span>
+                          )}
+                          {vo.difficulty && (
+                            <span className="capitalize">{vo.difficulty}</span>
+                          )}
+                          {vo.total_gain_ft && (
+                            <span>{vo.total_gain_ft.toLocaleString()} ft gain</span>
+                          )}
+                          {vo.distance_miles && (
+                            <span>{vo.distance_miles} mi</span>
+                          )}
+                          {vo.summit_elevation_ft && (
+                            <span>{vo.summit_elevation_ft.toLocaleString()} ft summit</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setStep("search");
+                    setSearchMatches([]);
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface transition-colors"
+                >
+                  Search Again
+                </button>
+                <button
+                  onClick={() => {
+                    setName(searchName);
+                    setStep("manual-form");
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface transition-colors"
+                >
+                  Enter Manually
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step: Manual Form */}
+          {step === "manual-form" && (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-dark-muted mb-1">Objective Name</label>
@@ -297,6 +506,14 @@ export default function ObjectiveModal({
                 >
                   {loading ? "Matching..." : "Find & Save"}
                 </button>
+                {!objective && (
+                  <button
+                    onClick={() => setStep("choose-mode")}
+                    className="px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface transition-colors"
+                  >
+                    Back
+                  </button>
+                )}
                 {objective && (
                   <button
                     onClick={handleDelete}
@@ -309,6 +526,7 @@ export default function ObjectiveModal({
             </div>
           )}
 
+          {/* Step: Confirm (from both search and manual flows) */}
           {step === "confirm" && matchResult && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
@@ -328,6 +546,17 @@ export default function ObjectiveModal({
                   <p className="font-semibold text-white">{matchResult.validatedObjective.name}</p>
                   <p className="text-sm text-dark-muted">{matchResult.validatedObjective.route}</p>
                   <p className="text-sm text-dark-muted mt-1">{matchResult.validatedObjective.description}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-dark-muted">
+                    {matchResult.validatedObjective.total_gain_ft && (
+                      <span>{matchResult.validatedObjective.total_gain_ft.toLocaleString()} ft gain</span>
+                    )}
+                    {matchResult.validatedObjective.distance_miles && (
+                      <span>{matchResult.validatedObjective.distance_miles} mi</span>
+                    )}
+                    {matchResult.validatedObjective.summit_elevation_ft && (
+                      <span>{matchResult.validatedObjective.summit_elevation_ft.toLocaleString()} ft summit</span>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -352,16 +581,33 @@ export default function ObjectiveModal({
                 </div>
               )}
 
+              {/* Target date — always shown on confirm so user can set/adjust */}
+              <div>
+                <label className="block text-sm font-medium text-dark-muted mb-1">Target Date</label>
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
+                />
+              </div>
+
               <div className="flex gap-3">
                 <button
                   onClick={handleSave}
-                  disabled={loading}
+                  disabled={loading || !targetDate}
                   className="flex-1 bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
                 >
                   {loading ? "Saving..." : "Confirm & Save"}
                 </button>
                 <button
-                  onClick={() => setStep("form")}
+                  onClick={() => {
+                    if (selectedMatch) {
+                      setStep("search-results");
+                    } else {
+                      setStep("manual-form");
+                    }
+                  }}
                   className="px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface transition-colors"
                 >
                   Back
