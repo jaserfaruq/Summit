@@ -3,10 +3,13 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog } from "@/lib/types";
+import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective } from "@/lib/types";
 import WeekBadge from "@/components/WeekBadge";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import Link from "next/link";
+
+/** Inline SVG mountain silhouette used when no hero image URL is stored */
+const MOUNTAIN_SVG_FALLBACK = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400"><defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a1a2e"/><stop offset="40%" stop-color="#16213e"/><stop offset="70%" stop-color="#1b4d3e"/><stop offset="100%" stop-color="#0f3d3e"/></linearGradient><linearGradient id="g" x1=".5" y1="0" x2=".5" y2="1"><stop offset="0%" stop-color="#d4782f" stop-opacity=".4"/><stop offset="100%" stop-color="#d4782f" stop-opacity="0"/></linearGradient><linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a3a30"/><stop offset="100%" stop-color="#1a2a20"/></linearGradient><linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1f2f25"/><stop offset="100%" stop-color="#0f1f15"/></linearGradient></defs><rect width="1200" height="400" fill="url(#s)"/><ellipse cx="600" cy="120" rx="300" ry="60" fill="url(#g)"/><polygon points="0,400 150,180 300,280 500,120 650,220 800,160 950,240 1050,140 1200,250 1200,400" fill="url(#a)" opacity=".7"/><polygon points="500,120 520,130 540,125" fill="#e8e8e8" opacity=".5"/><polygon points="800,160 825,172 845,168" fill="#e8e8e8" opacity=".5"/><polygon points="1050,140 1075,155 1090,150" fill="#e8e8e8" opacity=".5"/><polygon points="0,400 100,250 250,320 400,200 550,300 700,230 850,290 1000,210 1100,280 1200,220 1200,400" fill="url(#b)"/></svg>`)}`;
 
 export default function PlanPage() {
   return (
@@ -32,11 +35,14 @@ function PlanContent() {
   const [sessionErrors, setSessionErrors] = useState<Record<number, string>>({});
   const [weekSessions, setWeekSessions] = useState<Record<number, PlanSession[]>>({});
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
+  const [validatedObj, setValidatedObj] = useState<ValidatedObjective | null>(null);
   const [completingWeek, setCompletingWeek] = useState<number | null>(null);
   const [weekCompleteResult, setWeekCompleteResult] = useState<Record<number, {
     updatedScores: Record<string, number>;
     rebalanceTriggered: boolean;
   }>>({});
+  const [batchGenerating, setBatchGenerating] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ generated: number; total: number } | null>(null);
 
   const shouldGenerate = searchParams.get("generate") === "true";
   const objectiveId = searchParams.get("objectiveId");
@@ -92,7 +98,17 @@ function PlanContent() {
       .eq("id", activePlan.objective_id)
       .single();
 
-    setObjective(objData as Objective);
+    const objTyped = objData as Objective;
+    setObjective(objTyped);
+
+    if (objTyped?.matched_validated_id) {
+      const { data: voData } = await supabase
+        .from("validated_objectives")
+        .select("*")
+        .eq("id", objTyped.matched_validated_id)
+        .single();
+      setValidatedObj(voData as ValidatedObjective | null);
+    }
 
     const { data: logData } = await supabase
       .from("workout_logs")
@@ -101,14 +117,10 @@ function PlanContent() {
 
     setWorkoutLogs((logData as WorkoutLog[]) || []);
 
-    const today = new Date();
-    const currentWeek = weeksArr.find((w) => {
-      const start = new Date(w.week_start);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 7);
-      return today >= start && today < end;
-    });
-    if (currentWeek) setExpandedWeek(currentWeek.week_number);
+    // Auto-expand the active week (tracked by current_week_number, not calendar)
+    if (activePlan.current_week_number) {
+      setExpandedWeek(activePlan.current_week_number);
+    }
 
     setLoading(false);
   }, []);
@@ -121,6 +133,27 @@ function PlanContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function generateAllSessions(planId: string) {
+    setBatchGenerating(true);
+    try {
+      const res = await fetch("/api/generate-all-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId }),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        setBatchProgress({ generated: result.generated, total: result.total });
+      }
+      // Refresh plan data to pick up generated sessions
+      await fetchPlan();
+    } catch (error) {
+      console.error("Batch session generation error:", error);
+    }
+    setBatchGenerating(false);
+  }
 
   async function generatePlan(objId: string, assId: string) {
     setGenerating(true);
@@ -141,8 +174,14 @@ function PlanContent() {
         throw new Error(data.error || "Failed to generate plan");
       }
 
+      const planResult = await res.json();
       router.replace("/plan");
       await fetchPlan();
+
+      // Trigger background batch generation of all week sessions
+      if (planResult.planId) {
+        generateAllSessions(planResult.planId);
+      }
     } catch (error) {
       console.error("Plan generation error:", error);
       setGenerateError(
@@ -211,14 +250,10 @@ function PlanContent() {
     if (!plan) return;
     setCompletingWeek(week.week_number);
 
-    const weekStart = new Date(week.week_start + "T00:00:00");
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 7);
-
-    const weekLogs = workoutLogs.filter((log) => {
-      const logDate = new Date(log.logged_date + "T00:00:00");
-      return logDate >= weekStart && logDate < weekEnd;
-    });
+    // Get logs for this week by week_number (not calendar dates)
+    const weekLogs = workoutLogs.filter(
+      (log) => log.week_number === week.week_number && log.plan_id === plan.id
+    );
 
     const logsForApi = weekLogs.map((log) => ({
       logged_date: log.logged_date,
@@ -253,6 +288,10 @@ function PlanContent() {
         [week.week_number]: result,
       }));
 
+      // Advance local state to next week
+      setPlan((prev) => prev ? { ...prev, current_week_number: week.week_number + 1 } : null);
+      setExpandedWeek(week.week_number + 1);
+
       if (objective) {
         const supabase = createClient();
         const { data: updatedObj } = await supabase
@@ -271,13 +310,9 @@ function PlanContent() {
   }
 
   function getLogsForWeek(week: WeeklyTarget): WorkoutLog[] {
-    const weekStart = new Date(week.week_start + "T00:00:00");
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 7);
-    return workoutLogs.filter((log) => {
-      const logDate = new Date(log.logged_date + "T00:00:00");
-      return logDate >= weekStart && logDate < weekEnd;
-    });
+    return workoutLogs.filter(
+      (log) => log.week_number === week.week_number && log.plan_id === plan?.id
+    );
   }
 
   function isSessionLogged(sessionName: string, week: WeeklyTarget): boolean {
@@ -350,34 +385,116 @@ function PlanContent() {
   }
 
   const planSummary = plan.plan_data?.planSummary;
+  const heroImageUrl = plan.plan_data?.heroImageUrl;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white">{objective?.name}</h2>
-          <p className="text-dark-muted text-sm">
-            {weeks.length} weeks · Target: {objective?.target_date ? new Date(objective.target_date).toLocaleDateString() : ""}
-          </p>
-          {objective && (
-            <div className="flex gap-4 mt-2 text-xs">
-              <span className="text-gold font-medium">Current Scores:</span>
-              <span>C: {objective.current_cardio_score}</span>
-              <span>S: {objective.current_strength_score}</span>
-              <span>CT: {objective.current_climbing_score}</span>
-              <span>F: {objective.current_flexibility_score}</span>
-            </div>
-          )}
+      {/* Hero header with blurred background image */}
+      <div className="relative rounded-xl overflow-hidden -mx-4 sm:mx-0">
+        {/* Background image layer */}
+        <div className="absolute inset-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={heroImageUrl || MOUNTAIN_SVG_FALLBACK}
+            alt=""
+            className="w-full h-full object-cover blur-[2px] scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/70 to-dark-bg/40" />
         </div>
-        <DeletePlanButton planId={plan.id} onDeleted={() => {
-          setPlan(null);
-          setWeeks([]);
-          setObjective(null);
-          setWeekSessions({});
-          setWorkoutLogs([]);
-        }} />
+
+        {/* Content over image */}
+        <div className="relative px-6 py-8 sm:py-10">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">{objective?.name}</h2>
+              <p className="text-white/70 text-sm mt-1 drop-shadow">
+                {weeks.length} weeks · Target: {objective?.target_date ? new Date(objective.target_date).toLocaleDateString() : ""}
+              </p>
+              {objective && (
+                <div className="flex gap-4 mt-3 text-xs">
+                  <span className="text-gold font-medium drop-shadow">Current Scores:</span>
+                  <span className="text-white/80">C: {objective.current_cardio_score}</span>
+                  <span className="text-white/80">S: {objective.current_strength_score}</span>
+                  <span className="text-white/80">CT: {objective.current_climbing_score}</span>
+                  <span className="text-white/80">F: {objective.current_flexibility_score}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {!batchGenerating && weeks.some((w) => !weekSessions[w.week_number] || weekSessions[w.week_number].length === 0) && (
+                <button
+                  onClick={() => generateAllSessions(plan.id)}
+                  className="text-xs bg-gold/90 text-dark-bg px-3 py-1.5 rounded hover:bg-gold transition-colors font-medium"
+                >
+                  Generate All Sessions
+                </button>
+              )}
+              <DeletePlanButton planId={plan.id} onDeleted={() => {
+              setPlan(null);
+              setWeeks([]);
+              setObjective(null);
+              setWeekSessions({});
+              setWorkoutLogs([]);
+            }} />
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Objective details */}
+      {objective && (
+        <div className="bg-dark-card rounded-xl border border-dark-border p-5">
+          {validatedObj?.description ? (
+            <p className="text-sm text-dark-muted mb-3">{validatedObj.description}</p>
+          ) : objective.relevance_profiles && typeof objective.relevance_profiles === "object" && "cardio" in objective.relevance_profiles && (
+            <p className="text-sm text-dark-muted mb-3">
+              {(objective.relevance_profiles as { cardio: { summary: string } }).cardio.summary}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            <div>
+              <span className="text-dark-muted">Type </span>
+              <span className="text-dark-text capitalize">{objective.type.replace("_", " ")}</span>
+            </div>
+            {validatedObj?.route && (
+              <div>
+                <span className="text-dark-muted">Route </span>
+                <span className="text-dark-text">{validatedObj.route}</span>
+              </div>
+            )}
+            {(objective.distance_miles || validatedObj?.distance_miles) && (
+              <div>
+                <span className="text-dark-muted">Distance </span>
+                <span className="text-dark-text">{objective.distance_miles || validatedObj?.distance_miles} mi</span>
+              </div>
+            )}
+            {(objective.elevation_gain_ft || validatedObj?.total_gain_ft) && (
+              <div>
+                <span className="text-dark-muted">Gain </span>
+                <span className="text-dark-text">{(objective.elevation_gain_ft || validatedObj?.total_gain_ft)?.toLocaleString()} ft</span>
+              </div>
+            )}
+            {validatedObj?.summit_elevation_ft && (
+              <div>
+                <span className="text-dark-muted">Summit </span>
+                <span className="text-dark-text">{validatedObj.summit_elevation_ft.toLocaleString()} ft</span>
+              </div>
+            )}
+            {(objective.technical_grade || validatedObj?.technical_grade) && (
+              <div>
+                <span className="text-dark-muted">Grade </span>
+                <span className="text-dark-text">{objective.technical_grade || validatedObj?.technical_grade}</span>
+              </div>
+            )}
+            {validatedObj?.difficulty && (
+              <div>
+                <span className="text-dark-muted">Difficulty </span>
+                <span className="text-dark-text capitalize">{validatedObj.difficulty}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Plan summary */}
       {planSummary && (
@@ -420,16 +537,31 @@ function PlanContent() {
         </div>
       )}
 
+      {/* Batch generation progress */}
+      {batchGenerating && (
+        <div className="bg-dark-card rounded-xl border border-gold/30 p-4 flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-gold border-t-transparent rounded-full animate-spin flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-white">Generating all week sessions...</p>
+            <p className="text-xs text-dark-muted">
+              This runs in the background — you can expand individual weeks while it works.
+            </p>
+          </div>
+        </div>
+      )}
+      {batchProgress && !batchGenerating && (
+        <div className="bg-dark-card rounded-xl border border-green-800/40 p-4">
+          <p className="text-sm text-green-400">
+            Generated sessions for {batchProgress.generated} of {batchProgress.total} weeks.
+          </p>
+        </div>
+      )}
+
       {/* Week list */}
       <div className="space-y-3">
         {weeks.map((week) => {
           const isExpanded = expandedWeek === week.week_number;
-          const today = new Date();
-          const weekStart = new Date(week.week_start);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekEnd.getDate() + 7);
-          const isCurrent = today >= weekStart && today < weekEnd;
-          const isPast = today >= weekEnd;
+          const isCurrent = plan.current_week_number === week.week_number;
 
           const sessions = weekSessions[week.week_number] || [];
           const isLoadingSessions = loadingSessions[week.week_number];
@@ -438,7 +570,7 @@ function PlanContent() {
           const hasLogs = weekLogs.length > 0;
           const completeResult = weekCompleteResult[week.week_number];
           const isCompleting = completingWeek === week.week_number;
-          const canComplete = (week.week_type === "test" || week.week_type === "regular") && hasLogs && !completeResult;
+          const canComplete = isCurrent && hasLogs && !completeResult;
 
           return (
             <div
@@ -586,7 +718,12 @@ function PlanContent() {
                                 <ol className="text-sm text-dark-muted space-y-1.5">
                                   {session.training.map((ex) => (
                                     <li key={ex.exerciseNumber} className={ex.isBenchmark ? "bg-test-blue/10 p-2 rounded border border-test-blue/20" : ""}>
-                                      <span className="font-medium text-dark-text">{ex.exerciseNumber}. {ex.description}</span>
+                                      <span className="font-medium text-dark-text">
+                                        {ex.exerciseNumber}. {ex.description}
+                                        {ex.durationMinutes ? (
+                                          <span className="text-dark-muted font-normal text-xs ml-2">{ex.durationMinutes} min</span>
+                                        ) : null}
+                                      </span>
                                       <br />
                                       <span className="text-dark-muted">{ex.details}</span>
                                       {ex.isBenchmark && ex.graduationTarget && (
@@ -616,7 +753,7 @@ function PlanContent() {
                   })}
 
                   {/* Complete Week button */}
-                  {canComplete && (isPast || isCurrent) && (
+                  {canComplete && (
                     <button
                       onClick={() => handleCompleteWeek(week)}
                       disabled={isCompleting}

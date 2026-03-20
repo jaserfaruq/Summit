@@ -74,24 +74,29 @@ export default function ObjectiveModal({
   // User selected a match from search results
   function handleSelectMatch(match: SearchMatch) {
     setSelectedMatch(match);
-    const vo = match.validatedObjective;
-    // Pre-fill form fields from the validated objective
-    setName(vo.name);
-    setType(vo.type);
-    setDistance(vo.distance_miles?.toString() || "");
-    setElevation(vo.total_gain_ft?.toString() || "");
-    setGrade(vo.technical_grade || "");
-    // Set up match result for saving
-    if (match.tier === "gold") {
+
+    if (match.tier === "gold" && match.validatedObjective) {
+      const vo = match.validatedObjective;
+      setName(vo.name);
+      setType(vo.type);
+      setDistance(vo.distance_miles?.toString() || "");
+      setElevation(vo.total_gain_ft?.toString() || "");
+      setGrade(vo.technical_grade || "");
       setMatchResult({
         tier: "gold",
         validatedObjective: vo,
         anchors: [],
       });
-    } else {
+    } else if (match.suggestedObjective) {
+      const so = match.suggestedObjective;
+      setName(so.name);
+      setType(so.type as ObjectiveType);
+      setDistance(so.distance_miles?.toString() || "");
+      setElevation(so.total_gain_ft?.toString() || "");
+      setGrade(so.technical_grade || "");
       setMatchResult({
         tier: "silver",
-        anchors: [vo],
+        anchors: [],
       });
     }
     setStep("confirm");
@@ -365,10 +370,12 @@ export default function ObjectiveModal({
               </p>
 
               {searchMatches.map((match, index) => {
-                const vo = match.validatedObjective;
+                const obj = match.validatedObjective || match.suggestedObjective;
+                if (!obj) return null;
+                const objRoute = match.validatedObjective?.route || match.suggestedObjective?.route;
                 return (
                   <button
-                    key={vo.id}
+                    key={match.validatedObjective?.id || `${obj.name}-${index}`}
                     onClick={() => handleSelectMatch(match)}
                     className="w-full p-4 bg-dark-surface border border-dark-border rounded-lg text-left hover:border-gold/50 transition-colors group"
                   >
@@ -377,31 +384,34 @@ export default function ObjectiveModal({
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs text-dark-muted font-mono">{index + 1}.</span>
                           <p className="font-semibold text-white group-hover:text-gold transition-colors truncate">
-                            {vo.name}
+                            {obj.name}
                           </p>
                           {tierBadge(match.tier)}
                         </div>
-                        <p className="text-sm text-dark-muted">{vo.route}</p>
-                        {vo.description && (
-                          <p className="text-xs text-dark-muted mt-1 line-clamp-2">{vo.description}</p>
+                        {objRoute && <p className="text-sm text-dark-muted">{objRoute}</p>}
+                        {obj.description && (
+                          <p className="text-xs text-dark-muted mt-1 line-clamp-2">{obj.description}</p>
                         )}
                         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-dark-muted">
-                          {vo.type && (
-                            <span className="capitalize">{vo.type.replace("_", " ")}</span>
+                          {obj.type && (
+                            <span className="capitalize">{obj.type.replace("_", " ")}</span>
                           )}
-                          {vo.difficulty && (
-                            <span className="capitalize">{vo.difficulty}</span>
+                          {obj.difficulty && (
+                            <span className="capitalize">{obj.difficulty}</span>
                           )}
-                          {vo.total_gain_ft && (
-                            <span>{vo.total_gain_ft.toLocaleString()} ft gain</span>
+                          {obj.total_gain_ft && (
+                            <span>{obj.total_gain_ft.toLocaleString()} ft gain</span>
                           )}
-                          {vo.distance_miles && (
-                            <span>{vo.distance_miles} mi</span>
+                          {obj.distance_miles && (
+                            <span>{obj.distance_miles} mi</span>
                           )}
-                          {vo.summit_elevation_ft && (
-                            <span>{vo.summit_elevation_ft.toLocaleString()} ft summit</span>
+                          {obj.summit_elevation_ft && (
+                            <span>{obj.summit_elevation_ft.toLocaleString()} ft summit</span>
                           )}
                         </div>
+                        {match.matchReason && (
+                          <p className="text-xs text-gold/70 mt-2 italic">{match.matchReason}</p>
+                        )}
                       </div>
                     </div>
                   </button>

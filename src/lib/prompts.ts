@@ -27,6 +27,14 @@ The four training dimensions are fixed: Cardio, Strength, Climbing/Technical, an
 
 4. Graduation benchmarks: 2–4 benchmark exercises per dimension selected from the provided benchmark exercise library. For each, set an objective-specific graduation target. The graduation workout represents the exact performance level needed to complete this objective safely and comfortably. Cardio: 1–2 benchmarks. Strength: 2–4. Climbing/Technical: 1–3. Flexibility: 1–3. The exact count depends on the objective's demands.
 
+TRAINING OVERSHOOT RULE: Graduation benchmarks must be set ABOVE the objective's actual requirements to build a comfort buffer. The athlete should arrive over-prepared, not at bare minimum readiness. Apply these overshoot multipliers:
+- Cardio distance: Set graduation targets at ~150% of the objective's distance (e.g., 8-mile objective → 10-12 mile graduation target).
+- Cardio elevation gain: Set graduation targets at ~150% of the objective's elevation gain (e.g., 3,000 ft objective → 4,500 ft graduation target).
+- Climbing/Technical grade: Set graduation targets 1 sub-grade above the objective for outdoor climbing (e.g., 5.10d objective → 5.11a graduation target), or 2 sub-grades above for indoor/top-rope benchmarks (e.g., 5.10d → 5.11b).
+- Strength: No overshoot — set graduation targets at the objective's actual requirements.
+- Flexibility: No overshoot — set graduation targets at the objective's actual requirements.
+- Pack weight: No overshoot — keep pack weight at the objective's specified weight.
+
 Select benchmark exercises ONLY from the provided library. Do not invent new exercises.
 
 Return only valid JSON matching this schema:
@@ -81,6 +89,19 @@ You will receive: the athlete's current dimension scores (0–100), the objectiv
 
 Design a plan that progresses each dimension's score from current to target over the available weeks. The weekly sessions are scaled-down versions of the graduation workouts, progressively getting closer. Week 1's step-up count is a fraction of the graduation target; the final pre-taper week is at or near the graduation target.
 
+TRAINING OVERSHOOT: The graduation benchmarks already include overshoot targets above the objective's actual requirements. Weekly sessions should progress toward these higher targets. By the final pre-taper week, cardio sessions should reach ~150% of the objective's distance and elevation, and climbing sessions should be at 1 sub-grade above the objective grade (outdoor) or 2 sub-grades above (indoor). Strength, flexibility, and pack weight stay at objective-level requirements.
+
+CLIMBING GRADE PRESCRIPTION RULES:
+- Use relative descriptors for climbing intensity. For easy/moderate efforts, do NOT include specific grades — just use the relative descriptor. For near-limit and project-level efforts, include the calculated grade in parentheses. Examples:
+  - "Easy climbing, 2-3 number grades below your current limit"
+  - "Moderate climbing, 1-2 grades below your limit"
+  - "Near-limit climbing at your current max grade (5.10d)"
+  - "Project-level climbing at or slightly above your limit (5.11a)"
+- For bouldering, apply the same logic: "Easy bouldering, well below your limit", "Moderate bouldering, 1-2 V-grades below max", "Near-limit bouldering (V6)", etc.
+- For benchmark/test sessions, always specify exact grades since those are graduation targets being measured.
+- The athlete's current climbing dimension score relative to their target score indicates their approximate ability. An athlete at 64/80 on climbing is NOT a beginner — they are already a solid climber working toward an advanced goal. Calibrate session difficulty accordingly.
+- The per-dimension progress fractions apply to volume, endurance, and technique complexity — NOT to grade. Do not start an experienced climber on beginner grades just because it's week 1.
+
 Periodization rules:
 - Increase total volume by no more than 10% per week.
 - Default to 5 sessions per week (adjust if user specifies fewer).
@@ -95,6 +116,7 @@ For each week, provide named training sessions (not assigned to specific days). 
 - A short objective line (without duration — duration is calculated separately).
 - A warm-up block with specific exercises and reps.
 - A numbered training block with exact reps, sets, weight, distance, duration, or pace as appropriate.
+- CRITICAL: For cardio and endurance exercises (hikes, runs, stairmaster, uphill treadmill, etc.), ALWAYS include the prescribed duration in the "details" text (e.g., "40 minutes at Zone 2 pace" or "Set incline to 15%. Hike for 35 minutes at steady Zone 2 pace."). The user reads the details field — if no duration is written there, they won't know how long to exercise.
 - For EVERY training exercise, include a "durationMinutes" field with a realistic estimate of how long that single exercise takes (including rest between sets). Use realistic paces: Zone 2 running = 11-13 min/mile for recreational athletes, trail/uphill = 14-18 min/mile. Strength exercises: account for sets × reps × time-per-rep + rest between sets.
 - Intensity descriptors in plain language: "Moderate = comfortable but not easy", "Zone 2 = conversational pace, nose-breathing", "Threshold = fastest sustainable pace".
 - Foam rolling or recovery notes where appropriate.
@@ -170,6 +192,8 @@ You will receive: the athlete's current dimension scores (0–100), the objectiv
 
 Design the STRUCTURE of a plan that progresses each dimension from current to target. Do NOT generate detailed sessions — only the plan summary and week schedule.
 
+TRAINING OVERSHOOT: Graduation benchmarks include overshoot targets above objective requirements (~150% for distance/elevation, +1 sub-grade for outdoor climbing, +2 for indoor). The plan structure should account for progressing toward these higher targets. Strength, flexibility, and pack weight stay at objective level.
+
 Periodization rules:
 - Default to 5 sessions per week (adjust if user specifies fewer).
 - TEST weeks: scheduled on week 2 and at the midpoint of the plan. Volume at 75–80%.
@@ -216,7 +240,29 @@ https://mtntactical.com/shop/alpine-rock-climb-training-program/
 
 You will receive: the week details (number, type, hours target, expected scores), the athlete's objective details, graduation benchmarks, relevance profiles, current scores, target scores, and user preferences.
 
-Design the training sessions for THIS SINGLE WEEK. The weekly sessions are scaled-down versions of the graduation workouts, progressively getting closer to graduation targets. Earlier weeks use a smaller fraction; later weeks approach or meet the graduation target.
+Design the training sessions for THIS SINGLE WEEK. The weekly sessions are scaled-down versions of the graduation workouts, progressively getting closer to graduation targets.
+
+You will receive PER-DIMENSION PROGRESS FRACTIONS that tell you what percentage of graduation targets this week's sessions should reach for each dimension. These fractions account for the athlete's current fitness — a strong athlete will have a high starting fraction (e.g., 80-100%) even in Week 1, while a weak dimension starts lower (e.g., 50-60%). Always respect these fractions: do NOT prescribe easy beginner-level training for a dimension where the fraction is high.
+
+MAINTENANCE MODE: Some dimensions may be marked "MAINTENANCE MODE" in the progress fractions. This means the athlete significantly exceeds the target for that dimension (current >= 1.25x target). For maintenance dimensions:
+- Prescribe only 1 session per week at 60% of normal volume for that dimension.
+- The progress fractions will include a performance ratio (e.g., "~190% of graduation benchmarks"). Use this to calibrate the session — if the graduation benchmark is "2000 ft/hr with 25lb pack" and the athlete is at 190%, prescribe at approximately that higher level. Do NOT scale down to graduation targets.
+- Reallocate the freed training time to dimensions that are furthest below their target scores, prioritizing the dimension with the highest target score.
+- On TEST WEEKS, still include benchmark testing for maintenance dimensions — all dimensions are always tested.
+- Maintenance mode takes precedence over the "target score under 15" rule. If a dimension is in maintenance, follow maintenance rules regardless of target score.
+
+TRAINING OVERSHOOT: The graduation targets already include overshoot above the objective's actual requirements (~150% for distance/elevation, +1 climbing sub-grade outdoor, +2 indoor). Design sessions that progress toward these higher targets. By the final pre-taper weeks, cardio sessions should reach the full overshoot distances/elevation, and climbing sessions should be at the overshoot grade. Strength, flexibility, and pack weight stay at objective level.
+
+CLIMBING GRADE PRESCRIPTION RULES:
+- Use relative descriptors for climbing intensity. For easy/moderate efforts, do NOT include specific grades — just use the relative descriptor. For near-limit and project-level efforts, include the calculated grade in parentheses. Examples:
+  - "Easy climbing, 2-3 number grades below your current limit"
+  - "Moderate climbing, 1-2 grades below your limit"
+  - "Near-limit climbing at your current max grade (5.10d)"
+  - "Project-level climbing at or slightly above your limit (5.11a)"
+- For bouldering, apply the same logic: "Easy bouldering, well below your limit", "Moderate bouldering, 1-2 V-grades below max", "Near-limit bouldering (V6)", etc.
+- For benchmark/test sessions, always specify exact grades since those are graduation targets being measured.
+- The athlete's current climbing dimension score relative to their target score indicates their approximate ability. An athlete at 64/80 on climbing is NOT a beginner — they are already a solid climber working toward an advanced goal. Calibrate session difficulty accordingly.
+- The per-dimension progress fractions apply to volume, endurance, and technique complexity — NOT to grade. Do not start an experienced climber on beginner grades just because it's week 1.
 
 Rules:
 - Increase total volume by no more than 10% per week from the prior week.
@@ -229,13 +275,14 @@ For each session include:
 - A short objective line (without duration — duration is calculated separately).
 - A warm-up block with specific exercises and reps.
 - A numbered training block with exact reps, sets, weight, distance, duration, or pace.
+- CRITICAL: For cardio and endurance exercises (hikes, runs, stairmaster, uphill treadmill, etc.), ALWAYS include the prescribed duration in the "details" text (e.g., "40 minutes at Zone 2 pace" or "Set incline to 15%. Hike for 35 minutes at steady Zone 2 pace."). The user reads the details field — if no duration is written there, they won't know how long to exercise.
 - For EVERY training exercise, include a "durationMinutes" field with a realistic estimate of how long that single exercise takes (including rest between sets). Use realistic paces: Zone 2 running = 11-13 min/mile for recreational athletes, trail/uphill = 14-18 min/mile. Strength exercises: account for sets × reps × time-per-rep + rest between sets.
 - Intensity descriptors in plain language.
 - Foam rolling or recovery notes where appropriate.
 - A "warmUpMinutes" field on the warmUp block (typically 8-12 minutes).
 - A "cooldownMinutes" field (typically 5-10 minutes, or 0 if no cooldown).
 
-Every prescribed exercise must directly train a key component from the relevance profiles. Never prescribe exercises that target irrelevant components. If a dimension's target score is under 15, limit to one session per week focused on basic competence.
+Every prescribed exercise must directly train a key component from the relevance profiles. Never prescribe exercises that target irrelevant components. If a dimension's target score is under 15 and the dimension is NOT in maintenance mode, limit to one session per week focused on basic competence.
 
 On test weeks, mark benchmark sessions clearly. Include the graduation target inline.
 
@@ -276,6 +323,11 @@ Rules:
 - Completed-as-prescribed sessions always contribute positively since they were designed around key components.
 - If any dimension's estimated score would fall 5+ points below the expected trajectory, flag it for emergency rebalancing.
 
+MAINTENANCE DIMENSIONS: Some dimensions may be flagged as "MAINTENANCE" in the input. These dimensions intentionally receive reduced volume (1 session/week, 60% volume) because the athlete significantly exceeds the target. Do NOT penalize maintenance dimensions for low training volume — the reduced volume is by design. For maintenance dimensions:
+- If the single maintenance session was completed: apply +0 to +1 adjustment (holding steady).
+- If no training was logged: apply 0 adjustment (no penalty).
+- Never flag a maintenance dimension for emergency rebalancing due to low volume.
+
 Return JSON:
 {
   "adjustments": {
@@ -298,10 +350,47 @@ Rules:
 - Maintain the same session format (warm-up, training blocks, intensity notes).
 - Do not modify test week or taper week scheduling.
 
+MAINTENANCE MODE: You will receive per-dimension status flags. Dimensions marked "MAINTENANCE" have current scores significantly exceeding their target (current >= 1.25x target). For these dimensions:
+- Prescribe only 1 session per week at 60% of normal volume.
+- The session should be at the athlete's current performance level — use the benchmark scaling provided.
+- Reallocate freed time to dimensions furthest below target, prioritizing highest target score.
+- On test weeks, still include benchmark testing for all dimensions.
+
 For Tier 1 (post-test week): regenerate ALL remaining regular weeks.
 For Tier 2 (emergency): regenerate only the next 1–2 weeks.
 
 Return the same weekly session JSON format as the plan generation prompt.`;
+
+export const PROMPT_SEARCH_SYSTEM = `You are an expert mountaineering and outdoor athletics guide. Given a search query for a mountain, peak, trail, or route, suggest exactly 3 closely related objectives in the same geographic area. These should be real, well-known routes that someone searching for this term would likely be interested in.
+
+Focus on:
+- Different routes on the SAME mountain or peak (e.g. different approaches, different technical grades)
+- Nearby peaks in the same range or area
+- Variations of the same objective (e.g. shorter vs longer versions)
+
+Do NOT suggest objectives in entirely different mountain ranges or locations. All 3 suggestions should be geographically close to each other.
+
+You will also receive a list of validated objectives from our library. If any of your suggestions match a validated objective, mark it as "validated": true and include the matching validated objective ID. Otherwise mark it as "validated": false.
+
+Return only valid JSON matching this schema:
+{
+  "suggestions": [
+    {
+      "name": "string (peak/trail name)",
+      "route": "string (specific route name)",
+      "type": "hike | trail_run | alpine_climb | rock_climb | mountaineering | scramble | backpacking",
+      "description": "string (2-3 sentences about this route)",
+      "difficulty": "beginner | intermediate | advanced | expert",
+      "total_gain_ft": number | null,
+      "distance_miles": number | null,
+      "summit_elevation_ft": number | null,
+      "technical_grade": "string | null",
+      "validated": boolean,
+      "validatedId": "string (UUID) | null",
+      "matchReason": "string (1 sentence why this matches the search)"
+    }
+  ]
+}`;
 
 export const PROMPT_5_SYSTEM = `Find 3–5 trail running or hiking routes near the athlete's location matching their weekly cardio target parameters. Return structured results.
 

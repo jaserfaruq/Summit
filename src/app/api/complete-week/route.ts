@@ -5,7 +5,7 @@ import { PROMPT_3_SYSTEM } from "@/lib/prompts";
 import { CompleteWeekRequest, DimensionScores, Dimension } from "@/lib/types";
 
 export const maxDuration = 60;
-import { calculateDimensionScore, checkRebalanceTrigger } from "@/lib/scoring";
+import { calculateDimensionScore, checkRebalanceTrigger, dimensionProgressFractions } from "@/lib/scoring";
 
 const DIMENSIONS: Dimension[] = ["cardio", "strength", "climbing_technical", "flexibility"];
 
@@ -56,8 +56,13 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Taper weeks: no score changes
+  // Taper weeks: no score changes, but still advance the active week
   if (weekType === "taper") {
+    await supabase
+      .from("training_plans")
+      .update({ current_week_number: weekNumber + 1 })
+      .eq("id", planId);
+
     return NextResponse.json({
       updatedScores: {
         cardio: objective.current_cardio_score as number,
@@ -84,6 +89,13 @@ export async function POST(request: NextRequest) {
 
     updatedScores = { cardio: 0, strength: 0, climbing_technical: 0, flexibility: 0 };
 
+    const currentScores: DimensionScores = {
+      cardio: objective.current_cardio_score as number,
+      strength: objective.current_strength_score as number,
+      climbing_technical: objective.current_climbing_score as number,
+      flexibility: objective.current_flexibility_score as number,
+    };
+
     for (const dim of DIMENSIONS) {
       const dimLogs = workoutLogs.filter((l) => l.dimension === dim && l.benchmark_results);
       const allResults = dimLogs.flatMap((l) => l.benchmark_results || []);
@@ -91,12 +103,12 @@ export async function POST(request: NextRequest) {
       if (allResults.length > 0) {
         updatedScores[dim] = calculateDimensionScore(
           allResults.map((r) => ({ result: r.result, graduationTarget: r.graduationTarget })),
-          targetScores[dim]
+          targetScores[dim],
+          currentScores[dim]
         );
       } else {
         // Keep current score if no benchmark data for this dimension
-        const currentKey = `current_${dim === "climbing_technical" ? "climbing" : dim}_score`;
-        updatedScores[dim] = objective[currentKey] as number;
+        updatedScores[dim] = currentScores[dim];
       }
     }
 
@@ -128,9 +140,22 @@ export async function POST(request: NextRequest) {
       flexibility: objective.current_flexibility_score as number,
     };
 
+    // Determine maintenance dimensions for PROMPT_3
+    const targetDimScores: DimensionScores = {
+      cardio: objective.target_cardio_score as number,
+      strength: objective.target_strength_score as number,
+      climbing_technical: objective.target_climbing_score as number,
+      flexibility: objective.target_flexibility_score as number,
+    };
+    const dimProgress = dimensionProgressFractions(currentScores, targetDimScores, weekNumber, 1);
+    const maintenanceInfo = Object.entries(dimProgress)
+      .filter(([, v]) => v.maintenance)
+      .map(([dim]) => dim);
+
     const userMessage = `Current scores: ${JSON.stringify(currentScores)}
 Expected scores this week: ${JSON.stringify(weekTarget.expected_scores)}
 Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}
+${maintenanceInfo.length > 0 ? `\nMaintenance dimensions (intentionally reduced volume — do NOT penalize): ${maintenanceInfo.join(", ")}` : ""}
 
 Workout logs for the week:
 ${workoutLogs.map((l) => `- ${l.dimension}: ${l.session_name || "custom"}, ${l.duration_min || "?"} min, completed as prescribed: ${l.completed_as_prescribed}. Details: ${JSON.stringify(l.details)}`).join("\n")}`;
@@ -190,6 +215,12 @@ ${workoutLogs.map((l) => `- ${l.dimension}: ${l.session_name || "custom"}, ${l.d
       current_flexibility_score: updatedScores.flexibility,
     })
     .eq("id", objective.id as string);
+
+  // Advance the active week
+  await supabase
+    .from("training_plans")
+    .update({ current_week_number: weekNumber + 1 })
+    .eq("id", planId);
 
   return NextResponse.json({
     updatedScores,
