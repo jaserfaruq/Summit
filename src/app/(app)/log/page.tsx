@@ -169,7 +169,7 @@ function LogForm() {
       </h2>
 
       {prescribedSession && (
-        <div className="bg-dark-card border border-dark-border rounded-lg p-4">
+        <div className="bg-dark-card/80 backdrop-blur-sm border border-dark-border/50 rounded-lg p-4">
           <p className="text-sm text-dark-muted italic mb-3">{prescribedSession.objective}</p>
           <button
             onClick={handleMarkComplete}

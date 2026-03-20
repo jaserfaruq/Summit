@@ -150,7 +150,7 @@ export default async function DashboardPage() {
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
       {/* Estimated scores banner */}
       {!hasTestWeekData && (
-        <div className="bg-test-blue/20 border border-test-blue/30 text-blue-300 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-test-blue/20 backdrop-blur-sm border border-test-blue/30 text-blue-300 px-4 py-3 rounded-lg text-sm">
           Estimated scores — take your first benchmark test to calibrate.
         </div>
       )}
@@ -177,7 +177,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Objective details */}
-      <div className="bg-dark-card rounded-xl border border-dark-border p-5">
+      <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-5">
         {validatedObjective?.description ? (
           <p className="text-sm text-dark-muted mb-3">{validatedObjective.description}</p>
         ) : activeObjective.relevance_profiles && typeof activeObjective.relevance_profiles === "object" && "cardio" in activeObjective.relevance_profiles && (
@@ -259,7 +259,7 @@ export default async function DashboardPage() {
 
       {/* This week summary */}
       {currentWeekTarget && (
-        <div className="bg-dark-card rounded-xl border border-dark-border p-6">
+        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-6">
           <div className="flex items-center gap-3 mb-4">
             <h3 className="text-lg font-semibold text-white">This Week</h3>
             <WeekBadge type={currentWeekTarget.week_type} />
@@ -298,7 +298,7 @@ export default async function DashboardPage() {
 
       {/* Graduation benchmarks */}
       {activeObjective.graduation_benchmarks && (
-        <div className="bg-dark-card rounded-xl border border-dark-border p-6">
+        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Graduation Benchmarks</h3>
           <div className="grid md:grid-cols-2 gap-4">
             {(["cardio", "strength", "climbing_technical", "flexibility"] as const).map((dim) => {

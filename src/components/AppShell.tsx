@@ -25,8 +25,13 @@ export default function AppShell({
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-dark-bg flex flex-col">
-      <header className="bg-dark-surface border-b border-dark-border px-4 md:px-6 py-3 flex items-center justify-between">
+    <div className="min-h-screen flex flex-col relative">
+      {/* Fixed blurred background */}
+      <div className="fixed inset-0 -z-10">
+        <img src="/bg-mountain.jpg" alt="" className="w-full h-full object-cover blur-md scale-110" />
+        <div className="absolute inset-0 bg-black/50" />
+      </div>
+      <header className="bg-dark-surface/80 backdrop-blur-md border-b border-dark-border/50 px-4 md:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/dashboard" className="text-white text-xl font-bold">
             Summit Planner
@@ -73,7 +78,7 @@ export default function AppShell({
       </header>
 
       {/* Mobile nav */}
-      <nav className="md:hidden bg-dark-surface border-b border-dark-border px-4 py-2 flex gap-1 overflow-x-auto">
+      <nav className="md:hidden bg-dark-surface/80 backdrop-blur-md border-b border-dark-border/50 px-4 py-2 flex gap-1 overflow-x-auto">
         {NAV_ITEMS.map((item) => (
           <Link
             key={item.href}

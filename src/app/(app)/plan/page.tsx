@@ -399,7 +399,7 @@ function PlanContent() {
             alt=""
             className="w-full h-full object-cover blur-[2px] scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/70 to-dark-bg/40" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30" />
         </div>
 
         {/* Content over image */}
@@ -443,7 +443,7 @@ function PlanContent() {
 
       {/* Objective details */}
       {objective && (
-        <div className="bg-dark-card rounded-xl border border-dark-border p-5">
+        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-5">
           {validatedObj?.description ? (
             <p className="text-sm text-dark-muted mb-3">{validatedObj.description}</p>
           ) : objective.relevance_profiles && typeof objective.relevance_profiles === "object" && "cardio" in objective.relevance_profiles && (
@@ -498,7 +498,7 @@ function PlanContent() {
 
       {/* Plan summary */}
       {planSummary && (
-        <div className="bg-dark-card rounded-xl border border-dark-border p-5">
+        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-5">
           <h3 className="font-semibold text-white mb-2">Plan Philosophy</h3>
           <p className="text-sm text-dark-muted mb-3">{planSummary.philosophy}</p>
           <p className="text-sm text-dark-muted mb-3">{planSummary.weeklyStructure}</p>
@@ -516,7 +516,7 @@ function PlanContent() {
 
       {/* Graduation workouts */}
       {plan.graduation_workouts && (
-        <div className="bg-dark-card rounded-xl border border-gold/20 p-5">
+        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-gold/20 p-5">
           <h3 className="font-semibold text-gold mb-3">Graduation Workouts (Finish Line)</h3>
           <div className="grid md:grid-cols-2 gap-3">
             {(["cardio", "strength", "climbing_technical", "flexibility"] as const).map((dim) => {
@@ -539,7 +539,7 @@ function PlanContent() {
 
       {/* Batch generation progress */}
       {batchGenerating && (
-        <div className="bg-dark-card rounded-xl border border-gold/30 p-4 flex items-center gap-3">
+        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-gold/30 p-4 flex items-center gap-3">
           <div className="w-5 h-5 border-2 border-gold border-t-transparent rounded-full animate-spin flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-white">Generating all week sessions...</p>
@@ -550,7 +550,7 @@ function PlanContent() {
         </div>
       )}
       {batchProgress && !batchGenerating && (
-        <div className="bg-dark-card rounded-xl border border-green-800/40 p-4">
+        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-green-800/40 p-4">
           <p className="text-sm text-green-400">
             Generated sessions for {batchProgress.generated} of {batchProgress.total} weeks.
           </p>
@@ -575,8 +575,8 @@ function PlanContent() {
           return (
             <div
               key={week.id}
-              className={`bg-dark-card rounded-xl border overflow-hidden ${
-                isCurrent ? "border-gold/40 ring-1 ring-gold/20" : "border-dark-border"
+              className={`bg-dark-card/80 backdrop-blur-sm rounded-xl border overflow-hidden ${
+                isCurrent ? "border-gold/40 ring-1 ring-gold/20" : "border-dark-border/50"
               }`}
             >
               {/* Week header */}

@@ -202,7 +202,7 @@ export default function CalendarPage() {
             const loggedSessionNames = dayLogs.map(l => l.session_name);
 
             return (
-              <div key={day} className="bg-dark-card rounded-lg border border-dark-border p-3">
+              <div key={day} className="bg-dark-card/80 backdrop-blur-sm rounded-lg border border-dark-border/50 p-3">
                 <div className="text-xs text-dark-muted font-semibold mb-1.5">{dayName}, {MONTHS[month]} {day}</div>
 
                 {dayObjs.map((obj) => (
@@ -263,7 +263,7 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      <div className="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+      <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 overflow-hidden">
         <div className="grid grid-cols-7">
           {DAYS.map((d) => (
             <div key={d} className="px-2 py-3 text-center text-xs font-semibold text-dark-muted border-b border-dark-border">
@@ -335,7 +335,7 @@ export default function CalendarPage() {
 
       {/* All Objectives list below calendar */}
       {objectives.length > 0 && (
-        <div className="mt-6 bg-dark-card rounded-xl border border-dark-border p-5">
+        <div className="mt-6 bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-5">
           <h3 className="font-semibold text-white mb-3">All Objectives</h3>
           <div className="space-y-2">
             {objectives.map((obj) => {

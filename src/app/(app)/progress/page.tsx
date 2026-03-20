@@ -97,13 +97,13 @@ export default function ProgressPage() {
       <h2 className="text-2xl font-bold text-white">Progress: {objective.name}</h2>
 
       {scoreHistory.length === 0 ? (
-        <div className="bg-dark-card rounded-xl border border-dark-border p-8 text-center">
+        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-8 text-center">
           <p className="text-dark-muted">No score history yet. Complete your first training week to see progress.</p>
         </div>
       ) : (
         <>
           {/* SVG Chart */}
-          <div className="bg-dark-card rounded-xl border border-dark-border p-4 overflow-x-auto">
+          <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-4 overflow-x-auto">
             <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full" style={{ minWidth: 400 }}>
               {/* Y-axis labels */}
               {[0, 25, 50, 75, 100].map((v) => (
@@ -207,7 +207,7 @@ export default function ProgressPage() {
           </div>
 
           {/* Score table */}
-          <div className="bg-dark-card rounded-xl border border-dark-border overflow-x-auto">
+          <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-dark-border">

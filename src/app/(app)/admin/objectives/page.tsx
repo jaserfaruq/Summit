@@ -93,7 +93,7 @@ export default function AdminObjectivesPage() {
         {filtered.map((obj) => (
           <div
             key={obj.id}
-            className="bg-dark-card rounded-lg border border-dark-border p-4 flex items-center justify-between"
+            className="bg-dark-card/80 backdrop-blur-sm rounded-lg border border-dark-border/50 p-4 flex items-center justify-between"
           >
             <div>
               <div className="flex items-center gap-2">
