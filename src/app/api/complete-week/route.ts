@@ -102,11 +102,14 @@ export async function POST(request: NextRequest) {
     })
     .eq("id", objective.id as string);
 
-  // Advance the active week
-  await supabase
-    .from("training_plans")
-    .update({ current_week_number: weekNumber + 1 })
-    .eq("id", planId);
+  // Only advance the active week if this is the current week
+  const currentWeekNumber = (plan as Record<string, unknown>).current_week_number as number;
+  if (weekNumber >= currentWeekNumber) {
+    await supabase
+      .from("training_plans")
+      .update({ current_week_number: weekNumber + 1 })
+      .eq("id", planId);
+  }
 
   // Generate feedback
   const rebalanceCheck = shouldHighlightRebalance(safeUpdatedScores, expectedScores);

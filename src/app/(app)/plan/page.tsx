@@ -41,6 +41,7 @@ function PlanContent() {
   const [batchGenerating, setBatchGenerating] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ generated: number; total: number } | null>(null);
   const [deletingLog, setDeletingLog] = useState<string | null>(null);
+  const [scoredWeekNumbers, setScoredWeekNumbers] = useState<Set<number>>(new Set());
 
   const shouldGenerate = searchParams.get("generate") === "true";
   const objectiveId = searchParams.get("objectiveId");
@@ -115,6 +116,24 @@ function PlanContent() {
       .eq("user_id", user.id);
 
     setWorkoutLogs((logData as WorkoutLog[]) || []);
+
+    // Fetch score_history to detect which weeks have already been scored
+    const { data: scoreData } = await supabase
+      .from("score_history")
+      .select("week_ending")
+      .eq("user_id", user.id)
+      .eq("objective_id", activePlan.objective_id);
+
+    if (scoreData && weeksArr.length > 0) {
+      const scoredEndings = new Set(scoreData.map((s: { week_ending: string }) => s.week_ending));
+      const scored = new Set<number>();
+      for (const w of weeksArr) {
+        if (scoredEndings.has(w.week_start)) {
+          scored.add(w.week_number);
+        }
+      }
+      setScoredWeekNumbers(scored);
+    }
 
     // Auto-expand the active week (tracked by current_week_number, not calendar)
     if (activePlan.current_week_number) {
@@ -284,9 +303,14 @@ function PlanContent() {
         [week.week_number]: result,
       }));
 
-      // Advance local state to next week
-      setPlan((prev) => prev ? { ...prev, current_week_number: week.week_number + 1 } : null);
-      setExpandedWeek(week.week_number + 1);
+      // Mark this week as scored locally
+      setScoredWeekNumbers((prev) => new Set([...prev, week.week_number]));
+
+      // Only advance current week if this was the current week
+      if (plan.current_week_number === week.week_number) {
+        setPlan((prev) => prev ? { ...prev, current_week_number: week.week_number + 1 } : null);
+        setExpandedWeek(week.week_number + 1);
+      }
 
       if (objective) {
         const supabase = createClient();
@@ -652,7 +676,9 @@ function PlanContent() {
           const hasLogs = weekLogs.length > 0;
           const completeResult = weekCompleteResult[week.week_number];
           const isCompleting = completingWeek === week.week_number;
-          const canComplete = isCurrent && hasLogs && !completeResult;
+          const alreadyScored = scoredWeekNumbers.has(week.week_number);
+          const isPastOrCurrent = week.week_number <= plan.current_week_number;
+          const canComplete = isPastOrCurrent && hasLogs && !completeResult && !alreadyScored;
 
           return (
             <div
