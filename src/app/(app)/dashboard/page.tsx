@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Objective, Assessment, TrainingPlan, WeeklyTarget, ScoreHistory } from "@/lib/types";
+import { Objective, Assessment, TrainingPlan, WeeklyTarget, ScoreHistory, ValidatedObjective } from "@/lib/types";
 import ScoreArc from "@/components/ScoreArc";
 import WeekBadge from "@/components/WeekBadge";
 import DeletePlanButton from "@/components/DeletePlanButton";
@@ -66,6 +66,7 @@ export default async function DashboardPage() {
   // Fetch score history for the active objective
   const activeObjective = userObjectives?.[0];
   let scoreHistory: ScoreHistory[] = [];
+  let validatedObjective: ValidatedObjective | null = null;
   if (activeObjective) {
     const { data: history } = await supabase
       .from("score_history")
@@ -73,6 +74,15 @@ export default async function DashboardPage() {
       .eq("objective_id", activeObjective.id)
       .order("week_ending");
     scoreHistory = (history as ScoreHistory[]) || [];
+
+    if (activeObjective.matched_validated_id) {
+      const { data: vo } = await supabase
+        .from("validated_objectives")
+        .select("*")
+        .eq("id", activeObjective.matched_validated_id)
+        .single();
+      validatedObjective = vo as ValidatedObjective | null;
+    }
   }
 
   // No assessment state
@@ -167,6 +177,59 @@ export default async function DashboardPage() {
           </div>
           <UpdateAssessmentButton planId={activePlan.id} objectiveId={activeObjective.id} />
           <DeletePlanButton planId={activePlan.id} />
+        </div>
+      </div>
+
+      {/* Objective details */}
+      <div className="bg-dark-card rounded-xl border border-dark-border p-5">
+        {validatedObjective?.description ? (
+          <p className="text-sm text-dark-muted mb-3">{validatedObjective.description}</p>
+        ) : activeObjective.relevance_profiles && typeof activeObjective.relevance_profiles === "object" && "cardio" in activeObjective.relevance_profiles && (
+          <p className="text-sm text-dark-muted mb-3">
+            {(activeObjective.relevance_profiles as { cardio: { summary: string } }).cardio.summary}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <div>
+            <span className="text-dark-muted">Type </span>
+            <span className="text-dark-text capitalize">{activeObjective.type.replace("_", " ")}</span>
+          </div>
+          {(validatedObjective?.route) && (
+            <div>
+              <span className="text-dark-muted">Route </span>
+              <span className="text-dark-text">{validatedObjective.route}</span>
+            </div>
+          )}
+          {(activeObjective.distance_miles || validatedObjective?.distance_miles) && (
+            <div>
+              <span className="text-dark-muted">Distance </span>
+              <span className="text-dark-text">{activeObjective.distance_miles || validatedObjective?.distance_miles} mi</span>
+            </div>
+          )}
+          {(activeObjective.elevation_gain_ft || validatedObjective?.total_gain_ft) && (
+            <div>
+              <span className="text-dark-muted">Gain </span>
+              <span className="text-dark-text">{(activeObjective.elevation_gain_ft || validatedObjective?.total_gain_ft)?.toLocaleString()} ft</span>
+            </div>
+          )}
+          {validatedObjective?.summit_elevation_ft && (
+            <div>
+              <span className="text-dark-muted">Summit </span>
+              <span className="text-dark-text">{validatedObjective.summit_elevation_ft.toLocaleString()} ft</span>
+            </div>
+          )}
+          {(activeObjective.technical_grade || validatedObjective?.technical_grade) && (
+            <div>
+              <span className="text-dark-muted">Grade </span>
+              <span className="text-dark-text">{activeObjective.technical_grade || validatedObjective?.technical_grade}</span>
+            </div>
+          )}
+          {validatedObjective?.difficulty && (
+            <div>
+              <span className="text-dark-muted">Difficulty </span>
+              <span className="text-dark-text capitalize">{validatedObjective.difficulty}</span>
+            </div>
+          )}
         </div>
       </div>
 

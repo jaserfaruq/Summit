@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog } from "@/lib/types";
+import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective } from "@/lib/types";
 import WeekBadge from "@/components/WeekBadge";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import Link from "next/link";
@@ -32,6 +32,7 @@ function PlanContent() {
   const [sessionErrors, setSessionErrors] = useState<Record<number, string>>({});
   const [weekSessions, setWeekSessions] = useState<Record<number, PlanSession[]>>({});
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
+  const [validatedObj, setValidatedObj] = useState<ValidatedObjective | null>(null);
   const [completingWeek, setCompletingWeek] = useState<number | null>(null);
   const [weekCompleteResult, setWeekCompleteResult] = useState<Record<number, {
     updatedScores: Record<string, number>;
@@ -92,7 +93,17 @@ function PlanContent() {
       .eq("id", activePlan.objective_id)
       .single();
 
-    setObjective(objData as Objective);
+    const objTyped = objData as Objective;
+    setObjective(objTyped);
+
+    if (objTyped?.matched_validated_id) {
+      const { data: voData } = await supabase
+        .from("validated_objectives")
+        .select("*")
+        .eq("id", objTyped.matched_validated_id)
+        .single();
+      setValidatedObj(voData as ValidatedObjective | null);
+    }
 
     const { data: logData } = await supabase
       .from("workout_logs")
@@ -378,6 +389,61 @@ function PlanContent() {
           setWorkoutLogs([]);
         }} />
       </div>
+
+      {/* Objective details */}
+      {objective && (
+        <div className="bg-dark-card rounded-xl border border-dark-border p-5">
+          {validatedObj?.description ? (
+            <p className="text-sm text-dark-muted mb-3">{validatedObj.description}</p>
+          ) : objective.relevance_profiles && typeof objective.relevance_profiles === "object" && "cardio" in objective.relevance_profiles && (
+            <p className="text-sm text-dark-muted mb-3">
+              {(objective.relevance_profiles as { cardio: { summary: string } }).cardio.summary}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            <div>
+              <span className="text-dark-muted">Type </span>
+              <span className="text-dark-text capitalize">{objective.type.replace("_", " ")}</span>
+            </div>
+            {validatedObj?.route && (
+              <div>
+                <span className="text-dark-muted">Route </span>
+                <span className="text-dark-text">{validatedObj.route}</span>
+              </div>
+            )}
+            {(objective.distance_miles || validatedObj?.distance_miles) && (
+              <div>
+                <span className="text-dark-muted">Distance </span>
+                <span className="text-dark-text">{objective.distance_miles || validatedObj?.distance_miles} mi</span>
+              </div>
+            )}
+            {(objective.elevation_gain_ft || validatedObj?.total_gain_ft) && (
+              <div>
+                <span className="text-dark-muted">Gain </span>
+                <span className="text-dark-text">{(objective.elevation_gain_ft || validatedObj?.total_gain_ft)?.toLocaleString()} ft</span>
+              </div>
+            )}
+            {validatedObj?.summit_elevation_ft && (
+              <div>
+                <span className="text-dark-muted">Summit </span>
+                <span className="text-dark-text">{validatedObj.summit_elevation_ft.toLocaleString()} ft</span>
+              </div>
+            )}
+            {(objective.technical_grade || validatedObj?.technical_grade) && (
+              <div>
+                <span className="text-dark-muted">Grade </span>
+                <span className="text-dark-text">{objective.technical_grade || validatedObj?.technical_grade}</span>
+              </div>
+            )}
+            {validatedObj?.difficulty && (
+              <div>
+                <span className="text-dark-muted">Difficulty </span>
+                <span className="text-dark-text capitalize">{validatedObj.difficulty}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Plan summary */}
       {planSummary && (
