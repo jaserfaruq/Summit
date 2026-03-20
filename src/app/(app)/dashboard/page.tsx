@@ -5,6 +5,7 @@ import { Objective, Assessment, TrainingPlan, WeeklyTarget, ValidatedObjective }
 import ScoreArc from "@/components/ScoreArc";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import UpdateAssessmentButton from "@/components/UpdateAssessmentButton";
+import ThisWeekSessions from "@/components/ThisWeekSessions";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -242,33 +243,10 @@ export default async function DashboardPage() {
 
       {/* This week summary */}
       {currentWeekTarget && (
-        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <h3 className="text-lg font-semibold text-white">This Week</h3>
-            <span className="text-dark-muted text-sm ml-auto">
-              Week {currentWeekTarget.week_number} · {currentWeekTarget.total_hours}h planned
-            </span>
-          </div>
-          <div className="space-y-2">
-            {currentWeekTarget.sessions.map((session, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between p-3 rounded-lg border border-dark-border bg-dark-surface"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm text-white">{session.name}</span>
-                  <span className="text-dark-muted text-xs">{session.estimatedMinutes} min</span>
-                </div>
-                <Link
-                  href={`/log?session=${encodeURIComponent(session.name)}&planId=${activePlan.id}&week=${currentWeekTarget.week_number}`}
-                  className="text-sm bg-gold/90 text-dark-bg px-3 py-1 rounded hover:bg-gold transition-colors font-medium"
-                >
-                  Mark Complete
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ThisWeekSessions
+          weekTarget={currentWeekTarget}
+          planId={activePlan.id}
+        />
       )}
 
       {/* Graduation benchmarks */}
