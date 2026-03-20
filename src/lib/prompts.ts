@@ -91,6 +91,17 @@ Design a plan that progresses each dimension's score from current to target over
 
 TRAINING OVERSHOOT: The graduation benchmarks already include overshoot targets above the objective's actual requirements. Weekly sessions should progress toward these higher targets. By the final pre-taper week, cardio sessions should reach ~150% of the objective's distance and elevation, and climbing sessions should be at 1 sub-grade above the objective grade (outdoor) or 2 sub-grades above (indoor). Strength, flexibility, and pack weight stay at objective-level requirements.
 
+CLIMBING GRADE PRESCRIPTION RULES:
+- Use relative descriptors for climbing intensity. For easy/moderate efforts, do NOT include specific grades — just use the relative descriptor. For near-limit and project-level efforts, include the calculated grade in parentheses. Examples:
+  - "Easy climbing, 2-3 number grades below your current limit"
+  - "Moderate climbing, 1-2 grades below your limit"
+  - "Near-limit climbing at your current max grade (5.10d)"
+  - "Project-level climbing at or slightly above your limit (5.11a)"
+- For bouldering, apply the same logic: "Easy bouldering, well below your limit", "Moderate bouldering, 1-2 V-grades below max", "Near-limit bouldering (V6)", etc.
+- For benchmark/test sessions, always specify exact grades since those are graduation targets being measured.
+- The athlete's current climbing dimension score relative to their target score indicates their approximate ability. An athlete at 64/80 on climbing is NOT a beginner — they are already a solid climber working toward an advanced goal. Calibrate session difficulty accordingly.
+- "Progress fraction" applies to volume, endurance, and technique complexity — NOT to grade. Do not start an experienced climber on beginner grades just because it's week 1.
+
 Periodization rules:
 - Increase total volume by no more than 10% per week.
 - Default to 5 sessions per week (adjust if user specifies fewer).
@@ -231,6 +242,17 @@ You will receive: the week details (number, type, hours target, expected scores)
 Design the training sessions for THIS SINGLE WEEK. The weekly sessions are scaled-down versions of the graduation workouts, progressively getting closer to graduation targets. Earlier weeks use a smaller fraction; later weeks approach or meet the graduation target.
 
 TRAINING OVERSHOOT: The graduation targets already include overshoot above the objective's actual requirements (~150% for distance/elevation, +1 climbing sub-grade outdoor, +2 indoor). Design sessions that progress toward these higher targets. By the final pre-taper weeks, cardio sessions should reach the full overshoot distances/elevation, and climbing sessions should be at the overshoot grade. Strength, flexibility, and pack weight stay at objective level.
+
+CLIMBING GRADE PRESCRIPTION RULES:
+- Use relative descriptors for climbing intensity. For easy/moderate efforts, do NOT include specific grades — just use the relative descriptor. For near-limit and project-level efforts, include the calculated grade in parentheses. Examples:
+  - "Easy climbing, 2-3 number grades below your current limit"
+  - "Moderate climbing, 1-2 grades below your limit"
+  - "Near-limit climbing at your current max grade (5.10d)"
+  - "Project-level climbing at or slightly above your limit (5.11a)"
+- For bouldering, apply the same logic: "Easy bouldering, well below your limit", "Moderate bouldering, 1-2 V-grades below max", "Near-limit bouldering (V6)", etc.
+- For benchmark/test sessions, always specify exact grades since those are graduation targets being measured.
+- The athlete's current climbing dimension score relative to their target score indicates their approximate ability. An athlete at 64/80 on climbing is NOT a beginner — they are already a solid climber working toward an advanced goal. Calibrate session difficulty accordingly.
+- "Progress fraction" applies to volume, endurance, and technique complexity — NOT to grade. Do not start an experienced climber on beginner grades just because it's week 1.
 
 Rules:
 - Increase total volume by no more than 10% per week from the prior week.
