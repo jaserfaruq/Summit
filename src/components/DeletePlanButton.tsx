@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function DeletePlanButton({ planId }: { planId: string }) {
+export default function DeletePlanButton({ planId, onDeleted }: { planId: string; onDeleted?: () => void }) {
   const router = useRouter();
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -22,7 +22,13 @@ export default function DeletePlanButton({ planId }: { planId: string }) {
         throw new Error(data.error || "Failed to delete plan");
       }
 
-      router.refresh();
+      setShowConfirm(false);
+      setDeleting(false);
+      if (onDeleted) {
+        onDeleted();
+      } else {
+        router.refresh();
+      }
     } catch (error) {
       console.error("Error deleting plan:", error);
       alert(error instanceof Error ? error.message : "Failed to delete plan");
