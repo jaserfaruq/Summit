@@ -96,7 +96,7 @@ function LogForm() {
     setExercises(updated);
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(overridePrescribed?: boolean) {
     setLoading(true);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -146,7 +146,7 @@ function LogForm() {
       duration_min: parseInt(durationMin) || null,
       details,
       benchmark_results: benchmarkData,
-      completed_as_prescribed: completedAsPrescribed,
+      completed_as_prescribed: overridePrescribed ?? completedAsPrescribed,
       session_name: sessionName || null,
       notes: notes || null,
       week_number: weekNumber ? parseInt(weekNumber) : null,
@@ -159,7 +159,7 @@ function LogForm() {
 
   function handleMarkComplete() {
     setCompletedAsPrescribed(true);
-    handleSubmit();
+    handleSubmit(true);
   }
 
   return (
