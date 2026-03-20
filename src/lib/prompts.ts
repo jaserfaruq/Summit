@@ -27,6 +27,14 @@ The four training dimensions are fixed: Cardio, Strength, Climbing/Technical, an
 
 4. Graduation benchmarks: 2–4 benchmark exercises per dimension selected from the provided benchmark exercise library. For each, set an objective-specific graduation target. The graduation workout represents the exact performance level needed to complete this objective safely and comfortably. Cardio: 1–2 benchmarks. Strength: 2–4. Climbing/Technical: 1–3. Flexibility: 1–3. The exact count depends on the objective's demands.
 
+TRAINING OVERSHOOT RULE: Graduation benchmarks must be set ABOVE the objective's actual requirements to build a comfort buffer. The athlete should arrive over-prepared, not at bare minimum readiness. Apply these overshoot multipliers:
+- Cardio distance: Set graduation targets at ~150% of the objective's distance (e.g., 8-mile objective → 10-12 mile graduation target).
+- Cardio elevation gain: Set graduation targets at ~150% of the objective's elevation gain (e.g., 3,000 ft objective → 4,500 ft graduation target).
+- Climbing/Technical grade: Set graduation targets 1 sub-grade above the objective for outdoor climbing (e.g., 5.10d objective → 5.11a graduation target), or 2 sub-grades above for indoor/top-rope benchmarks (e.g., 5.10d → 5.11b).
+- Strength: No overshoot — set graduation targets at the objective's actual requirements.
+- Flexibility: No overshoot — set graduation targets at the objective's actual requirements.
+- Pack weight: No overshoot — keep pack weight at the objective's specified weight.
+
 Select benchmark exercises ONLY from the provided library. Do not invent new exercises.
 
 Return only valid JSON matching this schema:
@@ -80,6 +88,8 @@ https://mtntactical.com/shop/alpine-rock-climb-training-program/
 You will receive: the athlete's current dimension scores (0–100), the objective's target scores, graduation benchmarks for each dimension, the objective details, relevance profiles (key and irrelevant components per dimension), the number of weeks available, and user preferences (training days per week, equipment access, location).
 
 Design a plan that progresses each dimension's score from current to target over the available weeks. The weekly sessions are scaled-down versions of the graduation workouts, progressively getting closer. Week 1's step-up count is a fraction of the graduation target; the final pre-taper week is at or near the graduation target.
+
+TRAINING OVERSHOOT: The graduation benchmarks already include overshoot targets above the objective's actual requirements. Weekly sessions should progress toward these higher targets. By the final pre-taper week, cardio sessions should reach ~150% of the objective's distance and elevation, and climbing sessions should be at 1 sub-grade above the objective grade (outdoor) or 2 sub-grades above (indoor). Strength, flexibility, and pack weight stay at objective-level requirements.
 
 Periodization rules:
 - Increase total volume by no more than 10% per week.
@@ -170,6 +180,8 @@ You will receive: the athlete's current dimension scores (0–100), the objectiv
 
 Design the STRUCTURE of a plan that progresses each dimension from current to target. Do NOT generate detailed sessions — only the plan summary and week schedule.
 
+TRAINING OVERSHOOT: Graduation benchmarks include overshoot targets above objective requirements (~150% for distance/elevation, +1 sub-grade for outdoor climbing, +2 for indoor). The plan structure should account for progressing toward these higher targets. Strength, flexibility, and pack weight stay at objective level.
+
 Periodization rules:
 - Default to 5 sessions per week (adjust if user specifies fewer).
 - TEST weeks: scheduled on week 2 and at the midpoint of the plan. Volume at 75–80%.
@@ -217,6 +229,8 @@ https://mtntactical.com/shop/alpine-rock-climb-training-program/
 You will receive: the week details (number, type, hours target, expected scores), the athlete's objective details, graduation benchmarks, relevance profiles, current scores, target scores, and user preferences.
 
 Design the training sessions for THIS SINGLE WEEK. The weekly sessions are scaled-down versions of the graduation workouts, progressively getting closer to graduation targets. Earlier weeks use a smaller fraction; later weeks approach or meet the graduation target.
+
+TRAINING OVERSHOOT: The graduation targets already include overshoot above the objective's actual requirements (~150% for distance/elevation, +1 climbing sub-grade outdoor, +2 indoor). Design sessions that progress toward these higher targets. By the final pre-taper weeks, cardio sessions should reach the full overshoot distances/elevation, and climbing sessions should be at the overshoot grade. Strength, flexibility, and pack weight stay at objective level.
 
 Rules:
 - Increase total volume by no more than 10% per week from the prior week.
