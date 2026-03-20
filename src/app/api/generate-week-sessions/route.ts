@@ -146,11 +146,39 @@ function buildProgressFractionBlock(
   };
   const fractions = dimensionProgressFractions(currentScores, targetScores, weekNumber, totalWeeks);
 
-  return `Per-dimension progress fractions for Week ${weekNumber} (percentage of graduation targets this week's sessions should reach):
-- Cardio: ${fractions.cardio}%${currentScores.cardio >= targetScores.cardio ? " (already meets target — maintenance with slight progression)" : ""}
-- Strength: ${fractions.strength}%${currentScores.strength >= targetScores.strength ? " (already meets target — maintenance with slight progression)" : ""}
-- Climbing/Technical: ${fractions.climbing_technical}%${currentScores.climbing_technical >= targetScores.climbing_technical ? " (already meets target — maintenance with slight progression)" : ""}
-- Flexibility: ${fractions.flexibility}%${currentScores.flexibility >= targetScores.flexibility ? " (already meets target — maintenance with slight progression)" : ""}
+  const dimLabels: Record<string, string> = {
+    cardio: "Cardio",
+    strength: "Strength",
+    climbing_technical: "Climbing/Technical",
+    flexibility: "Flexibility",
+  };
+
+  const lines: string[] = [];
+  const maintenanceDims: string[] = [];
+
+  for (const [dim, label] of Object.entries(dimLabels)) {
+    const prog = fractions[dim];
+    const current = currentScores[dim as keyof typeof currentScores];
+    const target = targetScores[dim as keyof typeof targetScores];
+
+    if (prog.maintenance) {
+      lines.push(`- ${label}: MAINTENANCE MODE (1 session/week, 60% volume) — current ${current} vs target ${target}. Athlete significantly exceeds this requirement.`);
+      maintenanceDims.push(label);
+    } else if (current >= target) {
+      lines.push(`- ${label}: ${prog.fraction}% (already meets target — maintenance with slight progression)`);
+    } else {
+      lines.push(`- ${label}: ${prog.fraction}%`);
+    }
+  }
+
+  let result = `Per-dimension progress fractions for Week ${weekNumber} (percentage of graduation targets this week's sessions should reach):
+${lines.join("\n")}
 
 IMPORTANT: These percentages reflect the athlete's CURRENT fitness level. Do NOT prescribe beginner-level training for dimensions where the athlete is already strong. Match session intensity to the progress fraction shown.`;
+
+  if (maintenanceDims.length > 0) {
+    result += `\n\nMAINTENANCE REALLOCATION: ${maintenanceDims.join(", ")} ${maintenanceDims.length === 1 ? "is" : "are"} in maintenance mode. Reallocate freed training time to dimensions furthest below their target scores, prioritizing the dimension with the highest target score.`;
+  }
+
+  return result;
 }

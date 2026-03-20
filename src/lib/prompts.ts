@@ -243,6 +243,12 @@ Design the training sessions for THIS SINGLE WEEK. The weekly sessions are scale
 
 You will receive PER-DIMENSION PROGRESS FRACTIONS that tell you what percentage of graduation targets this week's sessions should reach for each dimension. These fractions account for the athlete's current fitness — a strong athlete will have a high starting fraction (e.g., 80-100%) even in Week 1, while a weak dimension starts lower (e.g., 50-60%). Always respect these fractions: do NOT prescribe easy beginner-level training for a dimension where the fraction is high.
 
+MAINTENANCE MODE: Some dimensions may be marked "MAINTENANCE MODE" in the progress fractions. This means the athlete significantly exceeds the target for that dimension (current >= 1.25x target). For maintenance dimensions:
+- Prescribe only 1 session per week at 60% of normal volume for that dimension.
+- The session should be at the athlete's CURRENT fitness level — not scaled down to graduation targets. Keep them sharp.
+- Reallocate the freed training time to dimensions that are furthest below their target scores, prioritizing the dimension with the highest target score.
+- On TEST WEEKS, still include benchmark testing for maintenance dimensions — all dimensions are always tested.
+
 TRAINING OVERSHOOT: The graduation targets already include overshoot above the objective's actual requirements (~150% for distance/elevation, +1 climbing sub-grade outdoor, +2 indoor). Design sessions that progress toward these higher targets. By the final pre-taper weeks, cardio sessions should reach the full overshoot distances/elevation, and climbing sessions should be at the overshoot grade. Strength, flexibility, and pack weight stay at objective level.
 
 CLIMBING GRADE PRESCRIPTION RULES:

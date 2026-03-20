@@ -152,12 +152,18 @@ export function calculateWeekTotalHours(sessions: PlanSession[]): number {
   return Math.round(totalMinutes / 60 * 10) / 10;
 }
 
+export interface DimensionProgress {
+  fraction: number;      // percentage of graduation targets (0-100)
+  maintenance: boolean;  // true if dimension significantly exceeds target
+}
+
 /**
  * Calculate per-dimension progress fractions for a given week.
  *
- * Floor per dimension:
- * - If current >= target: 80% (maintenance with slight progression to 100%)
- * - Otherwise: max(50%, current/target)
+ * Three tiers:
+ * - current >= 1.25 * target: MAINTENANCE MODE — 60% fixed, 1 session/week
+ * - current >= target: floor 80%, progresses to 100%
+ * - current < target: floor = max(50%, current/target), progresses to 100%
  *
  * Progress at week N = floor + (1 - floor) * (N / totalWeeks)
  */
@@ -166,13 +172,19 @@ export function dimensionProgressFractions(
   targetScores: DimensionScores,
   weekNumber: number,
   totalWeeks: number
-): Record<string, number> {
+): Record<string, DimensionProgress> {
   const dimensions = ["cardio", "strength", "climbing_technical", "flexibility"] as const;
-  const result: Record<string, number> = {};
+  const result: Record<string, DimensionProgress> = {};
 
   for (const dim of dimensions) {
     const current = currentScores[dim];
     const target = targetScores[dim];
+
+    // Significantly exceeds target → maintenance mode
+    if (target > 0 && current >= 1.25 * target) {
+      result[dim] = { fraction: 60, maintenance: true };
+      continue;
+    }
 
     let floor: number;
     if (target <= 0) {
@@ -184,7 +196,10 @@ export function dimensionProgressFractions(
     }
 
     const progress = floor + (1 - floor) * (weekNumber / totalWeeks);
-    result[dim] = Math.round(Math.min(progress, 1.0) * 100);
+    result[dim] = {
+      fraction: Math.round(Math.min(progress, 1.0) * 100),
+      maintenance: false,
+    };
   }
 
   return result;
