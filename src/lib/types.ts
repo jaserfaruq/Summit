@@ -399,7 +399,7 @@ export interface CompleteWeekRequest {
   ratings: SessionRating[];
 }
 
-export interface CompleteWeekResponse extends WeekCompletionFeedback {}
+export type CompleteWeekResponse = WeekCompletionFeedback;
 
 export interface RebalanceRequest {
   planId: string;
