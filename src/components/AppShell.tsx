@@ -6,10 +6,7 @@ import { signout } from "@/app/auth/actions";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/calendar", label: "Calendar" },
-  { href: "/assessment", label: "Assessment" },
   { href: "/plan", label: "Plan" },
-  { href: "/log", label: "Log" },
   { href: "/progress", label: "Progress" },
 ];
 
