@@ -295,10 +295,17 @@ export interface MatchObjectiveRequest {
   details?: string;
 }
 
+export interface SearchMatch {
+  validatedObjective: ValidatedObjective;
+  tier: 'gold' | 'silver';
+  matchReason: string;
+}
+
 export interface MatchObjectiveResponse {
   tier: Tier;
   validatedObjective?: ValidatedObjective;
   anchors: ValidatedObjective[];
+  matches?: SearchMatch[];
 }
 
 export interface EstimateScoresRequest {

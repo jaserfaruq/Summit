@@ -370,7 +370,13 @@ function PlanContent() {
             </div>
           )}
         </div>
-        <DeletePlanButton planId={plan.id} />
+        <DeletePlanButton planId={plan.id} onDeleted={() => {
+          setPlan(null);
+          setWeeks([]);
+          setObjective(null);
+          setWeekSessions({});
+          setWorkoutLogs([]);
+        }} />
       </div>
 
       {/* Plan summary */}
