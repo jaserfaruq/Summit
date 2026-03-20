@@ -15,10 +15,6 @@ function xScale(i: number, dataPoints: number) {
   return PADDING.left + (i / (dataPoints - 1)) * PLOT_WIDTH;
 }
 
-function yScale(score: number) {
-  return PADDING.top + PLOT_HEIGHT - (score / 100) * PLOT_HEIGHT;
-}
-
 function DimensionChart({
   scoreHistory,
   dimensionKey,
@@ -33,6 +29,30 @@ function DimensionChart({
   target: number;
 }) {
   const dataPoints = scoreHistory.length;
+
+  // Compute dynamic Y-axis range from data + target
+  const allValues = [...scoreHistory.map((p) => p[dimensionKey]), target];
+  const rawMin = Math.min(...allValues);
+  const rawMax = Math.max(...allValues);
+  const range = rawMax - rawMin;
+  const buffer = Math.max(range * 0.1, 5);
+  const yMin = Math.max(0, Math.floor((rawMin - buffer) / 5) * 5);
+  const yMax = Math.min(100, Math.ceil((rawMax + buffer) / 5) * 5);
+  const yRange = yMax - yMin || 10; // fallback if all values identical
+
+  function yScale(score: number) {
+    return PADDING.top + PLOT_HEIGHT - ((score - yMin) / yRange) * PLOT_HEIGHT;
+  }
+
+  // Generate ~4-5 evenly spaced grid lines at multiples of 5
+  const gridStep = Math.max(5, Math.round(yRange / 4 / 5) * 5) || 5;
+  const gridLines: number[] = [];
+  for (let v = yMin; v <= yMax; v += gridStep) {
+    gridLines.push(v);
+  }
+  if (gridLines[gridLines.length - 1] !== yMax) {
+    gridLines.push(yMax);
+  }
 
   const pathData =
     dataPoints >= 2
@@ -53,7 +73,7 @@ function DimensionChart({
       <div className="overflow-x-auto">
         <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="w-full" style={{ minWidth: 300 }}>
           {/* Y-axis labels & grid */}
-          {[0, 25, 50, 75, 100].map((v) => (
+          {gridLines.map((v) => (
             <g key={v}>
               <text x={PADDING.left - 10} y={yScale(v) + 4} textAnchor="end" className="text-[10px]" fill="#888">
                 {v}
