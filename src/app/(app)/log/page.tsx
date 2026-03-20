@@ -5,13 +5,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Dimension, PlanSession, WeeklyTarget, WorkoutRating } from "@/lib/types";
 
-const DIMENSIONS: { value: Dimension; label: string }[] = [
-  { value: "cardio", label: "Cardio" },
-  { value: "strength", label: "Strength" },
-  { value: "climbing_technical", label: "Climbing / Technical" },
-  { value: "flexibility", label: "Flexibility" },
-];
-
 const RATING_OPTIONS: { value: WorkoutRating; label: string; description: string }[] = [
   { value: 1, label: "1", description: "Way too hard — couldn't complete" },
   { value: 2, label: "2", description: "Struggled — barely finished" },
@@ -19,8 +12,6 @@ const RATING_OPTIONS: { value: WorkoutRating; label: string; description: string
   { value: 4, label: "4", description: "Slightly easy — could do more" },
   { value: 5, label: "5", description: "Way too easy — need harder work" },
 ];
-
-const inputClass = "w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50";
 
 function LogForm() {
   const searchParams = useSearchParams();
@@ -31,23 +22,10 @@ function LogForm() {
   const weekNumber = searchParams.get("week");
 
   const [dimension, setDimension] = useState<Dimension>("cardio");
-  const [durationMin, setDurationMin] = useState("");
   const [notes, setNotes] = useState("");
   const [rating, setRating] = useState<WorkoutRating>(3);
   const [loading, setLoading] = useState(false);
   const [prescribedSession, setPrescribedSession] = useState<PlanSession | null>(null);
-
-  const [activityType, setActivityType] = useState("run");
-  const [cardioDistance, setCardioDistance] = useState("");
-  const [cardioElevation, setCardioElevation] = useState("");
-  const [exercises, setExercises] = useState<{ name: string; sets: string; reps: string; weight: string }[]>([
-    { name: "", sets: "", reps: "", weight: "" },
-  ]);
-  const [climbType, setClimbType] = useState("sport");
-  const [climbGrade, setClimbGrade] = useState("");
-  const [pitches, setPitches] = useState("");
-  const [routineName, setRoutineName] = useState("");
-  const [bodyAreas, setBodyAreas] = useState("");
 
   useEffect(() => {
     if (planId && weekNumber && sessionName) {
@@ -72,19 +50,8 @@ function LogForm() {
       if (session) {
         setPrescribedSession(session);
         setDimension(session.dimension as Dimension);
-        setDurationMin(session.estimatedMinutes.toString());
       }
     }
-  }
-
-  function addExercise() {
-    setExercises([...exercises, { name: "", sets: "", reps: "", weight: "" }]);
-  }
-
-  function updateExercise(index: number, field: string, value: string) {
-    const updated = [...exercises];
-    updated[index] = { ...updated[index], [field]: value };
-    setExercises(updated);
   }
 
   async function handleSubmit(overrideRating?: WorkoutRating) {
@@ -93,30 +60,12 @@ function LogForm() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const details: Record<string, unknown> = {};
-    if (dimension === "cardio") {
-      details.activity = activityType;
-      details.distance = cardioDistance;
-      details.elevation = cardioElevation;
-    } else if (dimension === "strength") {
-      details.exercises = exercises.filter((e) => e.name);
-    } else if (dimension === "climbing_technical") {
-      details.type = climbType;
-      details.grade = climbGrade;
-      details.pitches = pitches;
-    } else if (dimension === "flexibility") {
-      details.routine = routineName;
-      details.bodyAreas = bodyAreas;
-    }
-
     const finalRating = overrideRating ?? rating;
 
     const { error } = await supabase.from("workout_logs").insert({
       user_id: user.id,
       logged_date: new Date().toISOString().split("T")[0],
       dimension,
-      duration_min: parseInt(durationMin) || null,
-      details,
       completed_as_prescribed: finalRating === 3,
       session_name: sessionName || null,
       notes: notes || null,
@@ -138,7 +87,6 @@ function LogForm() {
   }
 
   function handleMarkComplete() {
-    // Mark complete = rated 3 (as prescribed, right challenge)
     handleSubmit(3);
   }
 
@@ -186,71 +134,10 @@ function LogForm() {
           </p>
         </div>
 
+        {/* Comments */}
         <div>
-          <label className="block text-sm font-medium text-dark-muted mb-1">Dimension</label>
-          <select value={dimension} onChange={(e) => setDimension(e.target.value as Dimension)} className={inputClass}>
-            {DIMENSIONS.map((d) => (
-              <option key={d.value} value={d.value}>{d.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-dark-muted mb-1">Duration (minutes)</label>
-          <input type="number" value={durationMin} onChange={(e) => setDurationMin(e.target.value)} className={inputClass} />
-        </div>
-
-        {dimension === "cardio" && (
-          <div className="space-y-3">
-            <select value={activityType} onChange={(e) => setActivityType(e.target.value)} className={inputClass}>
-              <option value="run">Run</option>
-              <option value="hike">Hike</option>
-              <option value="bike">Bike</option>
-              <option value="swim">Swim</option>
-              <option value="other">Other</option>
-            </select>
-            <input type="number" step="0.1" value={cardioDistance} onChange={(e) => setCardioDistance(e.target.value)} className={inputClass} placeholder="Distance (miles)" />
-            <input type="number" value={cardioElevation} onChange={(e) => setCardioElevation(e.target.value)} className={inputClass} placeholder="Elevation gain (ft)" />
-          </div>
-        )}
-
-        {dimension === "strength" && (
-          <div className="space-y-3">
-            {exercises.map((ex, i) => (
-              <div key={i} className="grid grid-cols-4 gap-2">
-                <input value={ex.name} onChange={(e) => updateExercise(i, "name", e.target.value)} className={`col-span-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white text-sm focus:ring-2 focus:ring-gold/50`} placeholder="Exercise" />
-                <input value={ex.sets} onChange={(e) => updateExercise(i, "sets", e.target.value)} className={`px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white text-sm focus:ring-2 focus:ring-gold/50`} placeholder="Sets" />
-                <input value={ex.reps} onChange={(e) => updateExercise(i, "reps", e.target.value)} className={`px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white text-sm focus:ring-2 focus:ring-gold/50`} placeholder="Reps" />
-              </div>
-            ))}
-            <button onClick={addExercise} className="text-sm text-gold font-medium hover:underline">+ Add Exercise</button>
-          </div>
-        )}
-
-        {dimension === "climbing_technical" && (
-          <div className="space-y-3">
-            <select value={climbType} onChange={(e) => setClimbType(e.target.value)} className={inputClass}>
-              <option value="sport">Sport</option>
-              <option value="trad">Trad</option>
-              <option value="boulder">Bouldering</option>
-              <option value="alpine">Alpine</option>
-              <option value="gym">Gym</option>
-            </select>
-            <input value={climbGrade} onChange={(e) => setClimbGrade(e.target.value)} className={inputClass} placeholder="Grade (e.g., 5.10a)" />
-            <input type="number" value={pitches} onChange={(e) => setPitches(e.target.value)} className={inputClass} placeholder="Pitches" />
-          </div>
-        )}
-
-        {dimension === "flexibility" && (
-          <div className="space-y-3">
-            <input value={routineName} onChange={(e) => setRoutineName(e.target.value)} className={inputClass} placeholder="Routine name" />
-            <input value={bodyAreas} onChange={(e) => setBodyAreas(e.target.value)} className={inputClass} placeholder="Body areas worked (e.g., hips, shoulders)" />
-          </div>
-        )}
-
-        <div>
-          <label className="block text-sm font-medium text-dark-muted mb-1">Notes (optional)</label>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={inputClass} placeholder="How did it feel? Any modifications?" />
+          <label className="block text-sm font-medium text-dark-muted mb-1">Comments (optional)</label>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50" placeholder="How did it feel? Any modifications?" />
         </div>
 
         <button
