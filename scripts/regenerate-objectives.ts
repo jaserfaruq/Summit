@@ -13,9 +13,9 @@
  *   npx tsx scripts/regenerate-objectives.ts
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import * as fs from "fs";
 import * as path from "path";
+import { execSync } from "child_process";
 
 // ---------- Load env from .env.local if present ----------
 const envPath = path.join(__dirname, "..", ".env.local");
@@ -45,7 +45,7 @@ if (!isDryRun && (!apiKey || apiKey === "your-anthropic-api-key")) {
   process.exit(1);
 }
 
-const anthropic = new Anthropic({ apiKey: apiKey || "dry-run" });
+// Using curl for API calls (Node.js fetch/SDK may be blocked in sandboxed environments)
 
 // ---------- Prompt 1 system prompt (imported inline to avoid path alias issues) ----------
 const PROMPT_1_SYSTEM = fs.readFileSync(
@@ -281,26 +281,57 @@ function unquoteSql(s: string): string {
   return trimmed;
 }
 
-// ---------- Call Claude ----------
-async function callClaude(systemPrompt: string, userMessage: string): Promise<string> {
-  const response = await anthropic.messages.create({
+// ---------- Call Claude via curl (Node.js networking may be restricted) ----------
+function callClaudeSync(systemPrompt: string, userMessage: string, retries = 3): string {
+  const requestBody = JSON.stringify({
     model: "claude-sonnet-4-20250514",
     max_tokens: 8192,
-    system: [
-      {
-        type: "text",
-        text: systemPrompt,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
+    system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: userMessage }],
   });
 
-  const textBlock = response.content.find((block) => block.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("No text response from Claude");
+  // Write request body to a temp file to avoid shell escaping issues
+  const tmpFile = path.join("/tmp", `claude-req-${Date.now()}.json`);
+  fs.writeFileSync(tmpFile, requestBody);
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const result = execSync(
+        `curl -s --max-time 300 https://api.anthropic.com/v1/messages ` +
+        `-H "x-api-key: ${apiKey}" ` +
+        `-H "anthropic-version: 2023-06-01" ` +
+        `-H "content-type: application/json" ` +
+        `-d @${tmpFile}`,
+        { maxBuffer: 10 * 1024 * 1024, timeout: 310000 }
+      ).toString();
+
+      // Clean up temp file
+      try { fs.unlinkSync(tmpFile); } catch {}
+
+      const data = JSON.parse(result);
+      if (data.error) {
+        throw new Error(`API error: ${data.error.message || JSON.stringify(data.error)}`);
+      }
+
+      const textBlock = data.content?.find((block: { type: string }) => block.type === "text");
+      if (!textBlock?.text) {
+        throw new Error("No text response from Claude");
+      }
+      return textBlock.text;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (attempt < retries && (errMsg.includes("timeout") || errMsg.includes("timed out") || errMsg.includes("ECONNRESET") || errMsg.includes("529") || errMsg.includes("overloaded"))) {
+        const delay = Math.pow(2, attempt) * 2000;
+        console.log(`    Retry ${attempt}/${retries} after ${delay / 1000}s...`);
+        const start = Date.now();
+        while (Date.now() - start < delay) { /* busy wait for sync */ }
+        continue;
+      }
+      try { fs.unlinkSync(tmpFile); } catch {}
+      throw err;
+    }
   }
-  return textBlock.text;
+  throw new Error("All retries exhausted");
 }
 
 function parseClaudeJSON<T>(text: string): T {
@@ -394,7 +425,7 @@ async function main() {
         continue;
       }
 
-      const responseText = await callClaude(PROMPT_1_SYSTEM, userMessage);
+      const responseText = callClaudeSync(PROMPT_1_SYSTEM, userMessage);
       const parsed = parseClaudeJSON<EstimateScoresResponse>(responseText);
 
       // Validate response has all dimensions
