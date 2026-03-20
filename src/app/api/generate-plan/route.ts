@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
   });
 
   const planSummary = {
-    philosophy: `Progressive ${totalWeeks}-week plan building from current fitness to ${objective.name} readiness. Test weeks for calibration at week 2 and the midpoint, and a 2-week taper to peak on target date.`,
+    philosophy: buildPlanPhilosophy(objective.name, currentScores, targetScores, objective.taglines, totalWeeks),
     weeklyStructure: `${daysPerWeek} sessions per week across cardio, strength, climbing/technical, and flexibility. Sessions are generated on-demand when you expand each week.`,
     equipmentNeeded: profile?.equipment_access || ["basic gym equipment"],
     keyExercises: extractKeyExercises(objective.graduation_benchmarks),
@@ -176,6 +176,98 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+const DIM_LABELS: Record<string, string> = {
+  cardio: "Cardio",
+  strength: "Strength",
+  climbing_technical: "Climbing/Technical",
+  flexibility: "Flexibility",
+};
+
+/**
+ * Build a data-driven plan philosophy that explains WHY the plan
+ * is structured the way it is, based on actual score gaps.
+ */
+function buildPlanPhilosophy(
+  objectiveName: string,
+  current: Record<string, number>,
+  target: Record<string, number>,
+  taglines: Record<string, string> | null,
+  totalWeeks: number
+): string {
+  const dims = ["cardio", "strength", "climbing_technical", "flexibility"];
+
+  // Categorize each dimension
+  const bigGaps: { dim: string; gap: number; pct: number }[] = [];
+  const moderateGaps: { dim: string; gap: number }[] = [];
+  const maintenance: { dim: string }[] = [];
+  const minimal: { dim: string }[] = [];
+
+  for (const dim of dims) {
+    const cur = current[dim] ?? 0;
+    const tgt = target[dim] ?? 0;
+    const gap = tgt - cur;
+    const pctBehind = tgt > 0 ? Math.round((gap / tgt) * 100) : 0;
+
+    if (cur >= tgt) {
+      maintenance.push({ dim });
+    } else if (pctBehind >= 50) {
+      bigGaps.push({ dim, gap, pct: pctBehind });
+    } else if (gap >= 10) {
+      moderateGaps.push({ dim, gap });
+    } else {
+      minimal.push({ dim });
+    }
+  }
+
+  // Sort big gaps by size (largest first)
+  bigGaps.sort((a, b) => b.pct - a.pct);
+
+  const parts: string[] = [];
+
+  // Opening line
+  parts.push(`This ${totalWeeks}-week plan prepares you for ${objectiveName}.`);
+
+  // Big gaps — these drive the plan's focus
+  if (bigGaps.length > 0) {
+    const gapDescriptions = bigGaps.map((g) => {
+      const label = DIM_LABELS[g.dim];
+      const tagline = taglines?.[g.dim];
+      const taglineSuffix = tagline ? ` — ${tagline.toLowerCase()}` : "";
+      return `${label} (${current[g.dim]} → ${target[g.dim]}${taglineSuffix})`;
+    });
+
+    if (bigGaps.length === 1) {
+      parts.push(`Your biggest priority is ${gapDescriptions[0]}. The plan dedicates the most training volume here to close this gap.`);
+    } else {
+      parts.push(`Your biggest gaps are in ${gapDescriptions.join(" and ")}. The plan prioritizes these dimensions with the most training volume.`);
+    }
+  }
+
+  // Moderate gaps
+  if (moderateGaps.length > 0) {
+    const labels = moderateGaps.map((g) => DIM_LABELS[g.dim]);
+    parts.push(`${labels.join(" and ")} ${moderateGaps.length === 1 ? "needs" : "need"} steady progression to reach target.`);
+  }
+
+  // Maintenance dimensions
+  if (maintenance.length > 0) {
+    const labels = maintenance.map((g) => DIM_LABELS[g.dim]);
+    parts.push(`${labels.join(" and ")} ${maintenance.length === 1 ? "is" : "are"} already at or above target — the plan maintains ${maintenance.length === 1 ? "this" : "these"} with reduced volume and reallocates that time to weaker areas.`);
+  }
+
+  // Minimal gaps (close to target)
+  if (minimal.length > 0 && bigGaps.length > 0) {
+    const labels = minimal.map((g) => DIM_LABELS[g.dim]);
+    parts.push(`${labels.join(" and ")} ${minimal.length === 1 ? "is" : "are"} close to target and ${minimal.length === 1 ? "needs" : "need"} only light work.`);
+  }
+
+  // Periodization note
+  const testWeekCount = Math.floor(totalWeeks / 4);
+  parts.push(`Test weeks every ~4 weeks (${testWeekCount} total) calibrate your progress with benchmark workouts, followed by a 2-week taper to peak on your target date.`);
+
+  return parts.join(" ");
 }
 
 // Extract exercise names from graduation benchmarks for the plan summary
