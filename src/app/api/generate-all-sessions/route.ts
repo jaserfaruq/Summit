@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callClaudeWithCache, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_2B_SYSTEM } from "@/lib/prompts";
 import { PlanSession } from "@/lib/types";
-import { calculateAllSessionMinutes, calculateWeekTotalHours } from "@/lib/scoring";
+import { calculateAllSessionMinutes, calculateWeekTotalHours, dimensionProgressFractions } from "@/lib/scoring";
 
 // Allow up to 5 minutes for batch generation of all weeks
 export const maxDuration = 300;
@@ -151,5 +151,33 @@ Graduation benchmarks: ${JSON.stringify(objective.graduation_benchmarks)}
 
 Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}
 
-Progress fraction: Week ${weekNumber} sessions should be at approximately ${Math.round((weekNumber / totalWeeks) * 100)}% of graduation targets.`;
+${buildProgressFractionBlock(objective, weekNumber, totalWeeks)}`;
+}
+
+function buildProgressFractionBlock(
+  objective: Record<string, unknown>,
+  weekNumber: number,
+  totalWeeks: number
+): string {
+  const currentScores = {
+    cardio: (objective.current_cardio_score as number) || 0,
+    strength: (objective.current_strength_score as number) || 0,
+    climbing_technical: (objective.current_climbing_score as number) || 0,
+    flexibility: (objective.current_flexibility_score as number) || 0,
+  };
+  const targetScores = {
+    cardio: (objective.target_cardio_score as number) || 0,
+    strength: (objective.target_strength_score as number) || 0,
+    climbing_technical: (objective.target_climbing_score as number) || 0,
+    flexibility: (objective.target_flexibility_score as number) || 0,
+  };
+  const fractions = dimensionProgressFractions(currentScores, targetScores, weekNumber, totalWeeks);
+
+  return `Per-dimension progress fractions for Week ${weekNumber} (percentage of graduation targets this week's sessions should reach):
+- Cardio: ${fractions.cardio}%${currentScores.cardio >= targetScores.cardio ? " (already meets target — maintenance with slight progression)" : ""}
+- Strength: ${fractions.strength}%${currentScores.strength >= targetScores.strength ? " (already meets target — maintenance with slight progression)" : ""}
+- Climbing/Technical: ${fractions.climbing_technical}%${currentScores.climbing_technical >= targetScores.climbing_technical ? " (already meets target — maintenance with slight progression)" : ""}
+- Flexibility: ${fractions.flexibility}%${currentScores.flexibility >= targetScores.flexibility ? " (already meets target — maintenance with slight progression)" : ""}
+
+IMPORTANT: These percentages reflect the athlete's CURRENT fitness level. Do NOT prescribe beginner-level training for dimensions where the athlete is already strong. Match session intensity to the progress fraction shown.`;
 }

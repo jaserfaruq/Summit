@@ -100,7 +100,7 @@ CLIMBING GRADE PRESCRIPTION RULES:
 - For bouldering, apply the same logic: "Easy bouldering, well below your limit", "Moderate bouldering, 1-2 V-grades below max", "Near-limit bouldering (V6)", etc.
 - For benchmark/test sessions, always specify exact grades since those are graduation targets being measured.
 - The athlete's current climbing dimension score relative to their target score indicates their approximate ability. An athlete at 64/80 on climbing is NOT a beginner — they are already a solid climber working toward an advanced goal. Calibrate session difficulty accordingly.
-- "Progress fraction" applies to volume, endurance, and technique complexity — NOT to grade. Do not start an experienced climber on beginner grades just because it's week 1.
+- The per-dimension progress fractions apply to volume, endurance, and technique complexity — NOT to grade. Do not start an experienced climber on beginner grades just because it's week 1.
 
 Periodization rules:
 - Increase total volume by no more than 10% per week.
@@ -239,7 +239,9 @@ https://mtntactical.com/shop/alpine-rock-climb-training-program/
 
 You will receive: the week details (number, type, hours target, expected scores), the athlete's objective details, graduation benchmarks, relevance profiles, current scores, target scores, and user preferences.
 
-Design the training sessions for THIS SINGLE WEEK. The weekly sessions are scaled-down versions of the graduation workouts, progressively getting closer to graduation targets. Earlier weeks use a smaller fraction; later weeks approach or meet the graduation target.
+Design the training sessions for THIS SINGLE WEEK. The weekly sessions are scaled-down versions of the graduation workouts, progressively getting closer to graduation targets.
+
+You will receive PER-DIMENSION PROGRESS FRACTIONS that tell you what percentage of graduation targets this week's sessions should reach for each dimension. These fractions account for the athlete's current fitness — a strong athlete will have a high starting fraction (e.g., 80-100%) even in Week 1, while a weak dimension starts lower (e.g., 50-60%). Always respect these fractions: do NOT prescribe easy beginner-level training for a dimension where the fraction is high.
 
 TRAINING OVERSHOOT: The graduation targets already include overshoot above the objective's actual requirements (~150% for distance/elevation, +1 climbing sub-grade outdoor, +2 indoor). Design sessions that progress toward these higher targets. By the final pre-taper weeks, cardio sessions should reach the full overshoot distances/elevation, and climbing sessions should be at the overshoot grade. Strength, flexibility, and pack weight stay at objective level.
 
@@ -252,7 +254,7 @@ CLIMBING GRADE PRESCRIPTION RULES:
 - For bouldering, apply the same logic: "Easy bouldering, well below your limit", "Moderate bouldering, 1-2 V-grades below max", "Near-limit bouldering (V6)", etc.
 - For benchmark/test sessions, always specify exact grades since those are graduation targets being measured.
 - The athlete's current climbing dimension score relative to their target score indicates their approximate ability. An athlete at 64/80 on climbing is NOT a beginner — they are already a solid climber working toward an advanced goal. Calibrate session difficulty accordingly.
-- "Progress fraction" applies to volume, endurance, and technique complexity — NOT to grade. Do not start an experienced climber on beginner grades just because it's week 1.
+- The per-dimension progress fractions apply to volume, endurance, and technique complexity — NOT to grade. Do not start an experienced climber on beginner grades just because it's week 1.
 
 Rules:
 - Increase total volume by no more than 10% per week from the prior week.

@@ -151,3 +151,41 @@ export function calculateWeekTotalHours(sessions: PlanSession[]): number {
   const totalMinutes = sessions.reduce((sum, s) => sum + (s.estimatedMinutes || 0), 0);
   return Math.round(totalMinutes / 60 * 10) / 10;
 }
+
+/**
+ * Calculate per-dimension progress fractions for a given week.
+ *
+ * Floor per dimension:
+ * - If current >= target: 80% (maintenance with slight progression to 100%)
+ * - Otherwise: max(50%, current/target)
+ *
+ * Progress at week N = floor + (1 - floor) * (N / totalWeeks)
+ */
+export function dimensionProgressFractions(
+  currentScores: DimensionScores,
+  targetScores: DimensionScores,
+  weekNumber: number,
+  totalWeeks: number
+): Record<string, number> {
+  const dimensions = ["cardio", "strength", "climbing_technical", "flexibility"] as const;
+  const result: Record<string, number> = {};
+
+  for (const dim of dimensions) {
+    const current = currentScores[dim];
+    const target = targetScores[dim];
+
+    let floor: number;
+    if (target <= 0) {
+      floor = 0.5;
+    } else if (current >= target) {
+      floor = 0.8;
+    } else {
+      floor = Math.max(0.5, current / target);
+    }
+
+    const progress = floor + (1 - floor) * (weekNumber / totalWeeks);
+    result[dim] = Math.round(Math.min(progress, 1.0) * 100);
+  }
+
+  return result;
+}
