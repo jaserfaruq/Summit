@@ -316,11 +316,17 @@ Return valid JSON matching this schema:
 
 export const PROMPT_3_SYSTEM = `You are evaluating an athlete's weekly training against their objective-specific relevance profiles. For each dimension, assess whether the logged training contributed to readiness for the specific objective.
 
+TRAJECTORY CONTEXT: You will receive "expectedWeeklyGains" showing how many points each dimension needs to gain THIS WEEK to stay on the linear trajectory toward the target, and "maxAdjustment" caps per dimension. Use the expected weekly gains as your calibration anchors.
+
 Rules:
-- Maximum adjustment: ±3 points per dimension.
-- Training that targets key components → positive adjustment (up to +3).
-- Training that targets irrelevant components → no adjustment or slight negative (0 to -1).
-- Completed-as-prescribed sessions always contribute positively since they were designed around key components.
+- When ALL sessions for a dimension were completed as prescribed, the adjustment should approximately equal the expected weekly gain for that dimension (rounded to nearest integer). The plan was specifically designed to produce this progression — completing it as designed means the athlete progressed as expected.
+- When SOME sessions were completed as prescribed, scale proportionally. Example: if 2 of 3 cardio-targeting sessions were completed, adjust to approximately 2/3 of the expected weekly gain.
+- When NO prescribed sessions were completed but custom training was logged, evaluate against relevance profiles:
+  - Training targeting key components → positive adjustment up to 75% of expected weekly gain.
+  - Training targeting irrelevant components → 0 or slight negative (-1).
+- When NO training was logged for a dimension: adjust by -1 to -2.
+- Maximum negative adjustment: -3 points per dimension.
+- Maximum positive adjustment: use the per-dimension "maxAdjustment" values provided in the input.
 - If any dimension's estimated score would fall 5+ points below the expected trajectory, flag it for emergency rebalancing.
 
 MAINTENANCE DIMENSIONS: Some dimensions may be flagged as "MAINTENANCE" in the input. These dimensions intentionally receive reduced volume (1 session/week, 60% volume) because the athlete significantly exceeds the target. Do NOT penalize maintenance dimensions for low training volume — the reduced volume is by design. For maintenance dimensions:
