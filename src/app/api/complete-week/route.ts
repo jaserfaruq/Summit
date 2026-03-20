@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_3_SYSTEM } from "@/lib/prompts";
-import { CompleteWeekRequest, DimensionScores, Dimension } from "@/lib/types";
+import { CompleteWeekRequest, DimensionScores, Dimension, PlanSession } from "@/lib/types";
 
 export const maxDuration = 60;
 import { calculateDimensionScore, checkRebalanceTrigger, dimensionProgressFractions } from "@/lib/scoring";
@@ -58,6 +58,24 @@ export async function POST(request: NextRequest) {
 
   // Taper weeks: no score changes, but still advance the active week
   if (weekType === "taper") {
+    await supabase
+      .from("training_plans")
+      .update({ current_week_number: weekNumber + 1 })
+      .eq("id", planId);
+
+    return NextResponse.json({
+      updatedScores: {
+        cardio: objective.current_cardio_score as number,
+        strength: objective.current_strength_score as number,
+        climbing_technical: objective.current_climbing_score as number,
+        flexibility: objective.current_flexibility_score as number,
+      },
+      rebalanceTriggered: false,
+    });
+  }
+
+  // Recovery weeks: no score changes per spec
+  if (weekType === "recovery") {
     await supabase
       .from("training_plans")
       .update({ current_week_number: weekNumber + 1 })
@@ -132,7 +150,7 @@ export async function POST(request: NextRequest) {
     const trigger = checkRebalanceTrigger(updatedScores, expected, "test");
     rebalanceTriggered = trigger.triggered;
   } else {
-    // Regular week: AI-estimated adjustments
+    // Regular week: score based on completion
     const currentScores: DimensionScores = {
       cardio: objective.current_cardio_score as number,
       strength: objective.current_strength_score as number,
@@ -140,19 +158,43 @@ export async function POST(request: NextRequest) {
       flexibility: objective.current_flexibility_score as number,
     };
 
-    // Determine maintenance dimensions for PROMPT_3
-    const targetDimScores: DimensionScores = {
-      cardio: objective.target_cardio_score as number,
-      strength: objective.target_strength_score as number,
-      climbing_technical: objective.target_climbing_score as number,
-      flexibility: objective.target_flexibility_score as number,
-    };
-    const dimProgress = dimensionProgressFractions(currentScores, targetDimScores, weekNumber, 1);
-    const maintenanceInfo = Object.entries(dimProgress)
-      .filter(([, v]) => v.maintenance)
-      .map(([dim]) => dim);
+    // Check if ALL planned sessions were completed as prescribed
+    const plannedSessions = (weekTarget.sessions as PlanSession[]) || [];
+    const prescribedLogs = workoutLogs.filter(l => l.completed_as_prescribed);
+    const allCompletedAsPrescribed = plannedSessions.length > 0
+      && plannedSessions.every(session =>
+        prescribedLogs.some(log => log.session_name === session.name)
+      );
 
-    const userMessage = `Current scores: ${JSON.stringify(currentScores)}
+    if (allCompletedAsPrescribed) {
+      // All prescribed work done — scores follow the linear trajectory exactly
+      const expected = weekTarget.expected_scores as DimensionScores;
+      updatedScores = {
+        cardio: Math.min(expected.cardio, 100),
+        strength: Math.min(expected.strength, 100),
+        climbing_technical: Math.min(expected.climbing_technical, 100),
+        flexibility: Math.min(expected.flexibility, 100),
+      };
+      adjustmentDetails = Object.fromEntries(
+        DIMENSIONS.map(dim => [dim, {
+          change: updatedScores[dim] - currentScores[dim],
+          reasoning: "All sessions completed as prescribed — scores follow expected trajectory.",
+        }])
+      ) as Record<string, { change: number; reasoning: string }>;
+    } else {
+      // Mixed completion — use AI to evaluate deviations
+      const targetDimScores: DimensionScores = {
+        cardio: objective.target_cardio_score as number,
+        strength: objective.target_strength_score as number,
+        climbing_technical: objective.target_climbing_score as number,
+        flexibility: objective.target_flexibility_score as number,
+      };
+      const dimProgress = dimensionProgressFractions(currentScores, targetDimScores, weekNumber, 1);
+      const maintenanceInfo = Object.entries(dimProgress)
+        .filter(([, v]) => v.maintenance)
+        .map(([dim]) => dim);
+
+      const userMessage = `Current scores: ${JSON.stringify(currentScores)}
 Expected scores this week: ${JSON.stringify(weekTarget.expected_scores)}
 Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}
 ${maintenanceInfo.length > 0 ? `\nMaintenance dimensions (intentionally reduced volume — do NOT penalize): ${maintenanceInfo.join(", ")}` : ""}
@@ -160,32 +202,33 @@ ${maintenanceInfo.length > 0 ? `\nMaintenance dimensions (intentionally reduced 
 Workout logs for the week:
 ${workoutLogs.map((l) => `- ${l.dimension}: ${l.session_name || "custom"}, ${l.duration_min || "?"} min, completed as prescribed: ${l.completed_as_prescribed}. Details: ${JSON.stringify(l.details)}`).join("\n")}`;
 
-    try {
-      const responseText = await callClaude(PROMPT_3_SYSTEM, userMessage);
-      const parsed = parseClaudeJSON<{
-        adjustments: Record<string, { change: number; reasoning: string }>;
-        emergencyRebalance: boolean;
-        rebalanceDimensions: string[];
-      }>(responseText);
+      try {
+        const responseText = await callClaude(PROMPT_3_SYSTEM, userMessage);
+        const parsed = parseClaudeJSON<{
+          adjustments: Record<string, { change: number; reasoning: string }>;
+          emergencyRebalance: boolean;
+          rebalanceDimensions: string[];
+        }>(responseText);
 
-      adjustmentDetails = parsed.adjustments;
-      updatedScores = { ...currentScores };
+        adjustmentDetails = parsed.adjustments;
+        updatedScores = { ...currentScores };
 
-      for (const dim of DIMENSIONS) {
-        const adj = parsed.adjustments[dim];
-        if (adj) {
-          const clamped = Math.max(-3, Math.min(3, adj.change));
-          updatedScores[dim] = currentScores[dim] + clamped;
+        for (const dim of DIMENSIONS) {
+          const adj = parsed.adjustments[dim];
+          if (adj) {
+            const clamped = Math.max(-3, Math.min(3, adj.change));
+            updatedScores[dim] = currentScores[dim] + clamped;
+          }
         }
-      }
 
-      rebalanceTriggered = parsed.emergencyRebalance;
-    } catch {
-      // Fallback: if AI fails, apply small positive adjustments for completed sessions
-      updatedScores = { ...currentScores };
-      for (const log of workoutLogs) {
-        if (log.completed_as_prescribed) {
-          updatedScores[log.dimension as Dimension] += 1;
+        rebalanceTriggered = parsed.emergencyRebalance;
+      } catch {
+        // Fallback: if AI fails, apply small positive adjustments for completed sessions
+        updatedScores = { ...currentScores };
+        for (const log of workoutLogs) {
+          if (log.completed_as_prescribed) {
+            updatedScores[log.dimension as Dimension] += 1;
+          }
         }
       }
     }
