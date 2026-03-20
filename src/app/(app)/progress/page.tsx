@@ -4,6 +4,119 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { ScoreHistory, Objective } from "@/lib/types";
 
+const CHART_WIDTH = 800;
+const CHART_HEIGHT = 220;
+const PADDING = { top: 20, right: 20, bottom: 40, left: 50 };
+const PLOT_WIDTH = CHART_WIDTH - PADDING.left - PADDING.right;
+const PLOT_HEIGHT = CHART_HEIGHT - PADDING.top - PADDING.bottom;
+
+function xScale(i: number, dataPoints: number) {
+  if (dataPoints <= 1) return PADDING.left + PLOT_WIDTH / 2;
+  return PADDING.left + (i / (dataPoints - 1)) * PLOT_WIDTH;
+}
+
+function yScale(score: number) {
+  return PADDING.top + PLOT_HEIGHT - (score / 100) * PLOT_HEIGHT;
+}
+
+function DimensionChart({
+  scoreHistory,
+  dimensionKey,
+  label,
+  color,
+  target,
+}: {
+  scoreHistory: ScoreHistory[];
+  dimensionKey: "cardio_score" | "strength_score" | "climbing_score" | "flexibility_score";
+  label: string;
+  color: string;
+  target: number;
+}) {
+  const dataPoints = scoreHistory.length;
+
+  const pathData =
+    dataPoints >= 2
+      ? scoreHistory
+          .map((point, i) => `${i === 0 ? "M" : "L"} ${xScale(i, dataPoints)} ${yScale(point[dimensionKey])}`)
+          .join(" ")
+      : null;
+
+  return (
+    <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-4">
+      <div className="flex items-baseline justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+          <h3 className="text-sm font-semibold text-white">{label}</h3>
+        </div>
+        <span className="text-xs text-dark-muted">Target: {target}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="w-full" style={{ minWidth: 300 }}>
+          {/* Y-axis labels & grid */}
+          {[0, 25, 50, 75, 100].map((v) => (
+            <g key={v}>
+              <text x={PADDING.left - 10} y={yScale(v) + 4} textAnchor="end" className="text-[10px]" fill="#888">
+                {v}
+              </text>
+              <line
+                x1={PADDING.left}
+                x2={CHART_WIDTH - PADDING.right}
+                y1={yScale(v)}
+                y2={yScale(v)}
+                stroke="#333"
+                strokeWidth={1}
+              />
+            </g>
+          ))}
+
+          {/* Target line (dashed) */}
+          <line
+            x1={PADDING.left}
+            x2={CHART_WIDTH - PADDING.right}
+            y1={yScale(target)}
+            y2={yScale(target)}
+            stroke={color}
+            strokeWidth={1}
+            strokeDasharray="6 3"
+            opacity={0.4}
+          />
+
+          {/* Data line */}
+          {pathData && (
+            <path d={pathData} fill="none" stroke={color} strokeWidth={2} />
+          )}
+
+          {/* Data points */}
+          {scoreHistory.map((point, i) => (
+            <circle
+              key={i}
+              cx={xScale(i, dataPoints)}
+              cy={yScale(point[dimensionKey])}
+              r={4}
+              fill={color}
+              opacity={0.8}
+            />
+          ))}
+
+          {/* X-axis labels */}
+          {scoreHistory.map((point, i) => (
+            <text
+              key={i}
+              x={xScale(i, dataPoints)}
+              y={CHART_HEIGHT - 5}
+              textAnchor="middle"
+              className="text-[9px]"
+              fill="#888"
+            >
+              {new Date(point.week_ending).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            </text>
+          ))}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 export default function ProgressPage() {
   const [scoreHistory, setScoreHistory] = useState<ScoreHistory[]>([]);
   const [objective, setObjective] = useState<Objective | null>(null);
@@ -67,24 +180,6 @@ export default function ProgressPage() {
     flexibility: objective.target_flexibility_score,
   };
 
-  const chartWidth = 800;
-  const chartHeight = 300;
-  const padding = { top: 20, right: 20, bottom: 40, left: 50 };
-  const plotWidth = chartWidth - padding.left - padding.right;
-  const plotHeight = chartHeight - padding.top - padding.bottom;
-
-  const maxScore = 100;
-  const dataPoints = scoreHistory.length;
-
-  function xScale(i: number) {
-    if (dataPoints <= 1) return padding.left + plotWidth / 2;
-    return padding.left + (i / (dataPoints - 1)) * plotWidth;
-  }
-
-  function yScale(score: number) {
-    return padding.top + plotHeight - (score / maxScore) * plotHeight;
-  }
-
   const dimensions = [
     { key: "cardio_score" as const, label: "Cardio", color: "#ef4444", target: targets.cardio },
     { key: "strength_score" as const, label: "Strength", color: "#3b82f6", target: targets.strength },
@@ -102,104 +197,18 @@ export default function ProgressPage() {
         </div>
       ) : (
         <>
-          {/* SVG Chart */}
-          <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-4 overflow-x-auto">
-            <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full" style={{ minWidth: 400 }}>
-              {/* Y-axis labels */}
-              {[0, 25, 50, 75, 100].map((v) => (
-                <g key={v}>
-                  <text x={padding.left - 10} y={yScale(v) + 4} textAnchor="end" className="text-[10px]" fill="#888">
-                    {v}
-                  </text>
-                  <line
-                    x1={padding.left}
-                    x2={chartWidth - padding.right}
-                    y1={yScale(v)}
-                    y2={yScale(v)}
-                    stroke="#333"
-                    strokeWidth={1}
-                  />
-                </g>
-              ))}
-
-              {/* Target lines (dashed) */}
-              {dimensions.map((dim) => (
-                <line
-                  key={`target-${dim.key}`}
-                  x1={padding.left}
-                  x2={chartWidth - padding.right}
-                  y1={yScale(dim.target)}
-                  y2={yScale(dim.target)}
-                  stroke={dim.color}
-                  strokeWidth={1}
-                  strokeDasharray="6 3"
-                  opacity={0.4}
-                />
-              ))}
-
-              {/* Data lines */}
-              {dimensions.map((dim) => {
-                if (dataPoints < 2) return null;
-                const pathData = scoreHistory
-                  .map((point, i) => `${i === 0 ? "M" : "L"} ${xScale(i)} ${yScale(point[dim.key])}`)
-                  .join(" ");
-                return (
-                  <path
-                    key={dim.key}
-                    d={pathData}
-                    fill="none"
-                    stroke={dim.color}
-                    strokeWidth={2}
-                  />
-                );
-              })}
-
-              {/* Data points */}
-              {dimensions.map((dim) =>
-                scoreHistory.map((point, i) => (
-                  <circle
-                    key={`${dim.key}-${i}`}
-                    cx={xScale(i)}
-                    cy={yScale(point[dim.key])}
-                    r={4}
-                    fill={dim.color}
-                    opacity={0.8}
-                  />
-                ))
-              )}
-
-              {/* X-axis labels */}
-              {scoreHistory.map((point, i) => (
-                <text
-                  key={i}
-                  x={xScale(i)}
-                  y={chartHeight - 5}
-                  textAnchor="middle"
-                  className="text-[9px]"
-                  fill="#888"
-                >
-                  {new Date(point.week_ending).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </text>
-              ))}
-            </svg>
-          </div>
-
-          {/* Legend */}
-          <div className="flex flex-wrap gap-4 justify-center">
+          {/* Dimension Charts — 2×2 grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {dimensions.map((dim) => (
-              <div key={dim.key} className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: dim.color }} />
-                <span className="text-dark-text">{dim.label}</span>
-                <span className="text-dark-muted text-xs">(target: {dim.target})</span>
-              </div>
+              <DimensionChart
+                key={dim.key}
+                scoreHistory={scoreHistory}
+                dimensionKey={dim.key}
+                label={dim.label}
+                color={dim.color}
+                target={dim.target}
+              />
             ))}
-          </div>
-
-          <div className="flex items-center gap-6 justify-center text-xs text-dark-muted">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded-full bg-dark-muted" />
-              <span>Weekly score (from self-ratings)</span>
-            </div>
           </div>
 
           {/* Score table */}
