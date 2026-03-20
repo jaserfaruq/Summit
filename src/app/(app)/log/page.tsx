@@ -127,7 +127,7 @@ function LogForm() {
 
     if (error) {
       console.error("Failed to save workout:", error);
-      alert("Failed to save workout. Please try again.");
+      alert(`Failed to save workout: ${error.message}`);
       setLoading(false);
       return;
     }
