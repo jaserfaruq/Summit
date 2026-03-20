@@ -8,6 +8,9 @@ import WeekBadge from "@/components/WeekBadge";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import Link from "next/link";
 
+/** Inline SVG mountain silhouette used when no hero image URL is stored */
+const MOUNTAIN_SVG_FALLBACK = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400"><defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a1a2e"/><stop offset="40%" stop-color="#16213e"/><stop offset="70%" stop-color="#1b4d3e"/><stop offset="100%" stop-color="#0f3d3e"/></linearGradient><linearGradient id="g" x1=".5" y1="0" x2=".5" y2="1"><stop offset="0%" stop-color="#d4782f" stop-opacity=".4"/><stop offset="100%" stop-color="#d4782f" stop-opacity="0"/></linearGradient><linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a3a30"/><stop offset="100%" stop-color="#1a2a20"/></linearGradient><linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1f2f25"/><stop offset="100%" stop-color="#0f1f15"/></linearGradient></defs><rect width="1200" height="400" fill="url(#s)"/><ellipse cx="600" cy="120" rx="300" ry="60" fill="url(#g)"/><polygon points="0,400 150,180 300,280 500,120 650,220 800,160 950,240 1050,140 1200,250 1200,400" fill="url(#a)" opacity=".7"/><polygon points="500,120 520,130 540,125" fill="#e8e8e8" opacity=".5"/><polygon points="800,160 825,172 845,168" fill="#e8e8e8" opacity=".5"/><polygon points="1050,140 1075,155 1090,150" fill="#e8e8e8" opacity=".5"/><polygon points="0,400 100,250 250,320 400,200 550,300 700,230 850,290 1000,210 1100,280 1200,220 1200,400" fill="url(#b)"/></svg>`)}`;
+
 export default function PlanPage() {
   return (
     <Suspense fallback={<div className="max-w-4xl mx-auto px-4 py-8"><div className="animate-pulse h-8 bg-dark-border rounded w-1/3" /></div>}>
@@ -397,19 +400,15 @@ function PlanContent() {
       {/* Hero header with blurred background image */}
       <div className="relative rounded-xl overflow-hidden -mx-4 sm:mx-0">
         {/* Background image layer */}
-        {heroImageUrl ? (
-          <div className="absolute inset-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={heroImageUrl}
-              alt=""
-              className="w-full h-full object-cover blur-[2px] scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/70 to-dark-bg/40" />
-          </div>
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-dark-card to-dark-bg" />
-        )}
+        <div className="absolute inset-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={heroImageUrl || MOUNTAIN_SVG_FALLBACK}
+            alt=""
+            className="w-full h-full object-cover blur-[2px] scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/70 to-dark-bg/40" />
+        </div>
 
         {/* Content over image */}
         <div className="relative px-6 py-8 sm:py-10">
