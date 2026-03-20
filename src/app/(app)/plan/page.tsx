@@ -43,6 +43,7 @@ function PlanContent() {
   }>>({});
   const [batchGenerating, setBatchGenerating] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ generated: number; total: number } | null>(null);
+  const [deletingLog, setDeletingLog] = useState<string | null>(null);
 
   const shouldGenerate = searchParams.get("generate") === "true";
   const objectiveId = searchParams.get("objectiveId");
@@ -318,6 +319,36 @@ function PlanContent() {
   function isSessionLogged(sessionName: string, week: WeeklyTarget): boolean {
     const weekLogs = getLogsForWeek(week);
     return weekLogs.some((log) => log.session_name === sessionName);
+  }
+
+  function getLogForSession(sessionName: string, week: WeeklyTarget): WorkoutLog | undefined {
+    const weekLogs = getLogsForWeek(week);
+    return weekLogs.find((log) => log.session_name === sessionName);
+  }
+
+  async function handleDeleteLog(logId: string) {
+    if (!confirm("Delete this workout log? If the week was already completed, scores will be reverted.")) return;
+    setDeletingLog(logId);
+    try {
+      const res = await fetch("/api/delete-workout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete workout");
+      }
+      const result = await res.json();
+      if (result.weekReverted) {
+        alert("Week un-completed and scores reverted to previous values.");
+      }
+      await fetchPlan();
+    } catch (error) {
+      console.error("Error deleting workout:", error);
+      alert(error instanceof Error ? error.message : "Failed to delete workout");
+    }
+    setDeletingLog(null);
   }
 
   if (generating) {
@@ -682,6 +713,19 @@ function PlanContent() {
                             <span className="text-xs text-dark-muted">{session.estimatedMinutes} min</span>
                           </div>
                           <div className="flex items-center gap-2">
+                            {logged && (() => {
+                              const log = getLogForSession(session.name, week);
+                              return log ? (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteLog(log.id); }}
+                                  disabled={deletingLog === log.id}
+                                  className="text-xs text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                                  title="Delete this workout log"
+                                >
+                                  {deletingLog === log.id ? "..." : "✕"}
+                                </button>
+                              ) : null;
+                            })()}
                             {!logged && (
                               <Link
                                 href={`/log?session=${encodeURIComponent(session.name)}&planId=${plan.id}&week=${week.week_number}`}
