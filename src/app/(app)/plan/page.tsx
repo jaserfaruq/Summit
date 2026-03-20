@@ -390,42 +390,63 @@ function PlanContent() {
   }
 
   const planSummary = plan.plan_data?.planSummary;
+  const heroImageUrl = plan.plan_data?.heroImageUrl;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white">{objective?.name}</h2>
-          <p className="text-dark-muted text-sm">
-            {weeks.length} weeks · Target: {objective?.target_date ? new Date(objective.target_date).toLocaleDateString() : ""}
-          </p>
-          {objective && (
-            <div className="flex gap-4 mt-2 text-xs">
-              <span className="text-gold font-medium">Current Scores:</span>
-              <span>C: {objective.current_cardio_score}</span>
-              <span>S: {objective.current_strength_score}</span>
-              <span>CT: {objective.current_climbing_score}</span>
-              <span>F: {objective.current_flexibility_score}</span>
+      {/* Hero header with blurred background image */}
+      <div className="relative rounded-xl overflow-hidden -mx-4 sm:mx-0">
+        {/* Background image layer */}
+        {heroImageUrl ? (
+          <div className="absolute inset-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={heroImageUrl}
+              alt=""
+              className="w-full h-full object-cover blur-[2px] scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-dark-bg via-dark-bg/70 to-dark-bg/40" />
+          </div>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-dark-card to-dark-bg" />
+        )}
+
+        {/* Content over image */}
+        <div className="relative px-6 py-8 sm:py-10">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">{objective?.name}</h2>
+              <p className="text-white/70 text-sm mt-1 drop-shadow">
+                {weeks.length} weeks · Target: {objective?.target_date ? new Date(objective.target_date).toLocaleDateString() : ""}
+              </p>
+              {objective && (
+                <div className="flex gap-4 mt-3 text-xs">
+                  <span className="text-gold font-medium drop-shadow">Current Scores:</span>
+                  <span className="text-white/80">C: {objective.current_cardio_score}</span>
+                  <span className="text-white/80">S: {objective.current_strength_score}</span>
+                  <span className="text-white/80">CT: {objective.current_climbing_score}</span>
+                  <span className="text-white/80">F: {objective.current_flexibility_score}</span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {!batchGenerating && weeks.some((w) => !weekSessions[w.week_number] || weekSessions[w.week_number].length === 0) && (
-            <button
-              onClick={() => generateAllSessions(plan.id)}
-              className="text-xs bg-gold/90 text-dark-bg px-3 py-1.5 rounded hover:bg-gold transition-colors font-medium"
-            >
-              Generate All Sessions
-            </button>
-          )}
-          <DeletePlanButton planId={plan.id} onDeleted={() => {
-          setPlan(null);
-          setWeeks([]);
-          setObjective(null);
-          setWeekSessions({});
-          setWorkoutLogs([]);
-        }} />
+            <div className="flex items-center gap-2">
+              {!batchGenerating && weeks.some((w) => !weekSessions[w.week_number] || weekSessions[w.week_number].length === 0) && (
+                <button
+                  onClick={() => generateAllSessions(plan.id)}
+                  className="text-xs bg-gold/90 text-dark-bg px-3 py-1.5 rounded hover:bg-gold transition-colors font-medium"
+                >
+                  Generate All Sessions
+                </button>
+              )}
+              <DeletePlanButton planId={plan.id} onDeleted={() => {
+              setPlan(null);
+              setWeeks([]);
+              setObjective(null);
+              setWeekSessions({});
+              setWorkoutLogs([]);
+            }} />
+            </div>
+          </div>
         </div>
       </div>
 

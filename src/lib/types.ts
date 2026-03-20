@@ -248,6 +248,7 @@ export interface PlanData {
     equipmentNeeded: string[];
     keyExercises: string[];
   };
+  heroImageUrl?: string | null;
   weeks: PlanWeek[];
 }
 

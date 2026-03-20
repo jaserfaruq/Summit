@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { GeneratePlanRequest } from "@/lib/types";
 import { generateWeekSchedule, expectedScoresAtWeek } from "@/lib/scoring";
+import { fetchHeroImageUrl } from "@/lib/unsplash";
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
@@ -102,6 +103,14 @@ export async function POST(request: NextRequest) {
     keyExercises: extractKeyExercises(objective.graduation_benchmarks),
   };
 
+  // Fetch hero image (non-blocking — plan still works without it)
+  let heroImageUrl: string | null = null;
+  try {
+    heroImageUrl = await fetchHeroImageUrl(objective.name);
+  } catch (error) {
+    console.warn("Hero image fetch failed, continuing without:", error);
+  }
+
   try {
     // Store the plan
     const { data: plan, error: planError } = await supabase
@@ -112,6 +121,7 @@ export async function POST(request: NextRequest) {
         assessment_id: assessmentId,
         plan_data: {
           planSummary,
+          heroImageUrl,
           weeks: weeks.map((w) => ({ ...w, sessions: [] })),
         },
         graduation_workouts: objective.graduation_benchmarks,
