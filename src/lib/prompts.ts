@@ -303,6 +303,37 @@ For Tier 2 (emergency): regenerate only the next 1–2 weeks.
 
 Return the same weekly session JSON format as the plan generation prompt.`;
 
+export const PROMPT_SEARCH_SYSTEM = `You are an expert mountaineering and outdoor athletics guide. Given a search query for a mountain, peak, trail, or route, suggest exactly 3 closely related objectives in the same geographic area. These should be real, well-known routes that someone searching for this term would likely be interested in.
+
+Focus on:
+- Different routes on the SAME mountain or peak (e.g. different approaches, different technical grades)
+- Nearby peaks in the same range or area
+- Variations of the same objective (e.g. shorter vs longer versions)
+
+Do NOT suggest objectives in entirely different mountain ranges or locations. All 3 suggestions should be geographically close to each other.
+
+You will also receive a list of validated objectives from our library. If any of your suggestions match a validated objective, mark it as "validated": true and include the matching validated objective ID. Otherwise mark it as "validated": false.
+
+Return only valid JSON matching this schema:
+{
+  "suggestions": [
+    {
+      "name": "string (peak/trail name)",
+      "route": "string (specific route name)",
+      "type": "hike | trail_run | alpine_climb | rock_climb | mountaineering | scramble | backpacking",
+      "description": "string (2-3 sentences about this route)",
+      "difficulty": "beginner | intermediate | advanced | expert",
+      "total_gain_ft": number | null,
+      "distance_miles": number | null,
+      "summit_elevation_ft": number | null,
+      "technical_grade": "string | null",
+      "validated": boolean,
+      "validatedId": "string (UUID) | null",
+      "matchReason": "string (1 sentence why this matches the search)"
+    }
+  ]
+}`;
+
 export const PROMPT_5_SYSTEM = `Find 3–5 trail running or hiking routes near the athlete's location matching their weekly cardio target parameters. Return structured results.
 
 Return JSON:

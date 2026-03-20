@@ -295,8 +295,21 @@ export interface MatchObjectiveRequest {
   details?: string;
 }
 
+export interface SuggestedObjective {
+  name: string;
+  route: string;
+  type: ObjectiveType;
+  description: string;
+  difficulty: string;
+  total_gain_ft: number | null;
+  distance_miles: number | null;
+  summit_elevation_ft: number | null;
+  technical_grade: string | null;
+}
+
 export interface SearchMatch {
-  validatedObjective: ValidatedObjective;
+  validatedObjective?: ValidatedObjective;
+  suggestedObjective?: SuggestedObjective;
   tier: 'gold' | 'silver';
   matchReason: string;
 }

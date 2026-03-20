@@ -1,62 +1,22 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { MatchObjectiveRequest, MatchObjectiveResponse, ValidatedObjective, SearchMatch } from "@/lib/types";
+import { callClaude, parseClaudeJSON } from "@/lib/claude";
+import { PROMPT_SEARCH_SYSTEM } from "@/lib/prompts";
 
-function computeMatchScore(vo: ValidatedObjective, normalizedName: string, normalizedRoute: string): { score: number; isGold: boolean; reason: string } {
-  // Check for gold-tier alias match
-  const aliasMatch = vo.match_aliases.some((alias) => {
-    const na = alias.toLowerCase().trim();
-    return (
-      na === normalizedName ||
-      na === `${normalizedName} ${normalizedRoute}` ||
-      normalizedName.includes(na) ||
-      na.includes(normalizedName)
-    );
-  });
-
-  if (aliasMatch) {
-    return { score: 100, isGold: true, reason: `Exact match: ${vo.name} — ${vo.route}` };
-  }
-
-  // Compute fuzzy similarity score for silver matches
-  let score = 0;
-  const voNameLower = vo.name.toLowerCase();
-  const voRouteLower = vo.route.toLowerCase();
-  const voDesc = (vo.description || "").toLowerCase();
-
-  // Word overlap with objective name
-  const inputWords = normalizedName.split(/\s+/).filter(w => w.length > 2);
-  const nameWords = voNameLower.split(/\s+/);
-  const routeWords = voRouteLower.split(/\s+/);
-  const allTargetWords = [...nameWords, ...routeWords];
-
-  for (const word of inputWords) {
-    if (allTargetWords.some(tw => tw.includes(word) || word.includes(tw))) {
-      score += 20;
-    }
-    if (voDesc.includes(word)) {
-      score += 5;
-    }
-  }
-
-  // Partial substring match
-  if (voNameLower.includes(normalizedName) || normalizedName.includes(voNameLower)) {
-    score += 30;
-  }
-
-  // Tag overlap with input name words
-  const voTags = (vo.tags as string[]).map(t => t.toLowerCase());
-  for (const word of inputWords) {
-    if (voTags.some(tag => tag.includes(word) || word.includes(tag))) {
-      score += 10;
-    }
-  }
-
-  const reason = score > 0
-    ? `Similar objective: ${vo.name} — ${vo.route}`
-    : `Reference objective: ${vo.name}`;
-
-  return { score, isGold: false, reason };
+interface SearchSuggestion {
+  name: string;
+  route: string;
+  type: string;
+  description: string;
+  difficulty: string;
+  total_gain_ft: number | null;
+  distance_miles: number | null;
+  summit_elevation_ft: number | null;
+  technical_grade: string | null;
+  validated: boolean;
+  validatedId: string | null;
+  matchReason: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -85,46 +45,72 @@ export async function POST(request: NextRequest) {
 
   const allVOs = (validatedObjectives as ValidatedObjective[]) || [];
 
-  // Search mode: return 3 closest matches
+  // Search mode: use Claude to suggest 3 closely related objectives
   if (mode === "search") {
-    const scored = allVOs.map(vo => {
-      const { score, isGold, reason } = computeMatchScore(vo, normalizedName, normalizedRoute);
-      return { vo, score, isGold, reason };
-    });
-
-    // Sort by score descending
-    scored.sort((a, b) => b.score - a.score);
-
-    // Take top 3 with score > 0
-    const topMatches = scored.filter(s => s.score > 0).slice(0, 3);
-
-    // If we have fewer than 3, pad with highest-scoring remaining by type match
-    if (topMatches.length < 3) {
-      const remaining = scored
-        .filter(s => s.score === 0 && !topMatches.some(tm => tm.vo.id === s.vo.id))
-        .sort((a, b) => {
-          // Prefer same type
-          const aTypeMatch = a.vo.type === type ? 1 : 0;
-          const bTypeMatch = b.vo.type === type ? 1 : 0;
-          return bTypeMatch - aTypeMatch;
-        });
-      while (topMatches.length < 3 && remaining.length > 0) {
-        topMatches.push(remaining.shift()!);
-      }
-    }
-
-    const matches: SearchMatch[] = topMatches.map(m => ({
-      validatedObjective: m.vo,
-      tier: m.isGold ? "gold" as const : "silver" as const,
-      matchReason: m.reason,
+    const voSummaries = allVOs.map(vo => ({
+      id: vo.id,
+      name: vo.name,
+      route: vo.route,
+      type: vo.type,
+      match_aliases: vo.match_aliases,
     }));
 
-    const response: MatchObjectiveResponse = {
-      tier: matches[0]?.tier || "bronze",
-      matches,
-      anchors: [],
-    };
-    return NextResponse.json(response);
+    const userMessage = `Search query: "${name}"
+
+Validated objectives in our library:
+${JSON.stringify(voSummaries, null, 2)}
+
+Suggest 3 closely related routes/objectives for this search. Prioritize validated objectives when they match, but also suggest real routes not in our library if they're geographically relevant.`;
+
+    try {
+      const response = await callClaude(PROMPT_SEARCH_SYSTEM, userMessage, 2048);
+      const parsed = parseClaudeJSON<{ suggestions: SearchSuggestion[] }>(response);
+
+      const matches: SearchMatch[] = parsed.suggestions.slice(0, 3).map(suggestion => {
+        // Check if this maps to a validated objective
+        const matchedVO = suggestion.validated && suggestion.validatedId
+          ? allVOs.find(vo => vo.id === suggestion.validatedId)
+          : null;
+
+        if (matchedVO) {
+          return {
+            validatedObjective: matchedVO,
+            tier: "gold" as const,
+            matchReason: suggestion.matchReason,
+          };
+        }
+
+        return {
+          suggestedObjective: {
+            name: suggestion.name,
+            route: suggestion.route,
+            type: suggestion.type as ValidatedObjective["type"],
+            description: suggestion.description,
+            difficulty: suggestion.difficulty,
+            total_gain_ft: suggestion.total_gain_ft,
+            distance_miles: suggestion.distance_miles,
+            summit_elevation_ft: suggestion.summit_elevation_ft,
+            technical_grade: suggestion.technical_grade,
+          },
+          tier: "silver" as const,
+          matchReason: suggestion.matchReason,
+        };
+      });
+
+      const response2: MatchObjectiveResponse = {
+        tier: matches[0]?.tier || "bronze",
+        matches,
+        anchors: [],
+      };
+      return NextResponse.json(response2);
+    } catch {
+      // Fallback to basic matching if Claude fails
+      return NextResponse.json({
+        tier: "bronze" as const,
+        matches: [],
+        anchors: [],
+      });
+    }
   }
 
   // Manual mode (original behavior): check for exact match first
