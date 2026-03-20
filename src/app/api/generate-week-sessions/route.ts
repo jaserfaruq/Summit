@@ -1,11 +1,11 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
-import { callClaude, parseClaudeJSON } from "@/lib/claude";
+import { callClaudeWithCache, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_2B_SYSTEM } from "@/lib/prompts";
 import { PlanSession } from "@/lib/types";
 import { calculateAllSessionMinutes, calculateWeekTotalHours } from "@/lib/scoring";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 interface GenerateWeekSessionsRequest {
   planId: string;
@@ -95,7 +95,7 @@ Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}
 Progress fraction: Week ${weekNumber} sessions should be at approximately ${Math.round((weekNumber / (totalWeeks || weekNumber)) * 100)}% of graduation targets.`;
 
   try {
-    const responseText = await callClaude(PROMPT_2B_SYSTEM, userMessage);
+    const responseText = await callClaudeWithCache(PROMPT_2B_SYSTEM, userMessage, 8192, "opus");
     const result = parseClaudeJSON<{ sessions: PlanSession[] }>(responseText);
     calculateAllSessionMinutes(result.sessions);
 
