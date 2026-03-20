@@ -96,7 +96,7 @@ function LogForm() {
     setExercises(updated);
   }
 
-  async function handleSubmit(overridePrescribed?: boolean) {
+  async function handleSubmit(overridePrescribed?: boolean, benchmarkOverride?: typeof benchmarkResults) {
     setLoading(true);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -118,8 +118,9 @@ function LogForm() {
       details.bodyAreas = bodyAreas;
     }
 
-    const benchmarkData = benchmarkResults.length > 0
-      ? benchmarkResults
+    const effectiveBenchmarks = benchmarkOverride ?? benchmarkResults;
+    const benchmarkData = effectiveBenchmarks.length > 0
+      ? effectiveBenchmarks
           .filter((b) => b.result !== "" && b.result !== undefined)
           .map((b) => {
             const resultNum = parseFloat(b.result);
@@ -158,8 +159,14 @@ function LogForm() {
   }
 
   function handleMarkComplete() {
+    // For benchmark sessions, auto-fill results with graduation targets
+    const filledBenchmarks = benchmarkResults.map((b) => {
+      const targetMatch = b.graduationTarget.match(/[\d.]+/);
+      const targetNum = targetMatch ? parseFloat(targetMatch[0]) : 0;
+      return { ...b, result: targetNum.toString() };
+    });
     setCompletedAsPrescribed(true);
-    handleSubmit(true);
+    handleSubmit(true, filledBenchmarks.length > 0 ? filledBenchmarks : undefined);
   }
 
   return (
