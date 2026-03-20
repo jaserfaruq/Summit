@@ -1,11 +1,9 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
-import { callClaude, parseClaudeJSON } from "@/lib/claude";
-import { PROMPT_3_SYSTEM } from "@/lib/prompts";
-import { CompleteWeekRequest, DimensionScores, Dimension } from "@/lib/types";
+import { CompleteWeekRequest, DimensionScores, Dimension, SessionRating } from "@/lib/types";
+import { calculateAllScoresFromRatings, shouldHighlightRebalance, generateCompletionSummary } from "@/lib/scoring";
 
 export const maxDuration = 60;
-import { calculateDimensionScore, checkRebalanceTrigger, dimensionProgressFractions } from "@/lib/scoring";
 
 const DIMENSIONS: Dimension[] = ["cardio", "strength", "climbing_technical", "flexibility"];
 
@@ -17,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body: CompleteWeekRequest = await request.json();
-  const { planId, weekNumber, workoutLogs } = body;
+  const { planId, weekNumber, ratings } = body;
 
   // Fetch the weekly target
   const { data: weekTarget, error: weekError } = await supabase
@@ -43,250 +41,90 @@ export async function POST(request: NextRequest) {
   }
 
   const objective = (plan as Record<string, unknown>).objectives as Record<string, unknown>;
-  const weekType = weekTarget.week_type;
 
-  // Workout logs are already saved by the /log page.
-  // If any are passed that don't have IDs, save them now.
-  for (const log of workoutLogs) {
-    if (!(log as Record<string, unknown>).id) {
-      await supabase.from("workout_logs").insert({
-        user_id: user.id,
-        ...log,
-      });
-    }
-  }
+  const currentScores: DimensionScores = {
+    cardio: objective.current_cardio_score as number,
+    strength: objective.current_strength_score as number,
+    climbing_technical: objective.current_climbing_score as number,
+    flexibility: objective.current_flexibility_score as number,
+  };
 
-  // Taper weeks: no score changes, but still advance the active week
-  if (weekType === "taper") {
-    await supabase
-      .from("training_plans")
-      .update({ current_week_number: weekNumber + 1 })
-      .eq("id", planId);
+  const targetScores: DimensionScores = {
+    cardio: objective.target_cardio_score as number,
+    strength: objective.target_strength_score as number,
+    climbing_technical: objective.target_climbing_score as number,
+    flexibility: objective.target_flexibility_score as number,
+  };
 
-    return NextResponse.json({
-      updatedScores: {
-        cardio: objective.current_cardio_score as number,
-        strength: objective.current_strength_score as number,
-        climbing_technical: objective.current_climbing_score as number,
-        flexibility: objective.current_flexibility_score as number,
-      },
-      rebalanceTriggered: false,
-    });
-  }
+  const expectedScores = weekTarget.expected_scores as DimensionScores;
 
-  let updatedScores: DimensionScores;
-  let rebalanceTriggered = false;
-  let adjustmentDetails: Record<string, { change: number; reasoning: string }> | undefined;
+  // Calculate updated scores from 1-5 ratings
+  const ratingData: { dimension: Dimension; rating: 1 | 2 | 3 | 4 | 5 }[] = ratings.map((r: SessionRating) => ({
+    dimension: r.dimension,
+    rating: r.rating as 1 | 2 | 3 | 4 | 5,
+  }));
 
-  if (weekType === "test") {
-    // Test week: calculate scores from benchmark results
-    const targetScores: DimensionScores = {
-      cardio: objective.target_cardio_score as number,
-      strength: objective.target_strength_score as number,
-      climbing_technical: objective.target_climbing_score as number,
-      flexibility: objective.target_flexibility_score as number,
-    };
+  const updatedScores = calculateAllScoresFromRatings(ratingData, currentScores, expectedScores);
 
-    updatedScores = { cardio: 0, strength: 0, climbing_technical: 0, flexibility: 0 };
-
-    const currentScores: DimensionScores = {
-      cardio: objective.current_cardio_score as number,
-      strength: objective.current_strength_score as number,
-      climbing_technical: objective.current_climbing_score as number,
-      flexibility: objective.current_flexibility_score as number,
-    };
-
-    for (const dim of DIMENSIONS) {
-      const dimLogs = workoutLogs.filter((l) => l.dimension === dim && l.benchmark_results);
-      const allResults = dimLogs.flatMap((l) => l.benchmark_results || []);
-
-      if (allResults.length > 0) {
-        updatedScores[dim] = calculateDimensionScore(
-          allResults.map((r) => ({ result: r.result, graduationTarget: r.graduationTarget })),
-          targetScores[dim],
-          currentScores[dim]
-        );
-      } else {
-        // Keep current score if no benchmark data for this dimension
-        updatedScores[dim] = currentScores[dim];
-      }
-    }
-
-    // Write to score_history
-    await supabase.from("score_history").insert({
-      user_id: user.id,
-      objective_id: objective.id as string,
-      week_ending: weekTarget.week_start,
-      ...updatedScores,
-      cardio_score: updatedScores.cardio,
-      strength_score: updatedScores.strength,
-      climbing_score: updatedScores.climbing_technical,
-      flexibility_score: updatedScores.flexibility,
-      change_reason: "test_week",
-      is_test_week: true,
-      confidence: "high",
-    });
-
-    // Check for rebalancing (3+ pts off)
-    const expected = weekTarget.expected_scores as DimensionScores;
-    const trigger = checkRebalanceTrigger(updatedScores, expected, "test");
-    rebalanceTriggered = trigger.triggered;
-  } else {
-    // Regular week scoring
-    const currentScores: DimensionScores = {
-      cardio: objective.current_cardio_score as number,
-      strength: objective.current_strength_score as number,
-      climbing_technical: objective.current_climbing_score as number,
-      flexibility: objective.current_flexibility_score as number,
-    };
-
-    const allPrescribed = workoutLogs.length > 0 && workoutLogs.every(l => l.completed_as_prescribed);
-
-    if (allPrescribed) {
-      // All done as prescribed → advance to this week's expected scores
-      const expected = weekTarget.expected_scores as DimensionScores;
-      updatedScores = { ...expected };
-      // For maintenance dimensions, don't regress — keep the higher current score
-      for (const dim of DIMENSIONS) {
-        if (currentScores[dim] > expected[dim]) {
-          updatedScores[dim] = currentScores[dim];
-        }
-      }
-    } else {
-      // Mix of prescribed + custom → use AI evaluation
-      const targetDimScores: DimensionScores = {
-        cardio: objective.target_cardio_score as number,
-        strength: objective.target_strength_score as number,
-        climbing_technical: objective.target_climbing_score as number,
-        flexibility: objective.target_flexibility_score as number,
-      };
-      const dimProgress = dimensionProgressFractions(currentScores, targetDimScores, weekNumber, 1);
-      const maintenanceInfo = Object.entries(dimProgress)
-        .filter(([, v]) => v.maintenance)
-        .map(([dim]) => dim);
-
-      const { count: totalWeeks } = await supabase
-        .from("weekly_targets")
-        .select("*", { count: "exact", head: true })
-        .eq("plan_id", planId);
-
-      const expectedWeeklyGains: Record<string, number> = {};
-      const maxAdjustments: Record<string, number> = {};
-      for (const dim of DIMENSIONS) {
-        const remaining = (totalWeeks || 12) - weekNumber + 1;
-        const gain = remaining > 0 ? (targetDimScores[dim] - currentScores[dim]) / remaining : 0;
-        expectedWeeklyGains[dim] = Math.round(gain * 10) / 10;
-        maxAdjustments[dim] = Math.min(8, Math.max(3, Math.ceil(Math.max(gain, 0) * 1.5)));
-      }
-
-      const userMessage = `Current scores: ${JSON.stringify(currentScores)}
-Expected scores this week: ${JSON.stringify(weekTarget.expected_scores)}
-Expected weekly gains to stay on trajectory: ${JSON.stringify(expectedWeeklyGains)}
-Maximum adjustment per dimension: ${JSON.stringify(maxAdjustments)}
-Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}
-${maintenanceInfo.length > 0 ? `\nMaintenance dimensions (intentionally reduced volume — do NOT penalize): ${maintenanceInfo.join(", ")}` : ""}
-
-Workout logs for the week:
-${workoutLogs.map((l) => `- ${l.dimension}: ${l.session_name || "custom"}, ${l.duration_min || "?"} min, completed as prescribed: ${l.completed_as_prescribed}. Details: ${JSON.stringify(l.details)}`).join("\n")}`;
-
-      try {
-        const responseText = await callClaude(PROMPT_3_SYSTEM, userMessage);
-        const parsed = parseClaudeJSON<{
-          adjustments: Record<string, { change: number; reasoning: string }>;
-          emergencyRebalance: boolean;
-          rebalanceDimensions: string[];
-        }>(responseText);
-
-        adjustmentDetails = parsed.adjustments;
-        updatedScores = { ...currentScores };
-
-        for (const dim of DIMENSIONS) {
-          const adj = parsed.adjustments[dim];
-          if (adj) {
-            const dynamicCap = maxAdjustments[dim] || 3;
-            const clamped = Math.max(-3, Math.min(dynamicCap, adj.change));
-            updatedScores[dim] = currentScores[dim] + clamped;
-          }
-        }
-
-        rebalanceTriggered = parsed.emergencyRebalance;
-      } catch {
-        // Fallback: use expected scores proportional to completion
-        const expected = weekTarget.expected_scores as DimensionScores;
-        updatedScores = { ...currentScores };
-        const completedPerDim: Record<string, number> = {};
-        const totalPerDim: Record<string, number> = {};
-        for (const log of workoutLogs) {
-          const dim = log.dimension as string;
-          totalPerDim[dim] = (totalPerDim[dim] || 0) + 1;
-          if (log.completed_as_prescribed) {
-            completedPerDim[dim] = (completedPerDim[dim] || 0) + 1;
-          }
-        }
-        for (const dim of DIMENSIONS) {
-          const completed = completedPerDim[dim] || 0;
-          const total = totalPerDim[dim] || 1;
-          const expectedGain = expected[dim] - currentScores[dim];
-          if (completed > 0 && expectedGain > 0) {
-            updatedScores[dim] = currentScores[dim] + Math.round(expectedGain * (completed / total));
-          }
-        }
-      }
-    }
-
-    // Write to score_history
-    await supabase.from("score_history").insert({
-      user_id: user.id,
-      objective_id: objective.id as string,
-      week_ending: weekTarget.week_start,
-      cardio_score: updatedScores.cardio,
-      strength_score: updatedScores.strength,
-      climbing_score: updatedScores.climbing_technical,
-      flexibility_score: updatedScores.flexibility,
-      change_reason: "regular_week",
-      is_test_week: false,
-      confidence: "low",
-    });
-  }
-
-  // Validate scores are finite numbers before writing; fall back to current scores
+  // Validate scores are finite numbers
   const safeScore = (score: number, fallback: number) =>
     Number.isFinite(score) ? score : fallback;
 
-  const currentFallback: DimensionScores = {
-    cardio: objective.current_cardio_score as number ?? 0,
-    strength: objective.current_strength_score as number ?? 0,
-    climbing_technical: objective.current_climbing_score as number ?? 0,
-    flexibility: objective.current_flexibility_score as number ?? 0,
+  const safeUpdatedScores: DimensionScores = {
+    cardio: safeScore(updatedScores.cardio, currentScores.cardio),
+    strength: safeScore(updatedScores.strength, currentScores.strength),
+    climbing_technical: safeScore(updatedScores.climbing_technical, currentScores.climbing_technical),
+    flexibility: safeScore(updatedScores.flexibility, currentScores.flexibility),
   };
 
-  updatedScores = {
-    cardio: safeScore(updatedScores.cardio, currentFallback.cardio),
-    strength: safeScore(updatedScores.strength, currentFallback.strength),
-    climbing_technical: safeScore(updatedScores.climbing_technical, currentFallback.climbing_technical),
-    flexibility: safeScore(updatedScores.flexibility, currentFallback.flexibility),
-  };
+  // Write to score_history
+  await supabase.from("score_history").insert({
+    user_id: user.id,
+    objective_id: objective.id as string,
+    week_ending: weekTarget.week_start,
+    cardio_score: safeUpdatedScores.cardio,
+    strength_score: safeUpdatedScores.strength,
+    climbing_score: safeUpdatedScores.climbing_technical,
+    flexibility_score: safeUpdatedScores.flexibility,
+    change_reason: "weekly_rating",
+    is_test_week: false,
+    confidence: "low",
+  });
 
   // Update current scores on objective
   await supabase
     .from("objectives")
     .update({
-      current_cardio_score: updatedScores.cardio,
-      current_strength_score: updatedScores.strength,
-      current_climbing_score: updatedScores.climbing_technical,
-      current_flexibility_score: updatedScores.flexibility,
+      current_cardio_score: safeUpdatedScores.cardio,
+      current_strength_score: safeUpdatedScores.strength,
+      current_climbing_score: safeUpdatedScores.climbing_technical,
+      current_flexibility_score: safeUpdatedScores.flexibility,
     })
     .eq("id", objective.id as string);
 
-  // Advance the active week
-  await supabase
-    .from("training_plans")
-    .update({ current_week_number: weekNumber + 1 })
-    .eq("id", planId);
+  // Only advance the active week if this is the current week
+  const currentWeekNumber = (plan as Record<string, unknown>).current_week_number as number;
+  if (weekNumber >= currentWeekNumber) {
+    await supabase
+      .from("training_plans")
+      .update({ current_week_number: weekNumber + 1 })
+      .eq("id", planId);
+  }
+
+  // Generate feedback
+  const rebalanceCheck = shouldHighlightRebalance(safeUpdatedScores, expectedScores);
+  const summary = generateCompletionSummary(safeUpdatedScores, expectedScores, targetScores);
+
+  const gaps: Record<Dimension, number> = {} as Record<Dimension, number>;
+  for (const dim of DIMENSIONS) {
+    gaps[dim] = safeUpdatedScores[dim] - expectedScores[dim];
+  }
 
   return NextResponse.json({
-    updatedScores,
-    rebalanceTriggered,
-    adjustmentDetails,
+    updatedScores: safeUpdatedScores,
+    expectedScores,
+    gaps,
+    summary,
+    rebalanceRecommended: rebalanceCheck.recommended,
   });
 }

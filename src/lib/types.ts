@@ -152,12 +152,13 @@ export interface WorkoutLog {
   dimension: Dimension;
   duration_min: number | null;
   details: Record<string, unknown> | null;
-  benchmark_results: BenchmarkResult[] | null;
+  benchmark_results: BenchmarkResult[] | null; // kept for backward compat, no longer used for scoring
   completed_as_prescribed: boolean;
   session_name: string | null;
   notes: string | null;
   week_number: number | null;
   plan_id: string | null;
+  rating: WorkoutRating | null; // 1-5 self-rating
   created_at: string;
 }
 
@@ -186,11 +187,37 @@ export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 
 export type MeasurementType = 'reps' | 'time' | 'distance' | 'pass_fail' | 'self_rated';
 
-export type WeekType = 'test' | 'regular' | 'taper';
+export type WeekType = 'regular';
 
 export type Tier = 'gold' | 'silver' | 'bronze';
 
-export type ChangeReason = 'assessment' | 'test_week' | 'regular_week' | 'rebalance';
+export type ChangeReason = 'assessment' | 'weekly_rating' | 'rebalance';
+
+// 1-5 self-rating scale for workout difficulty
+export type WorkoutRating = 1 | 2 | 3 | 4 | 5;
+
+export interface SessionRating {
+  sessionName: string;
+  dimension: Dimension;
+  rating: WorkoutRating;
+}
+
+// Rating multipliers: how much of expected weekly gain to apply
+export const RATING_MULTIPLIERS: Record<WorkoutRating, number> = {
+  1: 0,      // Way too hard — no progress
+  2: 0.5,    // Struggled — half the expected gain
+  3: 1.0,    // Just right — full expected gain
+  4: 1.25,   // Slightly easy — 125% of expected gain
+  5: 1.5,    // Way too easy — 150% of expected gain
+};
+
+export interface WeekCompletionFeedback {
+  updatedScores: DimensionScores;
+  expectedScores: DimensionScores;
+  gaps: Record<Dimension, number>;
+  summary: string;
+  rebalanceRecommended: boolean;
+}
 
 export interface DimensionScores {
   cardio: number;
@@ -269,7 +296,7 @@ export interface PlanSession {
   objective: string;
   estimatedMinutes: number;
   dimension: Dimension;
-  isBenchmarkSession: boolean;
+  isBenchmarkSession?: boolean; // deprecated, kept for backward compat
   warmUp: {
     rounds: number;
     warmUpMinutes?: number;
@@ -280,8 +307,8 @@ export interface PlanSession {
     description: string;
     details: string;
     durationMinutes?: number;
-    isBenchmark: boolean;
-    graduationTarget: string | null;
+    isBenchmark?: boolean; // deprecated, kept for backward compat
+    graduationTarget?: string | null; // deprecated, kept for backward compat
     intensityNote: string | null;
   }[];
   cooldown: string | null;
@@ -369,22 +396,14 @@ export interface GeneratePlanResponse {
 export interface CompleteWeekRequest {
   planId: string;
   weekNumber: number;
-  workoutLogs: Omit<WorkoutLog, 'id' | 'user_id' | 'created_at'>[];
+  ratings: SessionRating[];
 }
 
-export interface CompleteWeekResponse {
-  updatedScores: DimensionScores;
-  rebalanceTriggered: boolean;
-  adjustmentDetails?: Record<string, { change: number; reasoning: string }>;
-}
+export type CompleteWeekResponse = WeekCompletionFeedback;
 
 export interface RebalanceRequest {
   planId: string;
   currentWeek: number;
-  actualScores: DimensionScores;
-  expectedScores: DimensionScores;
-  targetScores: DimensionScores;
-  tier: 1 | 2;
 }
 
 export interface FindRoutesRequest {
