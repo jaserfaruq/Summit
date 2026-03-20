@@ -732,7 +732,12 @@ function PlanContent() {
                                 <ol className="text-sm text-dark-muted space-y-1.5">
                                   {session.training.map((ex) => (
                                     <li key={ex.exerciseNumber} className={ex.isBenchmark ? "bg-test-blue/10 p-2 rounded border border-test-blue/20" : ""}>
-                                      <span className="font-medium text-dark-text">{ex.exerciseNumber}. {ex.description}</span>
+                                      <span className="font-medium text-dark-text">
+                                        {ex.exerciseNumber}. {ex.description}
+                                        {ex.durationMinutes ? (
+                                          <span className="text-dark-muted font-normal text-xs ml-2">{ex.durationMinutes} min</span>
+                                        ) : null}
+                                      </span>
                                       <br />
                                       <span className="text-dark-muted">{ex.details}</span>
                                       {ex.isBenchmark && ex.graduationTarget && (

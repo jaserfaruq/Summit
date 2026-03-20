@@ -116,6 +116,7 @@ For each week, provide named training sessions (not assigned to specific days). 
 - A short objective line (without duration — duration is calculated separately).
 - A warm-up block with specific exercises and reps.
 - A numbered training block with exact reps, sets, weight, distance, duration, or pace as appropriate.
+- CRITICAL: For cardio and endurance exercises (hikes, runs, stairmaster, uphill treadmill, etc.), ALWAYS include the prescribed duration in the "details" text (e.g., "40 minutes at Zone 2 pace" or "Set incline to 15%. Hike for 35 minutes at steady Zone 2 pace."). The user reads the details field — if no duration is written there, they won't know how long to exercise.
 - For EVERY training exercise, include a "durationMinutes" field with a realistic estimate of how long that single exercise takes (including rest between sets). Use realistic paces: Zone 2 running = 11-13 min/mile for recreational athletes, trail/uphill = 14-18 min/mile. Strength exercises: account for sets × reps × time-per-rep + rest between sets.
 - Intensity descriptors in plain language: "Moderate = comfortable but not easy", "Zone 2 = conversational pace, nose-breathing", "Threshold = fastest sustainable pace".
 - Foam rolling or recovery notes where appropriate.
@@ -274,6 +275,7 @@ For each session include:
 - A short objective line (without duration — duration is calculated separately).
 - A warm-up block with specific exercises and reps.
 - A numbered training block with exact reps, sets, weight, distance, duration, or pace.
+- CRITICAL: For cardio and endurance exercises (hikes, runs, stairmaster, uphill treadmill, etc.), ALWAYS include the prescribed duration in the "details" text (e.g., "40 minutes at Zone 2 pace" or "Set incline to 15%. Hike for 35 minutes at steady Zone 2 pace."). The user reads the details field — if no duration is written there, they won't know how long to exercise.
 - For EVERY training exercise, include a "durationMinutes" field with a realistic estimate of how long that single exercise takes (including rest between sets). Use realistic paces: Zone 2 running = 11-13 min/mile for recreational athletes, trail/uphill = 14-18 min/mile. Strength exercises: account for sets × reps × time-per-rep + rest between sets.
 - Intensity descriptors in plain language.
 - Foam rolling or recovery notes where appropriate.
