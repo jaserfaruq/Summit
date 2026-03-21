@@ -490,7 +490,10 @@ function PlanContent() {
     return () => clearInterval(interval);
   }, [pollingReportWeeks, weeks]);
 
-  // Start polling for any completed week that is missing a report
+  // Start polling for any completed week that is missing a report,
+  // and trigger report generation if needed (e.g., page loaded after
+  // the original background generation failed or never ran).
+  const triggeredReportsRef = useRef<Set<number>>(new Set());
   useEffect(() => {
     if (weeks.length === 0 || !plan) return;
     const needsPolling = new Set<number>();
@@ -499,6 +502,17 @@ function PlanContent() {
       const isScored = scoredWeekNumbers.has(week.week_number) || weekCompleteResult[week.week_number];
       if (isScored && !week.weekly_report) {
         needsPolling.add(week.week_number);
+        // Trigger report generation if we haven't already this session
+        if (!triggeredReportsRef.current.has(week.week_number)) {
+          triggeredReportsRef.current.add(week.week_number);
+          fetch("/api/generate-weekly-report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ planId: plan.id, weekNumber: week.week_number }),
+          }).catch(() => {
+            // Errors are handled by polling detecting error sentinels
+          });
+        }
       } else if (isScored && week.weekly_report?.error) {
         errors.add(week.week_number);
       }
