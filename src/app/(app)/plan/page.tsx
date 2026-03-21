@@ -255,6 +255,34 @@ function PlanContent() {
           .single();
         if (updatedObj) setObjective(updatedObj as Objective);
       }
+
+      // Trigger report generation directly (not fire-and-forget — handle errors)
+      // This replaces the unreliable background generation from complete-week route
+      setPollingReportWeeks((prev) => new Set(Array.from(prev)).add(week.week_number));
+      triggeredReportsRef.current.add(week.week_number);
+      fetch("/api/generate-weekly-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id, weekNumber: week.week_number }),
+      }).then(async (res) => {
+        if (!res.ok) {
+          console.error("[Report] Generation API returned", res.status);
+          setReportErrors((prev) => new Set(Array.from(prev)).add(week.week_number));
+          setPollingReportWeeks((prev) => {
+            const next = new Set(Array.from(prev));
+            next.delete(week.week_number);
+            return next;
+          });
+        }
+      }).catch((err) => {
+        console.error("[Report] Generation fetch failed:", err);
+        setReportErrors((prev) => new Set(Array.from(prev)).add(week.week_number));
+        setPollingReportWeeks((prev) => {
+          const next = new Set(Array.from(prev));
+          next.delete(week.week_number);
+          return next;
+        });
+      });
     } catch (error) {
       console.error("Error completing week:", error);
       alert(error instanceof Error ? error.message : "Failed to complete week");
@@ -370,10 +398,10 @@ function PlanContent() {
   }
 
   // Poll for weekly report on completed weeks that don't have one yet
-  // Max 24 attempts (2 minutes at 5-second intervals)
+  // Max 36 attempts (3 minutes at 5-second intervals)
   useEffect(() => {
     if (pollingReportWeeks.size === 0) return;
-    const MAX_POLL_ATTEMPTS = 24;
+    const MAX_POLL_ATTEMPTS = 36;
     const interval = setInterval(async () => {
       const supabase = createClient();
       for (const wn of Array.from(pollingReportWeeks)) {
@@ -386,6 +414,7 @@ function PlanContent() {
 
         if (attempts > MAX_POLL_ATTEMPTS) {
           // Timed out — stop polling and show error
+          console.error(`[Report] Polling timed out for week ${wn} after ${MAX_POLL_ATTEMPTS} attempts`);
           setPollingReportWeeks((prev) => {
             const next = new Set(Array.from(prev));
             next.delete(wn);
@@ -407,6 +436,7 @@ function PlanContent() {
 
           // Check for error sentinel
           if (report.error) {
+            console.error(`[Report] Error sentinel found for week ${wn}:`, report);
             setPollingReportWeeks((prev) => {
               const next = new Set(Array.from(prev));
               next.delete(wn);
@@ -434,27 +464,47 @@ function PlanContent() {
     return () => clearInterval(interval);
   }, [pollingReportWeeks, weeks]);
 
-  // Start polling for any completed week that is missing a report,
-  // and trigger report generation if needed (e.g., page loaded after
-  // the original background generation failed or never ran).
+  // Fallback: on page load/reload, detect scored weeks missing reports.
+  // Triggers report generation and polling for weeks that were scored but
+  // never got a report (e.g., background generation failed on a previous visit).
+  // Primary trigger is in handleCompleteWeek — this is only for recovery.
   const triggeredReportsRef = useRef<Set<number>>(new Set());
   useEffect(() => {
     if (weeks.length === 0 || !plan) return;
     const needsPolling = new Set<number>();
     const errors = new Set<number>();
     for (const week of weeks) {
-      const isScored = scoredWeekNumbers.has(week.week_number) || weekCompleteResult[week.week_number];
+      // Only check scoredWeekNumbers (from DB), not weekCompleteResult (from session).
+      // handleCompleteWeek handles the current-session trigger directly.
+      const isScored = scoredWeekNumbers.has(week.week_number);
       if (isScored && !week.weekly_report) {
         needsPolling.add(week.week_number);
         // Trigger report generation if we haven't already this session
         if (!triggeredReportsRef.current.has(week.week_number)) {
           triggeredReportsRef.current.add(week.week_number);
+          console.log(`[Report] Fallback trigger: generating report for week ${week.week_number}`);
           fetch("/api/generate-weekly-report", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ planId: plan.id, weekNumber: week.week_number }),
-          }).catch(() => {
-            // Errors are handled by polling detecting error sentinels
+          }).then(async (res) => {
+            if (!res.ok) {
+              console.error(`[Report] Fallback generation API returned ${res.status}`);
+              setReportErrors((prev) => new Set(Array.from(prev)).add(week.week_number));
+              setPollingReportWeeks((prev) => {
+                const next = new Set(Array.from(prev));
+                next.delete(week.week_number);
+                return next;
+              });
+            }
+          }).catch((err) => {
+            console.error("[Report] Fallback generation failed:", err);
+            setReportErrors((prev) => new Set(Array.from(prev)).add(week.week_number));
+            setPollingReportWeeks((prev) => {
+              const next = new Set(Array.from(prev));
+              next.delete(week.week_number);
+              return next;
+            });
           });
         }
       } else if (isScored && week.weekly_report?.error) {
@@ -471,7 +521,7 @@ function PlanContent() {
         return next;
       });
     }
-  }, [weeks, scoredWeekNumbers, weekCompleteResult, plan]);
+  }, [weeks, scoredWeekNumbers, plan]);
 
   if (generating) {
     return (

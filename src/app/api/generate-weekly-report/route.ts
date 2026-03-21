@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { generateWeeklyReport } from "@/lib/generate-report";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
@@ -12,14 +12,16 @@ export async function POST(request: NextRequest) {
   }
 
   const { planId, weekNumber } = await request.json();
+  console.log(`[Report Route] POST generate-weekly-report: plan=${planId}, week=${weekNumber}, user=${user.id}`);
 
   try {
     await generateWeeklyReport(user.id, planId, weekNumber);
+    console.log(`[Report Route] Successfully generated report for week ${weekNumber}`);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error generating weekly report:", error);
+    console.error("[Report Route] Error generating weekly report:", error);
     return NextResponse.json(
-      { error: "Failed to generate weekly report" },
+      { error: error instanceof Error ? error.message : "Failed to generate weekly report" },
       { status: 500 }
     );
   }
