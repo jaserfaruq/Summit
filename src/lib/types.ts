@@ -203,6 +203,7 @@ export interface WorkoutLog {
   week_number: number | null;
   plan_id: string | null;
   rating: WorkoutRating | null; // 1-5 self-rating
+  rating_comment: string | null; // required when rating != 3
   created_at: string;
 }
 
@@ -244,6 +245,7 @@ export interface SessionRating {
   sessionName: string;
   dimension: Dimension;
   rating: WorkoutRating;
+  comment?: string;
 }
 
 // Rating multipliers: how much of expected weekly gain to apply

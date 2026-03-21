@@ -452,6 +452,20 @@ Return JSON:
   }
 }`;
 
+export const PROMPT_3B_SYSTEM = `You are evaluating whether an athlete's actual training was relevant to their specific objective. The athlete rated their week and provided a comment explaining what happened.
+
+Rules:
+- If the comment describes training that targets key components, adjust upward (toward +0.25)
+- If the comment describes training that targets irrelevant components, adjust downward (toward -0.25)
+- If the comment is ambiguous, keep the base multiplier unchanged
+- Return the adjusted multiplier and a brief explanation (1-2 sentences)
+
+Return JSON:
+{
+  "adjustedMultiplier": number,
+  "explanation": "string"
+}`;
+
 export const PROMPT_6_SYSTEM = `You are an expert mountain athletics coach generating alternative workout sessions. You think in the style of Mountain Tactical Institute — sport-specific, no-fluff, practical alternatives that deliver equivalent training effect.
 
 Given an original training session and its context, create exactly 2 alternative sessions that deliver the same training stimulus for the same dimension.

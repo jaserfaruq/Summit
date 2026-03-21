@@ -168,8 +168,8 @@ export async function POST(request: NextRequest) {
     flexibility: objective.target_flexibility_score,
   };
 
-  // Base hours: scale by training days, cap at 10 for recreational athletes
-  const baseHours = Math.min(daysPerWeek * 1.2, 10);
+  // Base hours: scale by training days, cap at 20
+  const baseHours = Math.min(daysPerWeek * 1.2, 20);
 
   const weeks = Array.from({ length: totalWeeks }, (_, i) => {
     const weekNumber = i + 1;

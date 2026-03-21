@@ -6,21 +6,29 @@ const DIMENSIONS: Dimension[] = ["cardio", "strength", "climbing_technical", "fl
  * Calculate updated score for a dimension based on 1-5 self-ratings.
  * Averages ratings for the dimension, maps to a multiplier, and applies
  * that multiplier to the expected weekly gain.
+ * If an aiMultiplier is provided (from Prompt 3B), it is used instead of
+ * the base multiplier lookup.
  */
 export function calculateScoreFromRatings(
   ratings: WorkoutRating[],
   expectedGain: number,
-  currentScore: number
+  currentScore: number,
+  aiMultiplier?: number
 ): number {
   if (ratings.length === 0) {
     // No training logged for this dimension — slight regression
     return Math.max(0, currentScore - 1);
   }
 
-  const avgRating = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
-  // Round to nearest valid rating for multiplier lookup
-  const roundedRating = Math.max(1, Math.min(5, Math.round(avgRating))) as WorkoutRating;
-  const multiplier = RATING_MULTIPLIERS[roundedRating];
+  let multiplier: number;
+  if (aiMultiplier !== undefined) {
+    multiplier = aiMultiplier;
+  } else {
+    const avgRating = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+    // Round to nearest valid rating for multiplier lookup
+    const roundedRating = Math.max(1, Math.min(5, Math.round(avgRating))) as WorkoutRating;
+    multiplier = RATING_MULTIPLIERS[roundedRating];
+  }
 
   const newScore = currentScore + expectedGain * multiplier;
   return Math.round(Math.max(0, newScore));
@@ -28,11 +36,14 @@ export function calculateScoreFromRatings(
 
 /**
  * Calculate scores for all dimensions from session ratings.
+ * If aiMultipliers is provided, uses those instead of base multipliers
+ * for the specified dimensions.
  */
 export function calculateAllScoresFromRatings(
   ratings: { dimension: Dimension; rating: WorkoutRating }[],
   currentScores: DimensionScores,
-  expectedScores: DimensionScores
+  expectedScores: DimensionScores,
+  aiMultipliers?: Partial<Record<Dimension, number>>
 ): DimensionScores {
   const result = { ...currentScores };
 
@@ -40,7 +51,12 @@ export function calculateAllScoresFromRatings(
     const dimRatings = ratings.filter(r => r.dimension === dim).map(r => r.rating);
     const expectedGain = expectedScores[dim] - currentScores[dim];
 
-    result[dim] = calculateScoreFromRatings(dimRatings, expectedGain, currentScores[dim]);
+    result[dim] = calculateScoreFromRatings(
+      dimRatings,
+      expectedGain,
+      currentScores[dim],
+      aiMultipliers?.[dim]
+    );
   }
 
   return result;

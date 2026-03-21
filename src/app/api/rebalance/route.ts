@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   const daysPerWeek = profile?.training_days_per_week || 5;
-  const baseHours = Math.min(daysPerWeek * 1.2, 10);
+  const baseHours = Math.min(daysPerWeek * 1.2, 20);
 
   try {
     // Recalculate expected scores and hours for each remaining week,

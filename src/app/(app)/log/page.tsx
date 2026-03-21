@@ -23,9 +23,12 @@ function LogForm() {
 
   const [dimension, setDimension] = useState<Dimension>("cardio");
   const [notes, setNotes] = useState("");
+  const [ratingComment, setRatingComment] = useState("");
   const [rating, setRating] = useState<WorkoutRating>(3);
   const [loading, setLoading] = useState(false);
   const [prescribedSession, setPrescribedSession] = useState<PlanSession | null>(null);
+
+  const requiresComment = rating !== 3;
 
   useEffect(() => {
     if (planId && weekNumber && sessionName) {
@@ -55,12 +58,17 @@ function LogForm() {
   }
 
   async function handleSubmit(overrideRating?: WorkoutRating) {
+    const finalRating = overrideRating ?? rating;
+
+    // Validate comment is present for non-3 ratings
+    if (finalRating !== 3 && !ratingComment.trim()) {
+      return;
+    }
+
     setLoading(true);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
-    const finalRating = overrideRating ?? rating;
 
     const { error } = await supabase.from("workout_logs").insert({
       user_id: user.id,
@@ -69,6 +77,7 @@ function LogForm() {
       completed_as_prescribed: finalRating === 3,
       session_name: sessionName || null,
       notes: notes || null,
+      rating_comment: finalRating !== 3 ? ratingComment : null,
       week_number: weekNumber ? parseInt(weekNumber) : null,
       plan_id: planId || null,
       rating: finalRating,
@@ -89,6 +98,8 @@ function LogForm() {
   function handleMarkComplete() {
     handleSubmit(3);
   }
+
+  const canSubmit = !requiresComment || ratingComment.trim().length > 0;
 
   return (
     <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
@@ -134,15 +145,41 @@ function LogForm() {
           </p>
         </div>
 
-        {/* Comments */}
+        {/* Required comment for non-3 ratings */}
+        {requiresComment && (
+          <div>
+            <label className="block text-sm font-medium text-dark-muted mb-1">
+              Tell us what happened <span className="text-burnt-orange">*</span>
+            </label>
+            <p className="text-xs text-dark-muted mb-1">
+              This helps the AI evaluate how relevant your training was to your objective.
+            </p>
+            <textarea
+              value={ratingComment}
+              onChange={(e) => setRatingComment(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
+              placeholder={
+                rating < 3
+                  ? "What made it difficult? Did you modify the workout?"
+                  : "What extra work did you do? What felt too easy?"
+              }
+            />
+            {!ratingComment.trim() && (
+              <p className="text-xs text-burnt-orange mt-1">Required for non-3 ratings</p>
+            )}
+          </div>
+        )}
+
+        {/* Optional notes */}
         <div>
-          <label className="block text-sm font-medium text-dark-muted mb-1">Comments (optional)</label>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50" placeholder="How did it feel? Any modifications?" />
+          <label className="block text-sm font-medium text-dark-muted mb-1">Additional notes (optional)</label>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50" placeholder="Any other details?" />
         </div>
 
         <button
           onClick={() => handleSubmit()}
-          disabled={loading}
+          disabled={loading || !canSubmit}
           className="w-full bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
         >
           {loading ? "Saving..." : "Save Workout Log"}
