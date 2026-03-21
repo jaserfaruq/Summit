@@ -178,6 +178,15 @@ export interface TrainingPlan {
   current_week_number: number;
 }
 
+export interface WeeklyReport {
+  summary: string;
+  scoreChanges: string;
+  whereYouStand: string;
+  nextWeekFocus: string;
+  considerAdjusting: string | null;
+  generatedAt: string;
+}
+
 export interface WeeklyTarget {
   id: string;
   plan_id: string;
@@ -187,6 +196,7 @@ export interface WeeklyTarget {
   total_hours: number | null;
   expected_scores: DimensionScores;
   sessions: PlanSession[];
+  weekly_report: WeeklyReport | null;
 }
 
 export interface WorkoutLog {

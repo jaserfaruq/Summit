@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData } from "@/lib/types";
+import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData, WeeklyReport } from "@/lib/types";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import ScoreArc from "@/components/ScoreArc";
 import AlternativesPanel from "@/components/AlternativesPanel";
@@ -48,6 +48,8 @@ function PlanContent() {
     sessionIndex: number;
     session: PlanSession;
   } | null>(null);
+  const [reportModal, setReportModal] = useState<{ weekNumber: number; report: WeeklyReport } | null>(null);
+  const [pollingReportWeeks, setPollingReportWeeks] = useState<Set<number>>(new Set());
 
   const shouldGenerate = searchParams.get("generate") === "true";
   const objectiveId = searchParams.get("objectiveId");
@@ -410,6 +412,51 @@ function PlanContent() {
     }
     setDeletingLog(null);
   }
+
+  // Poll for weekly report on completed weeks that don't have one yet
+  useEffect(() => {
+    if (pollingReportWeeks.size === 0) return;
+    const interval = setInterval(async () => {
+      const supabase = createClient();
+      for (const wn of Array.from(pollingReportWeeks)) {
+        const week = weeks.find((w) => w.week_number === wn);
+        if (!week) continue;
+        const { data } = await supabase
+          .from("weekly_targets")
+          .select("weekly_report")
+          .eq("id", week.id)
+          .single();
+        if (data?.weekly_report) {
+          setWeeks((prev) =>
+            prev.map((w) =>
+              w.week_number === wn ? { ...w, weekly_report: data.weekly_report } : w
+            )
+          );
+          setPollingReportWeeks((prev) => {
+            const next = new Set(Array.from(prev));
+            next.delete(wn);
+            return next;
+          });
+        }
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [pollingReportWeeks, weeks]);
+
+  // Start polling for any completed week that is missing a report
+  useEffect(() => {
+    if (weeks.length === 0 || !plan) return;
+    const needsPolling = new Set<number>();
+    for (const week of weeks) {
+      const isScored = scoredWeekNumbers.has(week.week_number) || weekCompleteResult[week.week_number];
+      if (isScored && !week.weekly_report) {
+        needsPolling.add(week.week_number);
+      }
+    }
+    if (needsPolling.size > 0) {
+      setPollingReportWeeks(needsPolling);
+    }
+  }, [weeks, scoredWeekNumbers, weekCompleteResult, plan]);
 
   if (generating) {
     return (
@@ -887,6 +934,28 @@ function PlanContent() {
                       )}
                     </div>
                   )}
+
+                  {/* Weekly Report button */}
+                  {(alreadyScored || completeResult) && (
+                    <div className="mt-3">
+                      {week.weekly_report ? (
+                        <button
+                          onClick={() => setReportModal({ weekNumber: week.week_number, report: week.weekly_report! })}
+                          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors bg-burnt-orange/15 text-burnt-orange border border-burnt-orange/30 hover:bg-burnt-orange/25"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          View Report
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2 px-4 py-2.5 text-sm text-dark-muted">
+                          <div className="w-3.5 h-3.5 border-2 border-dark-muted border-t-transparent rounded-full animate-spin" />
+                          Report generating…
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -912,6 +981,53 @@ function PlanContent() {
           }}
         />
       )}
+
+      {/* Weekly Report Modal */}
+      {reportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setReportModal(null)}>
+          <div
+            className="bg-dark-card border border-dark-border rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-dark-card border-b border-dark-border px-6 py-4 flex items-center justify-between z-10">
+              <h3 className="text-lg font-bold text-white">Week {reportModal.weekNumber} Report</h3>
+              <button
+                onClick={() => setReportModal(null)}
+                className="text-dark-muted hover:text-white transition-colors p-1"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-5">
+              <ReportSection title="Week Summary" content={reportModal.report.summary} />
+              <ReportSection title="Score Changes & Why" content={reportModal.report.scoreChanges} />
+              <ReportSection title="Where You Stand" content={reportModal.report.whereYouStand} />
+              <ReportSection title="Next Week Focus" content={reportModal.report.nextWeekFocus} />
+              {reportModal.report.considerAdjusting && (
+                <ReportSection title="Consider Adjusting?" content={reportModal.report.considerAdjusting} accent />
+              )}
+              <p className="text-xs text-dark-muted text-right">
+                Generated {new Date(reportModal.report.generatedAt).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReportSection({ title, content, accent }: { title: string; content: string; accent?: boolean }) {
+  return (
+    <div>
+      <h4 className={`text-sm font-semibold mb-2 ${accent ? "text-burnt-orange" : "text-gold"}`}>
+        {title}
+      </h4>
+      <div className="text-sm text-dark-text leading-relaxed whitespace-pre-wrap">
+        {content}
+      </div>
     </div>
   );
 }
