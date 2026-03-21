@@ -635,42 +635,29 @@ function PlanContent() {
         </div>
       )}
 
-      {/* Adjust Difficulty */}
+      {/* Adjust Difficulty & Rebalance */}
       {objective && plan && (
         <DifficultyAdjuster
           plan={plan}
           adjustingDifficulty={adjustingDifficulty}
           onAdjust={handleAdjustDifficulty}
+          rebalancing={rebalancing}
+          onRebalance={handleRebalance}
+          rebalanceHighlighted={(() => {
+            const current = {
+              cardio: objective.current_cardio_score,
+              strength: objective.current_strength_score,
+              climbing_technical: objective.current_climbing_score,
+              flexibility: objective.current_flexibility_score,
+            };
+            const currentWeekData = weeks.find(w => w.week_number === plan.current_week_number);
+            if (!currentWeekData?.expected_scores) return false;
+            const expected = currentWeekData.expected_scores as unknown as Record<string, number>;
+            return Object.keys(current).some(
+              dim => Math.abs((expected[dim] || 0) - current[dim as keyof typeof current]) >= 5
+            );
+          })()}
         />
-      )}
-
-      {/* Rebalance Plan button */}
-      {objective && (
-        <button
-          onClick={handleRebalance}
-          disabled={rebalancing}
-          className={`w-full py-3 rounded-xl font-medium text-sm transition-colors border ${
-            // Check if any dimension is 5+ pts off — highlight with accent color
-            (() => {
-              const current = {
-                cardio: objective.current_cardio_score,
-                strength: objective.current_strength_score,
-                climbing_technical: objective.current_climbing_score,
-                flexibility: objective.current_flexibility_score,
-              };
-              const currentWeekData = weeks.find(w => w.week_number === plan.current_week_number);
-              if (!currentWeekData?.expected_scores) return false;
-              const expected = currentWeekData.expected_scores as unknown as Record<string, number>;
-              return Object.keys(current).some(
-                dim => Math.abs((expected[dim] || 0) - current[dim as keyof typeof current]) >= 5
-              );
-            })()
-              ? "bg-burnt-orange/20 border-burnt-orange/40 text-burnt-orange hover:bg-burnt-orange/30"
-              : "bg-dark-card/80 border-dark-border/50 text-dark-muted hover:bg-dark-card hover:text-white"
-          } disabled:opacity-50`}
-        >
-          {rebalancing ? "Rebalancing..." : "Rebalance Plan"}
-        </button>
       )}
 
       {/* Batch generation progress */}
@@ -963,20 +950,26 @@ function DifficultyAdjuster({
   plan,
   adjustingDifficulty,
   onAdjust,
+  rebalancing,
+  onRebalance,
+  rebalanceHighlighted,
 }: {
   plan: TrainingPlan;
   adjustingDifficulty: DifficultyLevel | null;
   onAdjust: (level: DifficultyLevel) => void;
+  rebalancing: boolean;
+  onRebalance: () => void;
+  rebalanceHighlighted: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [activeInfo, setActiveInfo] = useState<DifficultyLevel | null>(null);
-  const infoRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Close info popover on outside click
   useEffect(() => {
     if (!activeInfo) return;
     function handleClick(e: MouseEvent) {
-      if (infoRef.current && !infoRef.current.contains(e.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setActiveInfo(null);
       }
     }
@@ -996,12 +989,12 @@ function DifficultyAdjuster({
   })();
 
   return (
-    <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50">
+    <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50" ref={containerRef}>
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between p-4"
       >
-        <h3 className="text-sm font-semibold text-white">Adjust Difficulty</h3>
+        <h3 className="text-sm font-semibold text-white">Adjust Plan</h3>
         <div className="flex items-center gap-2">
           <span className="text-xs text-dark-muted">{netLabel}</span>
           <svg
@@ -1017,42 +1010,65 @@ function DifficultyAdjuster({
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 space-y-2" ref={infoRef}>
-          <div className="grid grid-cols-2 gap-2">
-            {(["much_easier", "slightly_easier", "slightly_harder", "much_harder"] as DifficultyLevel[]).map((level) => (
-              <div key={level} className="relative">
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => onAdjust(level)}
-                    disabled={!!adjustingDifficulty}
-                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors border ${
-                      level.includes("easier")
-                        ? "bg-blue-900/20 border-blue-800/40 text-blue-300 hover:bg-blue-900/30"
-                        : "bg-burnt-orange/10 border-burnt-orange/30 text-burnt-orange hover:bg-burnt-orange/20"
-                    } disabled:opacity-50`}
-                  >
-                    {adjustingDifficulty === level ? "Adjusting..." : `${DIFFICULTY_LABELS[level]} (${DIFFICULTY_SCALE_FACTORS[level]}x)`}
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveInfo(activeInfo === level ? null : level);
-                    }}
-                    className="flex-shrink-0 w-5 h-5 rounded-full border border-dark-border/60 text-dark-muted hover:text-white hover:border-white/40 flex items-center justify-center text-[10px] font-semibold transition-colors"
-                    title="More info"
-                  >
-                    i
-                  </button>
-                </div>
-
-                {activeInfo === level && (
-                  <div className="absolute z-10 mt-1 left-0 right-0 bg-dark-bg border border-dark-border rounded-lg p-3 shadow-xl">
-                    <p className="text-xs text-dark-text leading-relaxed">{DIFFICULTY_INFO[level].description}</p>
-                    <p className="text-xs text-dark-muted mt-2 italic">{DIFFICULTY_INFO[level].prevalence}</p>
+        <div className="px-4 pb-4 space-y-3">
+          {/* Difficulty buttons */}
+          <div className="space-y-2">
+            <p className="text-xs text-dark-muted font-medium uppercase tracking-wide">Difficulty</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(["much_easier", "slightly_easier", "slightly_harder", "much_harder"] as DifficultyLevel[]).map((level) => (
+                <div key={level} className="relative">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => onAdjust(level)}
+                      disabled={!!adjustingDifficulty}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors border ${
+                        level.includes("easier")
+                          ? "bg-blue-900/20 border-blue-800/40 text-blue-300 hover:bg-blue-900/30"
+                          : "bg-burnt-orange/10 border-burnt-orange/30 text-burnt-orange hover:bg-burnt-orange/20"
+                      } disabled:opacity-50`}
+                    >
+                      {adjustingDifficulty === level ? "Adjusting..." : `${DIFFICULTY_LABELS[level]} (${DIFFICULTY_SCALE_FACTORS[level]}x)`}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveInfo(activeInfo === level ? null : level);
+                      }}
+                      className="flex-shrink-0 w-7 h-7 rounded-full border border-dark-border/60 text-dark-muted hover:text-white hover:border-white/40 flex items-center justify-center text-xs font-semibold transition-colors"
+                      aria-label={`Info about ${DIFFICULTY_LABELS[level]}`}
+                    >
+                      i
+                    </button>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {activeInfo === level && (
+                    <div className="absolute z-20 bottom-full mb-2 left-0 right-0 bg-dark-bg border border-dark-border rounded-lg p-3 shadow-xl">
+                      <p className="text-xs text-dark-text leading-relaxed">{DIFFICULTY_INFO[level].description}</p>
+                      <p className="text-xs text-dark-muted mt-2 italic">{DIFFICULTY_INFO[level].prevalence}</p>
+                      <div className="absolute left-4 -bottom-1.5 w-3 h-3 bg-dark-bg border-r border-b border-dark-border rotate-45" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Rebalance button */}
+          <div className="pt-1">
+            <button
+              onClick={onRebalance}
+              disabled={rebalancing}
+              className={`w-full py-2.5 rounded-lg font-medium text-sm transition-colors border ${
+                rebalanceHighlighted
+                  ? "bg-burnt-orange/20 border-burnt-orange/40 text-burnt-orange hover:bg-burnt-orange/30"
+                  : "bg-dark-border/20 border-dark-border/50 text-dark-muted hover:bg-dark-border/30 hover:text-white"
+              } disabled:opacity-50`}
+            >
+              {rebalancing ? "Rebalancing..." : "Rebalance Plan"}
+            </button>
+            {rebalanceHighlighted && (
+              <p className="text-[10px] text-burnt-orange/70 mt-1 text-center">One or more dimensions are 5+ points off trajectory</p>
+            )}
           </div>
         </div>
       )}
