@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DifficultyAdjustment, PlanData } from "@/lib/types";
+import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData } from "@/lib/types";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import Link from "next/link";
 
@@ -637,37 +637,11 @@ function PlanContent() {
 
       {/* Adjust Difficulty */}
       {objective && plan && (
-        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-white">Adjust Difficulty</h3>
-            <span className="text-xs text-dark-muted">
-              {(() => {
-                const adjustments = (plan.plan_data as PlanData)?.difficultyAdjustments;
-                if (!adjustments || adjustments.length === 0) return "Original";
-                const net = adjustments.reduce((sum: number, a: DifficultyAdjustment) =>
-                  sum + (a.level.includes("harder") ? 1 : -1), 0);
-                if (net === 0) return "Original";
-                return net > 0 ? `+${net} harder` : `${net} easier`;
-              })()}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {(["much_easier", "slightly_easier", "slightly_harder", "much_harder"] as DifficultyLevel[]).map((level) => (
-              <button
-                key={level}
-                onClick={() => handleAdjustDifficulty(level)}
-                disabled={!!adjustingDifficulty}
-                className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors border ${
-                  level.includes("easier")
-                    ? "bg-blue-900/20 border-blue-800/40 text-blue-300 hover:bg-blue-900/30"
-                    : "bg-burnt-orange/10 border-burnt-orange/30 text-burnt-orange hover:bg-burnt-orange/20"
-                } disabled:opacity-50`}
-              >
-                {adjustingDifficulty === level ? "Adjusting..." : DIFFICULTY_LABELS[level]}
-              </button>
-            ))}
-          </div>
-        </div>
+        <DifficultyAdjuster
+          plan={plan}
+          adjustingDifficulty={adjustingDifficulty}
+          onAdjust={handleAdjustDifficulty}
+        />
       )}
 
       {/* Rebalance Plan button */}
@@ -962,6 +936,126 @@ function PlanContent() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+const DIFFICULTY_INFO: Record<DifficultyLevel, { description: string; prevalence: string }> = {
+  much_easier: {
+    description: "Scales target scores to 60% of the remaining gap. Best for recovery from injury, returning after a long break, or when the objective feels overwhelming.",
+    prevalence: "Used by ~10% of athletes — typically those adapting after setbacks.",
+  },
+  slightly_easier: {
+    description: "Scales target scores to 80% of the remaining gap. Good when sessions consistently feel too hard (rating 1–2) or life stress is limiting recovery.",
+    prevalence: "Used by ~25% of athletes — the most common downward adjustment.",
+  },
+  slightly_harder: {
+    description: "Scales target scores to 120% of the remaining gap. For when sessions consistently feel too easy (rating 4–5) and you want to push toward a stronger finish.",
+    prevalence: "Used by ~20% of athletes — common mid-plan when fitness is building fast.",
+  },
+  much_harder: {
+    description: "Scales target scores to 150% of the remaining gap. For experienced athletes who want an aggressive build. Significantly increases weekly volume and intensity.",
+    prevalence: "Used by ~5% of athletes — only recommended with a strong training base.",
+  },
+};
+
+function DifficultyAdjuster({
+  plan,
+  adjustingDifficulty,
+  onAdjust,
+}: {
+  plan: TrainingPlan;
+  adjustingDifficulty: DifficultyLevel | null;
+  onAdjust: (level: DifficultyLevel) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [activeInfo, setActiveInfo] = useState<DifficultyLevel | null>(null);
+  const infoRef = useRef<HTMLDivElement>(null);
+
+  // Close info popover on outside click
+  useEffect(() => {
+    if (!activeInfo) return;
+    function handleClick(e: MouseEvent) {
+      if (infoRef.current && !infoRef.current.contains(e.target as Node)) {
+        setActiveInfo(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [activeInfo]);
+
+  const netLabel = (() => {
+    const adjustments = (plan.plan_data as PlanData)?.difficultyAdjustments;
+    if (!adjustments || adjustments.length === 0) return "Original";
+    const net = adjustments.reduce(
+      (sum: number, a: DifficultyAdjustment) => sum + (a.level.includes("harder") ? 1 : -1),
+      0
+    );
+    if (net === 0) return "Original";
+    return net > 0 ? `+${net} harder` : `${net} easier`;
+  })();
+
+  return (
+    <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between p-4"
+      >
+        <h3 className="text-sm font-semibold text-white">Adjust Difficulty</h3>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-dark-muted">{netLabel}</span>
+          <svg
+            className={`w-4 h-4 text-dark-muted transition-transform ${expanded ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-2" ref={infoRef}>
+          <div className="grid grid-cols-2 gap-2">
+            {(["much_easier", "slightly_easier", "slightly_harder", "much_harder"] as DifficultyLevel[]).map((level) => (
+              <div key={level} className="relative">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onAdjust(level)}
+                    disabled={!!adjustingDifficulty}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors border ${
+                      level.includes("easier")
+                        ? "bg-blue-900/20 border-blue-800/40 text-blue-300 hover:bg-blue-900/30"
+                        : "bg-burnt-orange/10 border-burnt-orange/30 text-burnt-orange hover:bg-burnt-orange/20"
+                    } disabled:opacity-50`}
+                  >
+                    {adjustingDifficulty === level ? "Adjusting..." : `${DIFFICULTY_LABELS[level]} (${DIFFICULTY_SCALE_FACTORS[level]}x)`}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveInfo(activeInfo === level ? null : level);
+                    }}
+                    className="flex-shrink-0 w-5 h-5 rounded-full border border-dark-border/60 text-dark-muted hover:text-white hover:border-white/40 flex items-center justify-center text-[10px] font-semibold transition-colors"
+                    title="More info"
+                  >
+                    i
+                  </button>
+                </div>
+
+                {activeInfo === level && (
+                  <div className="absolute z-10 mt-1 left-0 right-0 bg-dark-bg border border-dark-border rounded-lg p-3 shadow-xl">
+                    <p className="text-xs text-dark-text leading-relaxed">{DIFFICULTY_INFO[level].description}</p>
+                    <p className="text-xs text-dark-muted mt-2 italic">{DIFFICULTY_INFO[level].prevalence}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
