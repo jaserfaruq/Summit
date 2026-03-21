@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   // Verify the plan belongs to the user
   const { data: plan, error: planError } = await supabase
     .from("training_plans")
-    .select("id, user_id, objective_id")
+    .select("id, user_id, objective_id, assessment_id")
     .eq("id", planId)
     .single();
 
@@ -54,8 +54,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to delete plan" }, { status: 500 });
   }
 
+  // Delete the associated assessment
+  if (plan.assessment_id) {
+    await supabase
+      .from("assessments")
+      .delete()
+      .eq("id", plan.assessment_id);
+  }
+
   // Delete the associated objective (plan and objective are linked 1:1 in V1)
   if (plan.objective_id) {
+    // Delete any remaining assessments linked to this objective
+    await supabase
+      .from("assessments")
+      .delete()
+      .eq("objective_id", plan.objective_id);
+
     // Delete score_history first (foreign key dependency on objective)
     await supabase
       .from("score_history")

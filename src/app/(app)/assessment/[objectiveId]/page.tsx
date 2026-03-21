@@ -552,10 +552,10 @@ export default function AssessmentObjectivePage() {
           </div>
 
           <button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push(`/plan?generate=true&objectiveId=${objectiveId}&assessmentId=${results.assessmentId}`)}
             className="w-full bg-gold text-dark-bg py-3 rounded-lg font-medium hover:bg-gold/90 transition-colors"
           >
-            Continue to Dashboard
+            Generate Training Plan
           </button>
         </div>
       )}
