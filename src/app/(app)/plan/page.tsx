@@ -578,26 +578,18 @@ function PlanContent() {
         <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-5">
           <h3 className="font-semibold text-white mb-2">Plan Philosophy</h3>
           <p className="text-sm text-dark-muted mb-3">{planSummary.philosophy}</p>
-          <p className="text-sm text-dark-muted mb-3">{planSummary.weeklyStructure}</p>
-          {planSummary.keyExercises && planSummary.keyExercises.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {planSummary.keyExercises.map((ex, i) => (
-                <span key={i} className="bg-dark-border text-dark-muted text-xs px-2 py-1 rounded">
-                  {ex}
-                </span>
-              ))}
-            </div>
-          )}
+          <p className="text-sm text-dark-muted">{planSummary.weeklyStructure}</p>
         </div>
       )}
 
-      {/* Graduation workouts */}
-      {plan.graduation_workouts && (
+      {/* Graduation workouts — prefer validated objective benchmarks when available */}
+      {(plan.graduation_workouts || validatedObj?.graduation_benchmarks) && (
         <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-gold/20 p-5">
           <h3 className="font-semibold text-gold mb-3">Graduation Workouts (Finish Line)</h3>
           <div className="grid md:grid-cols-2 gap-3">
             {(["cardio", "strength", "climbing_technical", "flexibility"] as const).map((dim) => {
-              const benchmarks = (plan.graduation_workouts as unknown as Record<string, Array<{ exerciseName: string; graduationTarget: string }>>)?.[dim];
+              const source = validatedObj?.graduation_benchmarks || plan.graduation_workouts;
+              const benchmarks = (source as unknown as Record<string, Array<{ exerciseName: string; graduationTarget: string }>>)?.[dim];
               if (!benchmarks || benchmarks.length === 0) return null;
               return (
                 <div key={dim}>

@@ -364,7 +364,7 @@ The four training dimensions are fixed: Cardio, Strength, Climbing/Technical, an
 
 3. A relevance profile with keyComponents (7–10 items) and irrelevantComponents (7–10 items). Components should be at a practical level — the kind of thing a coach writes on a whiteboard. Broad surface area across the dimension, not drilling deep into one sub-area. Each component should be distinct enough that a coach could look at a training log and say 'yes, this trained that component' or 'no, it didn't.'
 
-4. Graduation benchmarks: 2–4 benchmark exercises per dimension selected from the provided benchmark exercise library. For each, set an objective-specific graduation target. The graduation workout represents the exact performance level needed to complete this objective safely and comfortably. Cardio: 1–2 benchmarks. Strength: 2–4. Climbing/Technical: 1–3. Flexibility: 1–3. The exact count depends on the objective's demands.
+4. Graduation benchmarks: 2–4 benchmark exercises per dimension selected from the provided benchmark exercise library. For each, set an objective-specific graduation target. The graduation workout represents the exact performance level needed to complete this objective safely and comfortably. Cardio: always 2 benchmarks. Strength: 2–4. Climbing/Technical: 1–3. Flexibility: 1–3. The exact count depends on the objective's demands.
 
 [If validated feedback exists:] Experienced validators have confirmed these components for similar objectives: {insert aggregated feedback}. Use this to refine your assessment.
 
