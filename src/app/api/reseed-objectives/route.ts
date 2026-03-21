@@ -2,7 +2,16 @@ import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { VALIDATED_OBJECTIVE_SEED_DATA } from "@/lib/seed-data";
 
+// Support GET so it can be triggered by visiting the URL in a browser
+export async function GET() {
+  return reseed();
+}
+
 export async function POST() {
+  return reseed();
+}
+
+async function reseed() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
