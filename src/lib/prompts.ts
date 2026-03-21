@@ -252,6 +252,7 @@ CLIMBING GRADE PRESCRIPTION RULES:
 - The per-dimension progress fractions apply to volume, endurance, and technique complexity — NOT to grade. Do not start an experienced climber on beginner grades just because it's week 1.
 
 Rules:
+- Generate exactly the number of sessions matching the athlete's available training days per week. If the athlete is available 5 days/week, generate exactly 5 sessions. Combine dimensions into the same session if needed (e.g., a "Strength & Flexibility" session) to fit within the available days. Prioritize dimensions with the largest gap between current and target scores when allocating sessions.
 - Increase total volume by no more than 10% per week from the prior week.
 - At least one full rest day per week.
 
