@@ -124,6 +124,7 @@ CREATE TABLE objectives (
   taglines JSONB NOT NULL DEFAULT '{}',
   relevance_profiles JSONB NOT NULL DEFAULT '{}',
   graduation_benchmarks JSONB NOT NULL DEFAULT '{}',
+  climbing_role TEXT,
   matched_validated_id UUID REFERENCES validated_objectives(id),
   tier TEXT NOT NULL DEFAULT 'bronze',
   created_at TIMESTAMPTZ DEFAULT now()
@@ -144,13 +145,21 @@ CREATE POLICY "Users can delete own objectives" ON objectives
 CREATE TABLE assessments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  objective_id UUID NOT NULL REFERENCES objectives(id),
   assessed_at TIMESTAMPTZ DEFAULT now(),
   cardio_score INT NOT NULL,
   strength_score INT NOT NULL,
   climbing_score INT NOT NULL,
   flexibility_score INT NOT NULL,
+  standard_answers JSONB NOT NULL,
+  ai_questions JSONB,
+  ai_answers JSONB,
+  freeform_text TEXT,
+  ai_reasoning JSONB,
   raw_data JSONB
 );
+
+CREATE INDEX idx_assessments_objective_id ON assessments(objective_id);
 
 ALTER TABLE assessments ENABLE ROW LEVEL SECURITY;
 
