@@ -4,6 +4,7 @@ import { CompleteWeekRequest, DimensionScores, Dimension, SessionRating, RATING_
 import { calculateAllScoresFromRatings, shouldHighlightRebalance, generateCompletionSummary } from "@/lib/scoring";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_3B_SYSTEM } from "@/lib/prompts";
+import { generateWeeklyReport } from "@/lib/generate-report";
 
 export const maxDuration = 60;
 
@@ -214,28 +215,11 @@ export async function POST(request: NextRequest) {
     gaps[dim] = safeUpdatedScores[dim] - expectedScores[dim];
   }
 
-  // Fire background report generation (fire-and-forget)
-  try {
-    const protocol = request.headers.get("x-forwarded-proto") || "https";
-    const host = request.headers.get("host") || "localhost:3000";
-    const baseUrl = `${protocol}://${host}`;
-
-    // Forward cookies for auth
-    const cookieHeader = request.headers.get("cookie") || "";
-
-    fetch(`${baseUrl}/api/generate-weekly-report`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Cookie": cookieHeader,
-      },
-      body: JSON.stringify({ planId, weekNumber }),
-    }).catch((err) => {
-      console.error("Background report generation failed to start:", err);
-    });
-  } catch (err) {
-    console.error("Failed to trigger background report generation:", err);
-  }
+  // Generate weekly report in background (detached promise, no HTTP hop)
+  // Uses service role client so it doesn't depend on request auth context
+  generateWeeklyReport(user.id, planId, weekNumber).catch((err) => {
+    console.error("Background report generation failed:", err);
+  });
 
   return NextResponse.json({
     updatedScores: safeUpdatedScores,

@@ -185,6 +185,8 @@ export interface WeeklyReport {
   nextWeekFocus: string;
   considerAdjusting: string | null;
   generatedAt: string;
+  error?: boolean;
+  message?: string;
 }
 
 export interface WeeklyTarget {
