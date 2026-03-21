@@ -1,0 +1,40 @@
+name: Compare Teton Plans (Sonnet vs Opus)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Run comparison script
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npx tsx scripts/compare-plans.ts
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonnet-vs-opus-report
+          path: reports/sonnet-vs-opus-grand-teton.md
+
+      - name: Commit report to branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports/sonnet-vs-opus-grand-teton.md
+          git commit -m "Add Sonnet vs Opus comparison report" || echo "No changes to commit"
+          git push
