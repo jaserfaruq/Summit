@@ -243,7 +243,6 @@ function PlanContent() {
       // Only advance current week if this was the current week
       if (plan.current_week_number === week.week_number) {
         setPlan((prev) => prev ? { ...prev, current_week_number: week.week_number + 1 } : null);
-        setExpandedWeek(week.week_number + 1);
       }
 
       if (objective) {
