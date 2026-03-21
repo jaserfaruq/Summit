@@ -626,7 +626,7 @@ function PlanContent() {
           <h3 className="font-semibold text-gold mb-3">Graduation Workouts (Finish Line)</h3>
           <div className="grid md:grid-cols-2 gap-3">
             {(["cardio", "strength", "climbing_technical", "flexibility"] as const).map((dim) => {
-              const source = validatedObj?.graduation_benchmarks || objective?.graduation_benchmarks || plan.graduation_workouts;
+              const source = objective?.graduation_benchmarks || validatedObj?.graduation_benchmarks || plan.graduation_workouts;
               const benchmarks = (source as unknown as Record<string, Array<{ exerciseName: string; graduationTarget: string }>>)?.[dim];
               if (!benchmarks || benchmarks.length === 0) return null;
               return (

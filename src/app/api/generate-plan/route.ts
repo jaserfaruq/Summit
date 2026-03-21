@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GeneratePlanRequest } from "@/lib/types";
 import { expectedScoresAtWeek } from "@/lib/scoring";
 import { fetchHeroImageUrl } from "@/lib/unsplash";
+import { VALIDATED_OBJECTIVE_SEED_DATA } from "@/lib/seed-data";
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
@@ -43,9 +44,23 @@ export async function POST(request: NextRequest) {
     .eq("id", user.id)
     .single();
 
-  // If objective has a matched validated objective, refresh graduation benchmarks
-  // from the validated source (fixes stale AI-generated data)
-  if (objective.matched_validated_id) {
+  // Refresh graduation benchmarks from seed data first (authoritative),
+  // then fall back to validated_objectives table
+  const seedMatch = VALIDATED_OBJECTIVE_SEED_DATA.find(
+    (s) => s.name.toLowerCase() === objective.name.toLowerCase().trim()
+  );
+
+  if (seedMatch) {
+    // Seed data is always authoritative — use it directly
+    objective.graduation_benchmarks = seedMatch.graduation_benchmarks;
+    await supabase
+      .from("objectives")
+      .update({
+        graduation_benchmarks: seedMatch.graduation_benchmarks,
+        taglines: seedMatch.taglines,
+      })
+      .eq("id", objectiveId);
+  } else if (objective.matched_validated_id) {
     const { data: validatedObj } = await supabase
       .from("validated_objectives")
       .select("graduation_benchmarks, target_scores, taglines, relevance_profiles")
@@ -54,7 +69,6 @@ export async function POST(request: NextRequest) {
 
     if (validatedObj?.graduation_benchmarks) {
       objective.graduation_benchmarks = validatedObj.graduation_benchmarks;
-      // Update the objective record so it stays in sync
       await supabase
         .from("objectives")
         .update({
