@@ -92,10 +92,20 @@ async function reseed() {
         continue;
       }
 
+      // Also update active training plans' graduation_workouts snapshot
+      for (const uo of userObjs) {
+        await supabase
+          .from("training_plans")
+          .update({ graduation_workouts: obj.graduation_benchmarks })
+          .eq("user_id", user.id)
+          .eq("objective_id", uo.id)
+          .eq("status", "active");
+      }
+
       results.push({
         name: obj.name,
         status: "updated",
-        details: `updated ${userObjs.length} user objective(s)${isValidator ? " + validated_objectives" : ""}`,
+        details: `updated ${userObjs.length} user objective(s) + training plans${isValidator ? " + validated_objectives" : ""}`,
       });
     } else {
       results.push({
@@ -148,6 +158,14 @@ async function reseed() {
           .update(updateData)
           .eq("id", uo.id)
           .eq("user_id", user.id);
+
+        // Also update active training plans for this objective
+        await supabase
+          .from("training_plans")
+          .update({ graduation_workouts: seedMatch.graduation_benchmarks })
+          .eq("user_id", user.id)
+          .eq("objective_id", uo.id)
+          .eq("status", "active");
 
         unmatchedUpdates.push(uo.name);
       }
