@@ -40,8 +40,6 @@ function PlanContent() {
   const [weekCompleteResult, setWeekCompleteResult] = useState<Record<number, WeekCompletionFeedback>>({});
   const [rebalancing, setRebalancing] = useState(false);
   const [adjustingDifficulty, setAdjustingDifficulty] = useState<DifficultyLevel | null>(null);
-  const [batchGenerating, setBatchGenerating] = useState(false);
-  const [batchProgress, setBatchProgress] = useState<{ generated: number; total: number } | null>(null);
   const [deletingLog, setDeletingLog] = useState<string | null>(null);
   const [scoredWeekNumbers, setScoredWeekNumbers] = useState<Set<number>>(new Set());
   const [alternativesPanel, setAlternativesPanel] = useState<{
@@ -159,27 +157,6 @@ function PlanContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedParam]);
 
-  async function generateAllSessions(planId: string) {
-    setBatchGenerating(true);
-    try {
-      const res = await fetch("/api/generate-all-sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId }),
-      });
-
-      if (res.ok) {
-        const result = await res.json();
-        setBatchProgress({ generated: result.generated, total: result.total });
-      }
-      // Refresh plan data to pick up generated sessions
-      await fetchPlan();
-    } catch (error) {
-      console.error("Batch session generation error:", error);
-    }
-    setBatchGenerating(false);
-  }
-
   async function generatePlan(objId: string, assId: string) {
     setGenerating(true);
     setGenerateError(null);
@@ -199,14 +176,9 @@ function PlanContent() {
         throw new Error(data.error || "Failed to generate plan");
       }
 
-      const planResult = await res.json();
+      await res.json();
       router.replace("/plan");
       await fetchPlan();
-
-      // Trigger background batch generation of all week sessions
-      if (planResult.planId) {
-        generateAllSessions(planResult.planId);
-      }
     } catch (error) {
       console.error("Plan generation error:", error);
       setGenerateError(
@@ -536,14 +508,6 @@ function PlanContent() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {!batchGenerating && weeks.some((w) => !weekSessions[w.week_number] || weekSessions[w.week_number].length === 0) && (
-                <button
-                  onClick={() => generateAllSessions(plan.id)}
-                  className="text-xs bg-gold/90 text-dark-bg px-3 py-1.5 rounded hover:bg-gold transition-colors font-medium"
-                >
-                  Generate All Sessions
-                </button>
-              )}
               <DeletePlanButton planId={plan.id} onDeleted={() => {
               setPlan(null);
               setWeeks([]);
@@ -667,26 +631,6 @@ function PlanContent() {
             );
           })()}
         />
-      )}
-
-      {/* Batch generation progress */}
-      {batchGenerating && (
-        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-gold/30 p-4 flex items-center gap-3">
-          <div className="w-5 h-5 border-2 border-gold border-t-transparent rounded-full animate-spin flex-shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-white">Generating all week sessions...</p>
-            <p className="text-xs text-dark-muted">
-              This runs in the background — you can expand individual weeks while it works.
-            </p>
-          </div>
-        </div>
-      )}
-      {batchProgress && !batchGenerating && (
-        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-green-800/40 p-4">
-          <p className="text-sm text-green-400">
-            Generated sessions for {batchProgress.generated} of {batchProgress.total} weeks.
-          </p>
-        </div>
       )}
 
       {/* Week list */}
