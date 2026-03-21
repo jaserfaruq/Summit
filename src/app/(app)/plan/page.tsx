@@ -258,6 +258,7 @@ function PlanContent() {
         sessionName: log.session_name || "",
         dimension: log.dimension as Dimension,
         rating: (log.rating || 3) as 1 | 2 | 3 | 4 | 5,
+        comment: log.rating_comment || log.notes || "",
       }));
 
     try {

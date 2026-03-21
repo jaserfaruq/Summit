@@ -176,7 +176,7 @@ ${JSON.stringify(currentBenchmarks, null, 2)}`;
       .single();
 
     const daysPerWeek = profile?.training_days_per_week || 5;
-    const baseHours = Math.min(daysPerWeek * 1.2, 10);
+    const baseHours = Math.min(daysPerWeek * 1.2, 20);
 
     const updatedWeeks = [];
 

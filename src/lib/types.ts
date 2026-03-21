@@ -69,6 +69,7 @@ export interface Objective {
   taglines: DimensionTaglines;
   relevance_profiles: DimensionRelevanceProfiles;
   graduation_benchmarks: DimensionGraduationBenchmarks;
+  climbing_role: 'lead' | 'follow' | null;
   matched_validated_id: string | null;
   tier: Tier;
   created_at: string;
@@ -77,12 +78,55 @@ export interface Objective {
 export interface Assessment {
   id: string;
   user_id: string;
+  objective_id: string | null;
   assessed_at: string;
   cardio_score: number;
   strength_score: number;
   climbing_score: number;
   flexibility_score: number;
+  standard_answers: StandardAnswers | null;
+  ai_questions: AIQuestion[] | null;
+  ai_answers: Record<string, string | number> | null;
+  freeform_text: string | null;
+  ai_reasoning: AIReasoning | null;
   raw_data: AssessmentRawData | null;
+}
+
+export interface StandardAnswers {
+  training_days_per_week: number;
+  longest_cardio_distance_miles: number;
+  longest_cardio_duration_min: number;
+  longest_cardio_elevation_gain_ft: number;
+  strength_training_frequency: string;
+  strength_training_type: string;
+  climbing_experience_level: string;
+  climbing_highest_grade: string;
+  climbing_skills: string[];
+  flexibility_hip_tightness: number;
+  flexibility_ankle_mobility: number;
+  flexibility_regular_routine: boolean;
+}
+
+export interface AIQuestion {
+  id: string;
+  question: string;
+  dimension: string;
+  fieldType: 'text' | 'number' | 'dropdown' | 'scale';
+  options?: string[];
+}
+
+export interface AIReasoning {
+  cardio: { explanation: string; keyFactor: string };
+  strength: { explanation: string; keyFactor: string };
+  climbing_technical: { explanation: string; keyFactor: string };
+  flexibility: { explanation: string; keyFactor: string };
+}
+
+export interface ProgrammingHints {
+  cardio: { startingIntensity: string; sessionsPerWeek: number; keyAdaptation: string };
+  strength: { startingIntensity: string; sessionsPerWeek: number; keyAdaptation: string };
+  climbing_technical: { startingIntensity: string; sessionsPerWeek: number; keyAdaptation: string };
+  flexibility: { startingIntensity: string; sessionsPerWeek: number; keyAdaptation: string };
 }
 
 export interface AssessmentRawData {
@@ -159,6 +203,7 @@ export interface WorkoutLog {
   week_number: number | null;
   plan_id: string | null;
   rating: WorkoutRating | null; // 1-5 self-rating
+  rating_comment: string | null; // required when rating != 3
   created_at: string;
 }
 
@@ -200,6 +245,7 @@ export interface SessionRating {
   sessionName: string;
   dimension: Dimension;
   rating: WorkoutRating;
+  comment?: string;
 }
 
 // Rating multipliers: how much of expected weekly gain to apply
@@ -279,6 +325,7 @@ export interface PlanData {
     keyExercises: string[];
   };
   heroImageUrl?: string | null;
+  programmingHints?: ProgrammingHints | null;
   weeks: PlanWeek[];
   difficultyAdjustments?: DifficultyAdjustment[];
 }

@@ -168,8 +168,8 @@ export async function POST(request: NextRequest) {
     flexibility: objective.target_flexibility_score,
   };
 
-  // Base hours: scale by training days, cap at 10 for recreational athletes
-  const baseHours = Math.min(daysPerWeek * 1.2, 10);
+  // Base hours: scale by training days, cap at 20
+  const baseHours = Math.min(daysPerWeek * 1.2, 20);
 
   const weeks = Array.from({ length: totalWeeks }, (_, i) => {
     const weekNumber = i + 1;
@@ -201,6 +201,9 @@ export async function POST(request: NextRequest) {
     keyExercises: extractKeyExercises(objective.graduation_benchmarks),
   };
 
+  // Extract programmingHints from assessment raw_data
+  const programmingHints = assessment.raw_data?.programmingHints || null;
+
   // Fetch hero image (non-blocking — plan still works without it)
   let heroImageUrl: string | null = null;
   try {
@@ -220,6 +223,7 @@ export async function POST(request: NextRequest) {
         plan_data: {
           planSummary,
           heroImageUrl,
+          programmingHints,
           weeks: weeks.map((w) => ({ ...w, sessions: [] })),
         },
         graduation_workouts: objective.graduation_benchmarks,
