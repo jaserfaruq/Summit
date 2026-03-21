@@ -254,6 +254,15 @@ export default function ProgressPage() {
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-dark-border">
+                  <td className="px-4 py-2 text-dark-muted font-medium">Target</td>
+                  <td className="px-4 py-2 text-center font-mono text-dark-muted font-medium">{targets.cardio}</td>
+                  <td className="px-4 py-2 text-center font-mono text-dark-muted font-medium">{targets.strength}</td>
+                  <td className="px-4 py-2 text-center font-mono text-dark-muted font-medium">{targets.climbing}</td>
+                  <td className="px-4 py-2 text-center font-mono text-dark-muted font-medium">{targets.flexibility}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </>

@@ -503,10 +503,10 @@ function PlanContent() {
               </p>
               {objective && (
                 <div className="flex gap-3 sm:gap-4 mt-3">
-                  <ScoreArc label="C" current={objective.current_cardio_score} target={objective.target_cardio_score} size="mini" />
-                  <ScoreArc label="S" current={objective.current_strength_score} target={objective.target_strength_score} size="mini" />
-                  <ScoreArc label="CT" current={objective.current_climbing_score} target={objective.target_climbing_score} size="mini" />
-                  <ScoreArc label="F" current={objective.current_flexibility_score} target={objective.target_flexibility_score} size="mini" />
+                  <ScoreArc label="Cardio" current={objective.current_cardio_score} target={objective.target_cardio_score} size="mini" />
+                  <ScoreArc label="Strength" current={objective.current_strength_score} target={objective.target_strength_score} size="mini" />
+                  <ScoreArc label="Climbing" current={objective.current_climbing_score} target={objective.target_climbing_score} size="mini" />
+                  <ScoreArc label="Flexibility" current={objective.current_flexibility_score} target={objective.target_flexibility_score} size="mini" />
                 </div>
               )}
             </div>
