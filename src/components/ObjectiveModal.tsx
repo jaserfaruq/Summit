@@ -226,11 +226,12 @@ export default function ObjectiveModal({
 
         if (!newObj) throw new Error("Failed to create objective");
 
-        // Fetch latest assessment to auto-generate a plan
+        // Fetch assessment for this specific objective
         const { data: assessments } = await supabase
           .from("assessments")
           .select("id")
           .eq("user_id", user.id)
+          .eq("objective_id", newObj.id)
           .order("assessed_at", { ascending: false })
           .limit(1);
 
