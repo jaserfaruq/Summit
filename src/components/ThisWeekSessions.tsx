@@ -57,24 +57,26 @@ export default function ThisWeekSessions({
                   {session.isAlternative && (
                     <span className="text-[10px] bg-burnt-orange/20 text-burnt-orange px-1.5 py-0.5 rounded font-medium shrink-0">Alt</span>
                   )}
-                  <span className="text-dark-muted text-xs shrink-0">{session.estimatedMinutes} min</span>
                 </button>
-                <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                <Link
+                  href={`/log?session=${encodeURIComponent(session.name)}&planId=${planId}&week=${weekTarget.week_number}`}
+                  className="text-sm bg-gold/90 text-dark-bg px-3 py-1 rounded hover:bg-gold transition-colors font-medium shrink-0 ml-3"
+                >
+                  Log
+                </Link>
+              </div>
+
+              {isExpanded && (
+                <div className="px-4 pb-2 flex items-center gap-3 border-t border-dark-border/50 pt-3">
+                  <span className="text-dark-muted text-xs">{session.estimatedMinutes} min</span>
                   <button
                     onClick={() => setAlternativesPanel({ sessionIndex: i, session })}
                     className="text-xs text-dark-muted hover:text-white px-2 py-1 rounded hover:bg-dark-border/50 transition-colors"
                   >
                     Alternatives
                   </button>
-                  <Link
-                    href={`/log?session=${encodeURIComponent(session.name)}&planId=${planId}&week=${weekTarget.week_number}`}
-                    className="text-sm bg-gold/90 text-dark-bg px-3 py-1 rounded hover:bg-gold transition-colors font-medium"
-                  >
-                    Mark Complete
-                  </Link>
                 </div>
-              </div>
-
+              )}
               {isExpanded && (
                 <SessionDetails session={session} />
               )}
@@ -104,7 +106,7 @@ export default function ThisWeekSessions({
 
 function SessionDetails({ session }: { session: PlanSession }) {
   return (
-    <div className="px-4 pb-4 space-y-3 border-t border-dark-border/50 pt-3">
+    <div className="px-4 pb-4 space-y-3 pt-1">
       <p className="text-sm text-dark-muted italic">{session.objective}</p>
 
       {session.warmUp && (
