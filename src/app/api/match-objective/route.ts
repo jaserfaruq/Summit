@@ -3,6 +3,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { MatchObjectiveRequest, MatchObjectiveResponse, ValidatedObjective, SearchMatch } from "@/lib/types";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_SEARCH_SYSTEM } from "@/lib/prompts";
+import { findSeedMatch } from "@/lib/seed-data";
+
+/**
+ * Server-side alias matching: check seed data before hitting Claude.
+ * Returns the matching seed entry or null.
+ */
+function findAliasMatch(name: string, route?: string) {
+  return findSeedMatch(name, route);
+}
+
+/**
+ * Overlay authoritative seed data onto a validated objective from the DB.
+ * This ensures graduation_benchmarks, target_scores, and taglines are never stale.
+ */
+function withSeedData(vo: ValidatedObjective): ValidatedObjective {
+  const seed = findSeedMatch(vo.name);
+  if (!seed) return vo;
+  return {
+    ...vo,
+    target_scores: seed.target_scores,
+    taglines: seed.taglines,
+    graduation_benchmarks: seed.graduation_benchmarks,
+  };
+}
 
 interface SearchSuggestion {
   name: string;
@@ -45,8 +69,20 @@ export async function POST(request: NextRequest) {
 
   const allVOs = (validatedObjectives as ValidatedObjective[]) || [];
 
-  // Search mode: use Claude to suggest 3 closely related objectives
+  // Search mode: pre-match aliases first, then ask Claude for remaining suggestions
   if (mode === "search") {
+    // Step 1: Check seed data for a direct alias match before calling Claude
+    const preMatch = findAliasMatch(name, route || undefined);
+    const preMatchedVO = preMatch
+      ? allVOs.find((vo) =>
+          vo.match_aliases.some((alias) => {
+            const a = alias.toLowerCase().trim();
+            const n = name.toLowerCase().trim();
+            return a === n || n.includes(a) || a.includes(n);
+          })
+        )
+      : null;
+
     const voSummaries = allVOs.map(vo => ({
       id: vo.id,
       name: vo.name,
@@ -66,36 +102,52 @@ Suggest 3 closely related routes/objectives for this search. Prioritize validate
       const response = await callClaude(PROMPT_SEARCH_SYSTEM, userMessage, 2048);
       const parsed = parseClaudeJSON<{ suggestions: SearchSuggestion[] }>(response);
 
-      const matches: SearchMatch[] = parsed.suggestions.slice(0, 3).map(suggestion => {
-        // Check if this maps to a validated objective
+      const matches: SearchMatch[] = [];
+
+      // If we pre-matched, add that as the first gold result
+      if (preMatchedVO) {
+        matches.push({
+          validatedObjective: withSeedData(preMatchedVO),
+          tier: "gold" as const,
+          matchReason: "Direct match from validated library",
+        });
+      }
+
+      // Add Claude suggestions, deduplicating against pre-match
+      for (const suggestion of parsed.suggestions.slice(0, 3)) {
         const matchedVO = suggestion.validated && suggestion.validatedId
           ? allVOs.find(vo => vo.id === suggestion.validatedId)
           : null;
 
+        // Skip if this duplicates the pre-match
+        if (matchedVO && preMatchedVO && matchedVO.id === preMatchedVO.id) continue;
+
         if (matchedVO) {
-          return {
-            validatedObjective: matchedVO,
+          matches.push({
+            validatedObjective: withSeedData(matchedVO),
             tier: "gold" as const,
             matchReason: suggestion.matchReason,
-          };
+          });
+        } else {
+          matches.push({
+            suggestedObjective: {
+              name: suggestion.name,
+              route: suggestion.route,
+              type: suggestion.type as ValidatedObjective["type"],
+              description: suggestion.description,
+              difficulty: suggestion.difficulty,
+              total_gain_ft: suggestion.total_gain_ft,
+              distance_miles: suggestion.distance_miles,
+              summit_elevation_ft: suggestion.summit_elevation_ft,
+              technical_grade: suggestion.technical_grade,
+            },
+            tier: "silver" as const,
+            matchReason: suggestion.matchReason,
+          });
         }
 
-        return {
-          suggestedObjective: {
-            name: suggestion.name,
-            route: suggestion.route,
-            type: suggestion.type as ValidatedObjective["type"],
-            description: suggestion.description,
-            difficulty: suggestion.difficulty,
-            total_gain_ft: suggestion.total_gain_ft,
-            distance_miles: suggestion.distance_miles,
-            summit_elevation_ft: suggestion.summit_elevation_ft,
-            technical_grade: suggestion.technical_grade,
-          },
-          tier: "silver" as const,
-          matchReason: suggestion.matchReason,
-        };
-      });
+        if (matches.length >= 3) break;
+      }
 
       const response2: MatchObjectiveResponse = {
         tier: matches[0]?.tier || "bronze",
@@ -104,7 +156,18 @@ Suggest 3 closely related routes/objectives for this search. Prioritize validate
       };
       return NextResponse.json(response2);
     } catch {
-      // Fallback to basic matching if Claude fails
+      // Fallback: if Claude fails but we have a pre-match, still return it
+      if (preMatchedVO) {
+        return NextResponse.json({
+          tier: "gold" as const,
+          matches: [{
+            validatedObjective: withSeedData(preMatchedVO),
+            tier: "gold" as const,
+            matchReason: "Direct match from validated library",
+          }],
+          anchors: [],
+        });
+      }
       return NextResponse.json({
         tier: "bronze" as const,
         matches: [],
@@ -113,7 +176,9 @@ Suggest 3 closely related routes/objectives for this search. Prioritize validate
     }
   }
 
-  // Manual mode (original behavior): check for exact match first
+  // Manual mode: check seed data first, then DB aliases
+  const seedMatch = findAliasMatch(name, route || undefined);
+
   const exactMatch = allVOs.find((vo) =>
     vo.match_aliases.some((alias) => {
       const normalizedAlias = alias.toLowerCase().trim();
@@ -127,12 +192,30 @@ Suggest 3 closely related routes/objectives for this search. Prioritize validate
   );
 
   if (exactMatch) {
+    // Overlay seed data to ensure benchmarks are never stale
     const response: MatchObjectiveResponse = {
       tier: "gold",
-      validatedObjective: exactMatch,
+      validatedObjective: withSeedData(exactMatch),
       anchors: [],
     };
     return NextResponse.json(response);
+  }
+
+  // Seed matched but no DB match (shouldn't happen, but handle gracefully)
+  if (seedMatch) {
+    // Find closest VO by name
+    const closestVO = allVOs.find((vo) =>
+      vo.name.toLowerCase().includes(seedMatch.name.toLowerCase()) ||
+      seedMatch.name.toLowerCase().includes(vo.name.toLowerCase())
+    );
+    if (closestVO) {
+      const response: MatchObjectiveResponse = {
+        tier: "gold",
+        validatedObjective: withSeedData(closestVO),
+        anchors: [],
+      };
+      return NextResponse.json(response);
+    }
   }
 
   // Find similar objectives (Silver tier)
