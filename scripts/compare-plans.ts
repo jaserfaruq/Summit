@@ -10,13 +10,14 @@
  *
  * Requires .env.local with:
  *   NEXT_PUBLIC_SUPABASE_URL=...
- *   SUPABASE_SERVICE_ROLE_KEY=...
+ *   NEXT_PUBLIC_SUPABASE_ANON_KEY=...  (or SUPABASE_SERVICE_ROLE_KEY)
  *   ANTHROPIC_API_KEY=...
  */
 
 import * as fs from "fs";
 import * as path from "path";
-import { execSync } from "child_process";
+import { createClient } from "@supabase/supabase-js";
+import Anthropic from "@anthropic-ai/sdk";
 
 // ---------- Load env from .env.local ----------
 const envPath = path.join(__dirname, "..", ".env.local");
@@ -38,17 +39,21 @@ if (fs.existsSync(envPath)) {
 }
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_KEY || SUPABASE_KEY === "your-supabase-service-role-key") {
-  console.error("ERROR: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env.local");
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error("ERROR: NEXT_PUBLIC_SUPABASE_URL and a Supabase key must be set in .env.local");
   process.exit(1);
 }
 if (!ANTHROPIC_KEY || ANTHROPIC_KEY === "your-anthropic-api-key") {
   console.error("ERROR: ANTHROPIC_API_KEY must be set in .env.local");
   process.exit(1);
 }
+
+// ---------- Initialize clients ----------
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const anthropic = new Anthropic({ apiKey: ANTHROPIC_KEY, timeout: 180000 });
 
 // ---------- Read PROMPT_2B_SYSTEM from prompts.ts ----------
 const promptsSource = fs.readFileSync(
@@ -105,50 +110,20 @@ interface WeeklyTarget {
 const DIMENSIONS = ["cardio", "strength", "climbing_technical", "flexibility"] as const;
 const MAX_CONCURRENT = 3;
 
-// ---------- Supabase helpers (using curl) ----------
-function supabaseGet(table: string, query: string): unknown {
-  const url = `${SUPABASE_URL}/rest/v1/${table}?${query}`;
-  const result = execSync(
-    `curl -sS "${url}" -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" -H "Content-Type: application/json"`,
-    { encoding: "utf-8", maxBuffer: 50 * 1024 * 1024 }
-  );
-  return JSON.parse(result);
-}
-
-// ---------- Claude API helper (using curl) ----------
-function callClaudeOpus(systemPrompt: string, userMessage: string): string {
-  const body = JSON.stringify({
+// ---------- Claude API helper ----------
+async function callClaudeOpus(systemPrompt: string, userMessage: string): Promise<string> {
+  const response = await anthropic.messages.create({
     model: "claude-opus-4-20250514",
     max_tokens: 8192,
-    system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-    messages: [{ role: "user", content: userMessage }],
+    system: [{ type: "text" as const, text: systemPrompt, cache_control: { type: "ephemeral" as const } }],
+    messages: [{ role: "user" as const, content: userMessage }],
   });
 
-  // Write body to temp file to avoid shell escaping issues
-  const tmpFile = `/tmp/claude_request_${Date.now()}.json`;
-  fs.writeFileSync(tmpFile, body);
-
-  try {
-    const result = execSync(
-      `curl -sS "https://api.anthropic.com/v1/messages" \
-        -H "x-api-key: ${ANTHROPIC_KEY}" \
-        -H "anthropic-version: 2023-06-01" \
-        -H "anthropic-beta: prompt-caching-2024-07-31" \
-        -H "Content-Type: application/json" \
-        -d @${tmpFile}`,
-      { encoding: "utf-8", maxBuffer: 50 * 1024 * 1024, timeout: 180000 }
-    );
-
-    const response = JSON.parse(result);
-    if (response.error) {
-      throw new Error(`Claude API error: ${response.error.message}`);
-    }
-    const textBlock = response.content?.find((b: { type: string }) => b.type === "text");
-    if (!textBlock) throw new Error("No text response from Claude");
-    return textBlock.text;
-  } finally {
-    try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+  const textBlock = response.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("No text response from Claude");
   }
+  return textBlock.text;
 }
 
 function parseClaudeJSON<T>(text: string): T {
@@ -313,7 +288,6 @@ function formatSession(session: PlanSession, index: number): string {
   lines.push(`> _${session.objective}_`);
   lines.push("");
 
-  // Warm-up
   if (session.warmUp?.exercises?.length > 0) {
     lines.push(`Warm-up (~${session.warmUp.warmUpMinutes ?? "?"}min):`);
     for (const ex of session.warmUp.exercises) {
@@ -322,7 +296,6 @@ function formatSession(session: PlanSession, index: number): string {
     lines.push("");
   }
 
-  // Training
   for (const ex of session.training) {
     const dur = ex.durationMinutes ? ` (~${ex.durationMinutes}min)` : "";
     const intensity = ex.intensityNote ? ` _[${ex.intensityNote}]_` : "";
@@ -330,7 +303,6 @@ function formatSession(session: PlanSession, index: number): string {
     lines.push(`   ${ex.details}`);
   }
 
-  // Cooldown
   if (session.cooldown) {
     lines.push("");
     lines.push(`Cooldown (~${session.cooldownMinutes ?? "?"}min): ${session.cooldown}`);
@@ -355,7 +327,6 @@ function formatWeekComparison(
   lines.push(`Target hours: ${targetHours ?? "?"}`);
   lines.push("");
 
-  // Calculate totals
   const sonnetTotal = sonnetSessions.reduce((s, sess) => s + (sess.estimatedMinutes || 0), 0);
   const opusTotal = opusSessions.reduce((s, sess) => s + (sess.estimatedMinutes || 0), 0);
   const diff = opusTotal - sonnetTotal;
@@ -365,7 +336,6 @@ function formatWeekComparison(
   lines.push(`| Total minutes | ${sonnetTotal} | ${opusTotal} | ${diffStr} |`);
   lines.push(`| Session count | ${sonnetSessions.length} | ${opusSessions.length} | ${opusSessions.length - sonnetSessions.length === 0 ? "—" : opusSessions.length - sonnetSessions.length} |`);
 
-  // Dimension breakdown
   for (const dim of DIMENSIONS) {
     const sSessions = sonnetSessions.filter(s => s.dimension === dim);
     const oSessions = opusSessions.filter(s => s.dimension === dim);
@@ -376,7 +346,6 @@ function formatWeekComparison(
   }
   lines.push("");
 
-  // Side-by-side sessions matched by dimension
   const allDims = new Set([
     ...sonnetSessions.map(s => s.dimension),
     ...opusSessions.map(s => s.dimension),
@@ -404,7 +373,6 @@ function formatWeekComparison(
         lines.push("</details>");
         lines.push("");
 
-        // Quick diff: exercise names
         const sExercises = sSessions[i].training.map(t => t.description.toLowerCase());
         const oExercises = oSessions[i].training.map(t => t.description.toLowerCase());
         const onlySonnet = sExercises.filter(e => !oExercises.includes(e));
@@ -439,7 +407,6 @@ function generateAggregateSummary(
   lines.push("## Aggregate Analysis");
   lines.push("");
 
-  // Total volume
   let totalSonnetMin = 0;
   let totalOpusMin = 0;
   for (const wc of weekComparisons) {
@@ -452,7 +419,6 @@ function generateAggregateSummary(
   lines.push(`- Difference: ${totalOpusMin - totalSonnetMin > 0 ? "+" : ""}${totalOpusMin - totalSonnetMin} min (${((totalOpusMin - totalSonnetMin) / 60).toFixed(1)} hrs)`);
   lines.push("");
 
-  // Per-dimension time allocation
   lines.push(`### Dimension Time Allocation`);
   lines.push("");
   lines.push("| Dimension | Sonnet (min) | Sonnet % | Opus (min) | Opus % | Delta |");
@@ -469,7 +435,6 @@ function generateAggregateSummary(
   }
   lines.push("");
 
-  // Exercise vocabulary
   const sonnetExercises = new Set<string>();
   const opusExercises = new Set<string>();
   for (const wc of weekComparisons) {
@@ -499,14 +464,16 @@ function generateAggregateSummary(
     lines.push("");
   }
 
-  // Coaching voice samples (session objectives)
   lines.push(`### Coaching Voice Samples (Session Objectives)`);
   lines.push("");
   const sonnetObjectives = weekComparisons.flatMap(wc => wc.sonnet.map(s => ({ week: wc.weekNumber, name: s.name, obj: s.objective })));
   const opusObjectives = weekComparisons.flatMap(wc => wc.opus.map(s => ({ week: wc.weekNumber, name: s.name, obj: s.objective })));
 
-  // Pick first, middle, last week
-  const sampleWeeks = [1, Math.ceil(weekComparisons.length / 2), weekComparisons.length];
+  const sampleWeeks = [
+    weekComparisons[0]?.weekNumber,
+    weekComparisons[Math.floor(weekComparisons.length / 2)]?.weekNumber,
+    weekComparisons[weekComparisons.length - 1]?.weekNumber,
+  ].filter(Boolean);
   for (const wn of sampleWeeks) {
     const sObjs = sonnetObjectives.filter(o => o.week === wn).slice(0, 2);
     const oObjs = opusObjectives.filter(o => o.week === wn).slice(0, 2);
@@ -527,42 +494,39 @@ async function main() {
 
   // 1. Find a Grand Teton plan
   console.log("Fetching plans from Supabase...");
-  const plans = supabaseGet("training_plans", "status=eq.active&select=*") as Record<string, unknown>[];
+  const { data: plans, error: plansErr } = await supabase
+    .from("training_plans")
+    .select("*")
+    .eq("status", "active");
 
-  if (!plans || plans.length === 0) {
-    console.error("No active plans found.");
+  if (plansErr || !plans || plans.length === 0) {
+    console.error("No active plans found.", plansErr?.message);
     process.exit(1);
   }
 
   // Get all objectives to find Grand Teton
-  const objectiveIds = [...new Set(plans.map(p => p.objective_id as string))];
   let grandTetonPlan: Record<string, unknown> | null = null;
   let objective: Record<string, unknown> | null = null;
 
-  for (const objId of objectiveIds) {
-    const objs = supabaseGet("objectives", `id=eq.${objId}&select=*`) as Record<string, unknown>[];
-    if (objs?.[0] && (objs[0].name as string || "").toLowerCase().includes("grand teton")) {
-      objective = objs[0];
-      grandTetonPlan = plans.find(p => p.objective_id === objId) || null;
-      break;
-    }
-  }
+  for (const plan of plans) {
+    const { data: obj } = await supabase
+      .from("objectives")
+      .select("*")
+      .eq("id", plan.objective_id)
+      .single();
 
-  // If no exact match, also search by name containing "teton"
-  if (!grandTetonPlan) {
-    const allObjs = supabaseGet("objectives", "select=*") as Record<string, unknown>[];
-    const tetonObj = allObjs?.find(o => (o.name as string || "").toLowerCase().includes("teton"));
-    if (tetonObj) {
-      objective = tetonObj;
-      grandTetonPlan = plans.find(p => p.objective_id === tetonObj.id) || null;
+    if (obj && (obj.name as string || "").toLowerCase().includes("teton")) {
+      objective = obj;
+      grandTetonPlan = plan;
+      break;
     }
   }
 
   if (!grandTetonPlan || !objective) {
     console.error("No Grand Teton plan found. Available plans:");
     for (const p of plans) {
-      const objs = supabaseGet("objectives", `id=eq.${p.objective_id}&select=name`) as Record<string, unknown>[];
-      console.log(`  - ${objs?.[0]?.name || "unknown"} (plan ${p.id})`);
+      const { data: obj } = await supabase.from("objectives").select("name").eq("id", p.objective_id).single();
+      console.log(`  - ${obj?.name || "unknown"} (plan ${p.id})`);
     }
     process.exit(1);
   }
@@ -572,17 +536,20 @@ async function main() {
   console.log(`  Current scores: C${objective.current_cardio_score} S${objective.current_strength_score} CT${objective.current_climbing_score} F${objective.current_flexibility_score}`);
 
   // 2. Fetch weekly targets
-  const weeks = supabaseGet(
-    "weekly_targets",
-    `plan_id=eq.${grandTetonPlan.id}&select=*&order=week_number`
-  ) as WeeklyTarget[];
+  const { data: weeks, error: weeksErr } = await supabase
+    .from("weekly_targets")
+    .select("*")
+    .eq("plan_id", grandTetonPlan.id)
+    .order("week_number");
 
-  if (!weeks || weeks.length === 0) {
-    console.error("No weekly targets found for this plan.");
+  if (weeksErr || !weeks || weeks.length === 0) {
+    console.error("No weekly targets found.", weeksErr?.message);
     process.exit(1);
   }
 
-  const weeksWithSessions = weeks.filter(w => w.sessions && w.sessions.length > 0);
+  const weeksWithSessions = weeks.filter(
+    (w: WeeklyTarget) => w.sessions && (w.sessions as PlanSession[]).length > 0
+  ) as WeeklyTarget[];
   console.log(`  Total weeks: ${weeks.length}, with sessions: ${weeksWithSessions.length}`);
 
   if (weeksWithSessions.length === 0) {
@@ -591,11 +558,11 @@ async function main() {
   }
 
   // 3. Fetch profile
-  const profiles = supabaseGet(
-    "profiles",
-    `id=eq.${objective.user_id}&select=*`
-  ) as Record<string, unknown>[];
-  const profile = profiles?.[0] || null;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", objective.user_id)
+    .single();
 
   // 4. Extract plan data
   const planData = grandTetonPlan.plan_data as Record<string, unknown> | null;
@@ -610,18 +577,18 @@ async function main() {
   const weekComparisons: { weekNumber: number; sonnet: PlanSession[]; opus: PlanSession[] }[] = [];
   const errors: { weekNumber: number; error: string }[] = [];
 
+  // Process in batches of MAX_CONCURRENT
   for (let i = 0; i < weeksWithSessions.length; i += MAX_CONCURRENT) {
     const batch = weeksWithSessions.slice(i, i + MAX_CONCURRENT);
 
-    // Process batch sequentially (curl is synchronous)
-    for (const weekTarget of batch) {
-      const wn = weekTarget.week_number;
-      process.stdout.write(`  Week ${wn}/${totalWeeks}... `);
+    const results = await Promise.allSettled(
+      batch.map(async (weekTarget) => {
+        const wn = weekTarget.week_number;
+        console.log(`  Week ${wn}/${totalWeeks} — generating...`);
 
-      try {
         const userMessage = buildUserMessage(
           profile as { training_days_per_week?: number; equipment_access?: string[]; location?: string } | null,
-          objective,
+          objective!,
           weekTarget as unknown as Record<string, unknown>,
           totalWeeks,
           programmingHints,
@@ -629,20 +596,25 @@ async function main() {
           daysPerWeek
         );
 
-        const responseText = callClaudeOpus(PROMPT_2B_SYSTEM, userMessage);
+        const responseText = await callClaudeOpus(PROMPT_2B_SYSTEM, userMessage);
         const result = parseClaudeJSON<{ sessions: PlanSession[] }>(responseText);
         calculateAllSessionMinutes(result.sessions);
 
-        const sonnetSessions = weekTarget.sessions;
-        weekComparisons.push({ weekNumber: wn, sonnet: sonnetSessions, opus: result.sessions });
+        return { weekNumber: wn, sonnet: weekTarget.sessions, opus: result.sessions };
+      })
+    );
 
-        const sMin = sonnetSessions.reduce((s, sess) => s + (sess.estimatedMinutes || 0), 0);
-        const oMin = result.sessions.reduce((s, sess) => s + (sess.estimatedMinutes || 0), 0);
-        console.log(`✓ (Sonnet: ${sMin}min/${sonnetSessions.length} sessions, Opus: ${oMin}min/${result.sessions.length} sessions)`);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.log(`✗ Error: ${msg.slice(0, 100)}`);
-        errors.push({ weekNumber: wn, error: msg });
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        const { weekNumber, sonnet, opus } = result.value;
+        weekComparisons.push({ weekNumber, sonnet, opus });
+        const sMin = sonnet.reduce((s: number, sess: PlanSession) => s + (sess.estimatedMinutes || 0), 0);
+        const oMin = opus.reduce((s: number, sess: PlanSession) => s + (sess.estimatedMinutes || 0), 0);
+        console.log(`  Week ${weekNumber} ✓ (Sonnet: ${sMin}min/${sonnet.length}s, Opus: ${oMin}min/${opus.length}s)`);
+      } else {
+        const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        console.log(`  Week ✗ Error: ${msg.slice(0, 120)}`);
+        errors.push({ weekNumber: -1, error: msg });
       }
     }
   }
@@ -669,11 +641,8 @@ async function main() {
   if (climbingRole) reportLines.push(`**Climbing role:** ${climbingRole}`);
   reportLines.push("");
 
-  // Aggregate summary first
   reportLines.push(generateAggregateSummary(weekComparisons));
   reportLines.push("");
-
-  // Per-week comparisons
   reportLines.push("---");
   reportLines.push("");
   reportLines.push("# Per-Week Comparison");
@@ -693,7 +662,6 @@ async function main() {
     reportLines.push("");
   }
 
-  // Errors
   if (errors.length > 0) {
     reportLines.push("## Errors");
     for (const e of errors) {
@@ -702,7 +670,9 @@ async function main() {
   }
 
   // 7. Write report
-  const reportPath = path.join(__dirname, "..", "reports", "sonnet-vs-opus-grand-teton.md");
+  const reportsDir = path.join(__dirname, "..", "reports");
+  if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
+  const reportPath = path.join(reportsDir, "sonnet-vs-opus-grand-teton.md");
   fs.writeFileSync(reportPath, reportLines.join("\n"), "utf-8");
   console.log(`\n✅ Report written to: ${reportPath}`);
   console.log(`   ${weekComparisons.length} weeks compared, ${errors.length} errors.`);
