@@ -214,6 +214,29 @@ export async function POST(request: NextRequest) {
     gaps[dim] = safeUpdatedScores[dim] - expectedScores[dim];
   }
 
+  // Fire background report generation (fire-and-forget)
+  try {
+    const protocol = request.headers.get("x-forwarded-proto") || "https";
+    const host = request.headers.get("host") || "localhost:3000";
+    const baseUrl = `${protocol}://${host}`;
+
+    // Forward cookies for auth
+    const cookieHeader = request.headers.get("cookie") || "";
+
+    fetch(`${baseUrl}/api/generate-weekly-report`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Cookie": cookieHeader,
+      },
+      body: JSON.stringify({ planId, weekNumber }),
+    }).catch((err) => {
+      console.error("Background report generation failed to start:", err);
+    });
+  } catch (err) {
+    console.error("Failed to trigger background report generation:", err);
+  }
+
   return NextResponse.json({
     updatedScores: safeUpdatedScores,
     expectedScores,

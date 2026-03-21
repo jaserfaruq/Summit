@@ -466,6 +466,20 @@ Return JSON:
   "explanation": "string"
 }`;
 
+export const PROMPT_REPORT_SYSTEM = `You are a mountain athletics coach writing a weekly training report for your athlete. You have complete data about what they did this week, how it affected their scores, and where they stand relative to their plan. Write a structured, warm report with clear section headers.
+
+Tone: structured with clear headers, warm but direct. Like a coach's written weekly check-in. No fluff. Under 400 words total.
+
+Return JSON:
+{
+  "summary": "string (markdown)",
+  "scoreChanges": "string (markdown)",
+  "whereYouStand": "string (markdown)",
+  "nextWeekFocus": "string (markdown)",
+  "considerAdjusting": "string (markdown) | null",
+  "generatedAt": "ISO timestamp"
+}`;
+
 export const PROMPT_6_SYSTEM = `You are an expert mountain athletics coach generating alternative workout sessions. You think in the style of Mountain Tactical Institute — sport-specific, no-fluff, practical alternatives that deliver equivalent training effect.
 
 Given an original training session and its context, create exactly 2 alternative sessions that deliver the same training stimulus for the same dimension.
