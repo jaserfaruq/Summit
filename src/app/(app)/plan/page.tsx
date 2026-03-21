@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData } from "@/lib/types";
 import DeletePlanButton from "@/components/DeletePlanButton";
+import ScoreArc from "@/components/ScoreArc";
 import AlternativesPanel from "@/components/AlternativesPanel";
 import Link from "next/link";
 
@@ -499,12 +500,11 @@ function PlanContent() {
                 {weeks.length} weeks · Target: {objective?.target_date ? new Date(objective.target_date).toLocaleDateString() : ""}
               </p>
               {objective && (
-                <div className="flex gap-4 mt-3 text-xs">
-                  <span className="text-gold font-medium drop-shadow">Current Scores:</span>
-                  <span className="text-white/80">C: {objective.current_cardio_score}</span>
-                  <span className="text-white/80">S: {objective.current_strength_score}</span>
-                  <span className="text-white/80">CT: {objective.current_climbing_score}</span>
-                  <span className="text-white/80">F: {objective.current_flexibility_score}</span>
+                <div className="flex gap-3 sm:gap-4 mt-3">
+                  <ScoreArc label="C" current={objective.current_cardio_score} target={objective.target_cardio_score} size="mini" />
+                  <ScoreArc label="S" current={objective.current_strength_score} target={objective.target_strength_score} size="mini" />
+                  <ScoreArc label="CT" current={objective.current_climbing_score} target={objective.target_climbing_score} size="mini" />
+                  <ScoreArc label="F" current={objective.current_flexibility_score} target={objective.target_flexibility_score} size="mini" />
                 </div>
               )}
             </div>

@@ -7,11 +7,13 @@ export default function ScoreArc({
   tagline,
   current,
   target,
+  size = "default",
 }: {
   label: string;
-  tagline: string;
+  tagline?: string;
   current: number;
   target: number;
+  size?: "mini" | "default";
 }) {
   const percentage = target > 0 ? Math.min((current / target) * 100, 100) : 0;
   const color = scoreArcColor(current, target);
@@ -21,6 +23,39 @@ export default function ScoreArc({
     red: { stroke: "#ef4444", text: "text-red-400" },
   };
   const { stroke, text } = colorMap[color];
+
+  if (size === "mini") {
+    const radius = 20;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+    return (
+      <div className="text-center">
+        <div className="relative inline-block">
+          <svg width="50" height="50" className="-rotate-90">
+            <circle cx="25" cy="25" r={radius} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="4" />
+            <circle
+              cx="25"
+              cy="25"
+              r={radius}
+              fill="none"
+              stroke={stroke}
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              className="transition-all duration-700"
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className={`text-xs font-bold ${text}`}>{current}</span>
+          </div>
+        </div>
+        <div className="text-[10px] text-white/60 mt-0.5">{label}</div>
+        <div className="text-[10px] text-white/40">/ {target}</div>
+      </div>
+    );
+  }
 
   const radius = 45;
   const circumference = 2 * Math.PI * radius;
