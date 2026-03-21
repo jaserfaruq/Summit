@@ -181,9 +181,18 @@ function PlanContent() {
         throw new Error(data.error || "Failed to generate plan");
       }
 
-      await res.json();
+      const planResult = await res.json();
       router.replace("/plan");
       await fetchPlan();
+
+      // Fire batch session generation in the background (don't await)
+      if (planResult.planId) {
+        fetch("/api/generate-all-sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId: planResult.planId }),
+        }).catch((err) => console.error("Background session generation failed:", err));
+      }
     } catch (error) {
       console.error("Plan generation error:", error);
       setGenerateError(
