@@ -1,6 +1,6 @@
-# Summit Planner — Implementation Specification
+# Summit Planner — Implementation Specification v2
 
-> **READ THIS FILE AT THE START OF EVERY SESSION.** This is the complete specification for Summit Planner. Do not deviate from these schemas, scoring rules, or prompt designs without explicit instruction from the user. For product rationale, design history, prompt development notes, and detailed context, see `docs/PRODUCT_GUIDE.md` in this repo. The companion guide (v6) contains the full story behind every design decision.
+> **READ THIS FILE AT THE START OF EVERY SESSION.** This is the complete specification for Summit Planner, updated to reflect the current state of the codebase after the full-build audit (March 2026). Do not deviate from these schemas, scoring rules, or prompt designs without explicit instruction from the user. For product rationale, design history, and detailed context, see `docs/PRODUCT_GUIDE.md` in this repo.
 
 -----
 
@@ -9,8 +9,9 @@
 - **Framework:** Next.js 14+ (App Router)
 - **Styling:** Tailwind CSS
 - **Database + Auth:** Supabase (PostgreSQL, Row Level Security, Auth with email/password)
-- **AI:** Anthropic Claude API (claude-sonnet-4-20250514)
+- **AI:** Anthropic Claude API — `claude-sonnet-4-20250514` (default), `claude-opus-4-20250514` (session generation)
 - **Deployment:** Vercel (auto-deploy from GitHub)
+- **Prompt Caching:** `callClaudeWithCache()` with ephemeral cache control
 
 ## Design System
 
@@ -18,7 +19,10 @@
 - **Accent:** #D4782F (burnt orange) — callouts, warnings, CTAs
 - **Background:** #F4F1EC (warm cream) — page backgrounds
 - **Mid:** #8B9D83 (sage) — secondary text, borders
-- **Score arc colors:** Green (within 10 of target), Yellow (10–25 away), Red (25+ away)
+- **Test week blue:** #1A5276 — test week banners, benchmark indicators
+- **Recovery green:** #2E7D32 — recovery week banners
+- **Taper amber:** #F57F17 — taper week banners
+- **Score arc colors:** Green (current >= target OR gap ≤ 10), Yellow (gap 11–24), Red (gap ≥ 25)
 
 -----
 
@@ -30,12 +34,13 @@
 CREATE TABLE profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id),
   name TEXT,
-  location TEXT,              -- city for route recommendations
+  location TEXT,
   training_days_per_week INT DEFAULT 5,
-  equipment_access TEXT[],     -- ['dumbbells', 'pull-up bar', 'loaded pack', 'climbing gym', etc.]
+  equipment_access TEXT[],
   is_validator BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+-- Auto-profile creation trigger on signup
 -- RLS: users can only read/update their own row
 ```
 
@@ -44,9 +49,9 @@ CREATE TABLE profiles (
 ```sql
 CREATE TABLE validated_objectives (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,           -- "Mont Blanc"
-  route TEXT NOT NULL,          -- "Goûter Route (Voie Normale)"
-  match_aliases TEXT[] NOT NULL, -- ['mont blanc', 'mont blanc normal route', 'mont blanc gouter', 'mont blanc from saint-gervais']
+  name TEXT NOT NULL,
+  route TEXT NOT NULL,
+  match_aliases TEXT[] NOT NULL,
   type TEXT NOT NULL,           -- hike | trail_run | alpine_climb | rock_climb | mountaineering | scramble | backpacking
   difficulty TEXT NOT NULL,     -- beginner | intermediate | advanced | expert
   description TEXT,
@@ -54,18 +59,18 @@ CREATE TABLE validated_objectives (
   total_gain_ft INT,
   distance_miles FLOAT,
   duration_days INT,
-  technical_grade TEXT,         -- PD, 5.7, Class 3, etc.
-  tags JSONB NOT NULL,          -- ["high-altitude", "glacier", "heavy-pack", "multi-day", "trad-climbing"]
-  target_scores JSONB NOT NULL, -- {cardio: 78, strength: 58, climbing_technical: 12, flexibility: 45}
-  taglines JSONB NOT NULL,      -- {cardio: "Sustained effort in thin air", ...}
-  relevance_profiles JSONB NOT NULL,  -- {cardio: {summary, keyComponents[], irrelevantComponents[]}, ...}
-  graduation_benchmarks JSONB NOT NULL, -- {cardio: [{exerciseId, graduationTarget, whyThisTarget}], ...}
+  technical_grade TEXT,
+  tags JSONB NOT NULL,
+  target_scores JSONB NOT NULL,
+  taglines JSONB NOT NULL,
+  relevance_profiles JSONB NOT NULL,
+  graduation_benchmarks JSONB NOT NULL,
   recommended_weeks INT,
   created_by TEXT,
   last_reviewed DATE,
-  status TEXT DEFAULT 'active'  -- active | draft | retired
+  status TEXT DEFAULT 'active'
 );
--- RLS: readable by all authenticated users (reference data)
+-- RLS: readable by all authenticated users
 ```
 
 ### benchmark_exercises
@@ -73,19 +78,19 @@ CREATE TABLE validated_objectives (
 ```sql
 CREATE TABLE benchmark_exercises (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,            -- "Timed Loaded Step-Ups"
-  description TEXT NOT NULL,     -- full instructions
-  dimension TEXT NOT NULL,       -- cardio | strength | climbing_technical | flexibility
-  tags JSONB NOT NULL,           -- ["heavy-pack", "gym-reproducible", "altitude"]
-  equipment_required TEXT[],     -- ["16-inch box", "25lb pack"]
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  dimension TEXT NOT NULL,
+  tags JSONB NOT NULL,
+  equipment_required TEXT[],
   is_gym_reproducible BOOLEAN DEFAULT TRUE,
-  difficulty_scale JSONB,        -- {beginner: "200 reps/30min @ 25lb", intermediate: "400", strong: "550 @ 35lb", elite: "700+"}
-  measurement_type TEXT NOT NULL, -- reps | time | distance | pass_fail | self_rated
-  measurement_unit TEXT,          -- reps, seconds, meters, inches, 1-5 scale
+  difficulty_scale JSONB,
+  measurement_type TEXT NOT NULL,
+  measurement_unit TEXT,
   created_by TEXT,
   status TEXT DEFAULT 'active'
 );
--- RLS: readable by all authenticated users (reference data)
+-- RLS: readable by all authenticated users
 ```
 
 ### objectives
@@ -100,23 +105,20 @@ CREATE TABLE objectives (
   distance_miles FLOAT,
   elevation_gain_ft FLOAT,
   technical_grade TEXT,
-  -- Target scores (what's needed)
   target_cardio_score INT NOT NULL,
   target_strength_score INT NOT NULL,
   target_climbing_score INT NOT NULL,
   target_flexibility_score INT NOT NULL,
-  -- Current scores (where user is now)
   current_cardio_score INT DEFAULT 0,
   current_strength_score INT DEFAULT 0,
   current_climbing_score INT DEFAULT 0,
   current_flexibility_score INT DEFAULT 0,
-  -- AI-generated or pulled from validated library
-  taglines JSONB NOT NULL,             -- {cardio: "Sustained effort in thin air", ...}
-  relevance_profiles JSONB NOT NULL,   -- {cardio: {summary, keyComponents[], irrelevantComponents[]}, ...}
-  graduation_benchmarks JSONB NOT NULL, -- {cardio: [{exerciseId, exerciseName, graduationTarget}], ...}
-  -- Tier tracking
-  matched_validated_id UUID REFERENCES validated_objectives(id),  -- null for Silver/Bronze
-  tier TEXT NOT NULL DEFAULT 'bronze',  -- gold | silver | bronze
+  taglines JSONB NOT NULL,
+  relevance_profiles JSONB NOT NULL,
+  graduation_benchmarks JSONB NOT NULL,
+  climbing_role TEXT,              -- lead | follow (set during assessment, affects climbing targets)
+  matched_validated_id UUID REFERENCES validated_objectives(id),
+  tier TEXT NOT NULL DEFAULT 'bronze',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 -- RLS: users can only see their own objectives
@@ -128,14 +130,21 @@ CREATE TABLE objectives (
 CREATE TABLE assessments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id),
+  objective_id UUID NOT NULL REFERENCES objectives(id),  -- assessment is per-objective
   assessed_at TIMESTAMPTZ DEFAULT now(),
   cardio_score INT NOT NULL,
   strength_score INT NOT NULL,
   climbing_score INT NOT NULL,
   flexibility_score INT NOT NULL,
-  raw_data JSONB              -- full questionnaire responses
+  standard_answers JSONB NOT NULL,     -- Layer 1: structured question responses
+  ai_questions JSONB,                  -- Layer 2: the AI-generated questions that were asked
+  ai_answers JSONB,                    -- Layer 2: user's answers to AI questions
+  freeform_text TEXT,                  -- optional "anything else" from user
+  ai_reasoning JSONB,                  -- AI's per-dimension scoring explanation
+  raw_data JSONB                       -- legacy / full dump
 );
 -- RLS: users own their assessments
+-- Assessment is now per-objective (taken AFTER creating objective)
 ```
 
 ### score_history
@@ -150,9 +159,9 @@ CREATE TABLE score_history (
   strength_score INT NOT NULL,
   climbing_score INT NOT NULL,
   flexibility_score INT NOT NULL,
-  change_reason TEXT NOT NULL,  -- assessment | test_week | regular_week | rebalance
+  change_reason TEXT NOT NULL,  -- assessment | weekly_rating | rebalance
   is_test_week BOOLEAN DEFAULT FALSE,
-  confidence TEXT DEFAULT 'low', -- high (test week) | low (regular week or assessment)
+  confidence TEXT DEFAULT 'low',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 -- RLS: users own their score history
@@ -166,10 +175,11 @@ CREATE TABLE training_plans (
   user_id UUID NOT NULL REFERENCES profiles(id),
   objective_id UUID NOT NULL REFERENCES objectives(id),
   assessment_id UUID REFERENCES assessments(id),
+  current_week_number INT DEFAULT 1,  -- tracks active week, advances on completion
   created_at TIMESTAMPTZ DEFAULT now(),
-  plan_data JSONB NOT NULL,           -- full plan JSON from Claude
-  graduation_workouts JSONB NOT NULL, -- the graduation benchmarks snapshot
-  status TEXT DEFAULT 'active'        -- active | completed | superseded
+  plan_data JSONB NOT NULL,
+  graduation_workouts JSONB NOT NULL,
+  status TEXT DEFAULT 'active'
 );
 -- RLS: users own their plans
 ```
@@ -182,10 +192,10 @@ CREATE TABLE weekly_targets (
   plan_id UUID NOT NULL REFERENCES training_plans(id),
   week_number INT NOT NULL,
   week_start DATE NOT NULL,
-  week_type TEXT NOT NULL,       -- regular (all weeks are regular; taper is baked into volume)
+  week_type TEXT NOT NULL,       -- test | recovery | regular | taper
   total_hours FLOAT,
-  expected_scores JSONB NOT NULL, -- {cardio: 48, strength: 35, ...} linear interpolation
-  sessions JSONB NOT NULL         -- array of session objects (full detail)
+  expected_scores JSONB NOT NULL,
+  sessions JSONB NOT NULL
 );
 -- RLS: via plan ownership
 ```
@@ -196,15 +206,18 @@ CREATE TABLE weekly_targets (
 CREATE TABLE workout_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id),
+  plan_id UUID REFERENCES training_plans(id),   -- links to plan
+  week_number INT,                                -- links to specific week
   logged_date DATE NOT NULL,
-  dimension TEXT NOT NULL,        -- cardio | strength | climbing_technical | flexibility
+  dimension TEXT NOT NULL,
   duration_min INT,
-  details JSONB,                  -- free-form: {activity, distance, elevation, exercises, etc.}
-  benchmark_results JSONB,        -- deprecated, kept for backward compat
+  details JSONB,
+  benchmark_results JSONB,
   completed_as_prescribed BOOLEAN DEFAULT FALSE,
-  session_name TEXT,              -- which plan session this corresponds to
+  rating INT,                    -- 1-5 scale
+  rating_comment TEXT,           -- required when rating != 3
+  session_name TEXT,
   notes TEXT,
-  rating INT CHECK (rating >= 1 AND rating <= 5), -- 1-5 self-rating (1=way too hard, 3=just right, 5=way too easy)
   created_at TIMESTAMPTZ DEFAULT now()
 );
 -- RLS: users own their logs
@@ -219,8 +232,8 @@ CREATE TABLE component_feedback (
   objective_id UUID NOT NULL REFERENCES objectives(id),
   dimension TEXT NOT NULL,
   component_text TEXT NOT NULL,
-  component_type TEXT NOT NULL,   -- key | irrelevant | user_added
-  vote TEXT NOT NULL,             -- up | down
+  component_type TEXT NOT NULL,
+  vote TEXT NOT NULL,
   objective_type TEXT,
   objective_tags JSONB,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -234,116 +247,232 @@ CREATE TABLE component_feedback (
 
 ### POST /api/match-objective
 
-**Input:** `{ name, route, type, details }`
+**Input:** `{ name, route?, type?, details?, mode: "match" | "search" }`
 **Logic:**
 
-1. Normalize input (lowercase, trim).
-1. Check `validated_objectives.match_aliases` for fuzzy match (case-insensitive, partial match).
-1. If exact match found → return full validated objective data + `tier: "gold"`.
-1. If no exact match, find validated objectives with matching `type` and overlapping `tags` → return as `anchors[]` + `tier: "silver"`.
-1. If no similar objectives → return `tier: "bronze"` with empty anchors.
-   **Output:** `{ tier, validatedObjective?, anchors[], tier }`
+1. **Match mode:** Normalize input, check `validated_objectives.match_aliases` for fuzzy match. Gold if found, Silver if similar type/tags, Bronze if nothing.
+1. **Search mode:** Call Claude with Prompt SEARCH to generate 3 geographically relevant suggestions, cross-reference against validated library for tier matching.
+   **Output:** `{ tier, validatedObjective?, anchors[], suggestions? }`
 
 ### POST /api/estimate-scores
 
 **Input:** `{ objectiveDetails, benchmarkExercises[], anchors[], validatorFeedback[] }`
-**Logic:** Call Claude API with Prompt 1 (see below). Parse JSON response.
+**Logic:** Call Claude API with Prompt 1. Parse JSON response.
 **Output:** `{ dimensions, relevanceProfiles, graduationBenchmarks }`
+
+### POST /api/generate-assessment-questions
+
+**Input:** `{ objectiveId, standardAnswers }`
+**Logic:**
+
+1. Fetch objective (target scores, graduation benchmarks, relevance profiles).
+1. Call Claude with Prompt ASSESS-Q: “Given this objective and these baseline answers, generate 3–5 follow-up questions that would help you assess this athlete’s readiness.”
+1. Return questions with field types (text, number, dropdown, scale).
+   **Output:** `{ questions: [{ id, question, fieldType, options? }] }`
+
+### POST /api/generate-more-questions
+
+**Input:** `{ objectiveId, standardAnswers, previousQuestions, previousAnswers }`
+**Logic:** Call Claude with Prompt ASSESS-Q again, asking for 2–3 additional questions based on gaps in what it knows so far.
+**Output:** `{ questions: [{ id, question, fieldType, options? }] }`
+
+### POST /api/score-assessment
+
+**Input:** `{ objectiveId, standardAnswers, aiQuestions, aiAnswers, freeformText? }`
+**Logic:**
+
+1. Fetch objective (target scores, graduation benchmarks, relevance profiles).
+1. Call Claude with Prompt ASSESS-SCORE with all data including climbing role from AI answers.
+1. If climbing role = “follow”, update objective’s target scores and graduation benchmarks with the adjusted values from the AI response.
+1. Store climbing_role on the objective.
+1. Store assessment with all fields (standard_answers, ai_questions, ai_answers, freeform_text, ai_reasoning).
+1. Store `programmingHints` in the assessment’s raw_data field — the plan generator uses these.
+1. Update current scores on objective.
+1. Write to score_history with confidence = “low”.
+   **Output:** `{ scores, reasoning, programmingHints, adjustedTargets?, climbingRole }`
 
 ### POST /api/generate-plan
 
 **Input:** `{ userId, objectiveId, assessmentId }`
 **Logic:**
 
-1. Fetch objective (with target scores, current scores, graduation benchmarks, relevance profiles).
-1. Fetch assessment.
-1. Calculate weeks available from now to target_date.
-1. Call Claude API with Prompt 2 (see below).
-1. Parse JSON response.
-1. Store plan in `training_plans`.
-1. Store each week in `weekly_targets`.
+1. Fetch objective (including climbing_role), assessment (including programmingHints from raw_data), graduation benchmarks.
+1. Calculate weeks available.
+1. Create plan structure with linear interpolation for expected scores per week.
+1. Use programmingHints.sessionsPerWeek per dimension to allocate time across dimensions (instead of equal allocation).
+1. Schedule week types (test/recovery/regular/taper).
+1. Calculate hours per week using progressive volume formula.
+1. Store plan in `training_plans` with empty sessions. Store programmingHints in plan_data so Prompt 2B can use them.
+1. Store weeks in `weekly_targets`.
+1. Sessions are generated on-demand via `/api/generate-week-sessions`.
+1. Fetch Unsplash hero image for the objective.
    **Output:** `{ planId, weekCount }`
+   **Note:** Does NOT call Claude for sessions. Structure only. ProgrammingHints from assessment flow through to session generation.
+
+### POST /api/generate-week-sessions
+
+**Input:** `{ planId, weekNumber }`
+**Logic:** Call Claude with Prompt 2B to generate sessions for a single week. Passes the programmingHints from the assessment so the AI adapts starting intensity, session content, and coaching voice to the athlete’s specific profile. Uses `claude-opus-4-20250514` model. Stores sessions in `weekly_targets.sessions`.
+**Output:** `{ sessions[] }`
+
+### POST /api/generate-all-sessions
+
+**Input:** `{ planId }`
+**Logic:** Batch-generates all remaining weeks, up to 3 concurrent calls.
+**Output:** `{ generatedWeeks[] }`
 
 ### POST /api/complete-week
 
-**Input:** `{ planId, weekNumber, ratings: SessionRating[] }`
-where `SessionRating = { sessionName, dimension, rating: 1-5 }`
+**Input:** `{ planId, weekNumber, ratings: { cardio, strength, climbing_technical, flexibility }, comments?: { cardio?, strength?, climbing_technical?, flexibility? } }`
 **Logic:**
 
-1. Fetch weekly_target to get expected_scores.
-1. For each dimension, collect all ratings from that dimension's sessions.
-1. Calculate new score: `newScore = currentScore + expectedGain × multiplier` where expectedGain = expectedScore - currentScore and multiplier is from RATING_MULTIPLIERS (see Scoring Rules).
-1. Write to score_history with `change_reason = “weekly_rating”`.
+1. Fetch weekly_target for week_type.
+1. **If week_type = “recovery” or “taper”:** No score changes. Skip.
+1. **If rating = 3 (any dimension):** Apply base multiplier 1.0. No AI call.
+1. **If rating != 3 (any dimension):** Comment is required. Call Claude with Prompt 3B to evaluate relevance of the comment against the objective’s relevance profiles. AI returns adjusted multiplier (base ±0.25).
+1. Calculate: `newScore = currentScore + expectedGain × multiplier`
+1. Apply no-session regression: -1 point per dimension with no logged sessions.
+1. Write to score_history.
 1. Update current scores on objective.
-1. Return completion feedback: updated scores, expected scores, gaps, plain-language summary, and whether rebalancing is recommended (any dimension 5+ pts off trajectory).
-   **Output:** `{ updatedScores, expectedScores, gaps, summary, rebalanceRecommended }`
+1. Advance `current_week_number`.
+1. Check rebalance threshold (5+ points off trajectory in any dimension). If triggered, call `/api/rebalance`.
+   **Output:** `{ updatedScores, rebalanceTriggered }`
+
+### Rating Multipliers
+
+|Rating|Label          |Base Multiplier|With AI (±0.25)|Effective Range|
+|------|---------------|---------------|---------------|---------------|
+|1     |“Way too hard” |0              |0 to 0.25      |0 – 0.25       |
+|2     |“Struggled”    |0.5            |±0.25          |0.25 – 0.75    |
+|3     |“Just right”   |1.0            |No AI call     |1.0            |
+|4     |“Slightly easy”|1.25           |±0.25          |1.0 – 1.5      |
+|5     |“Way too easy” |1.5            |±0.25          |1.25 – 1.75    |
 
 ### POST /api/rebalance
 
-**Input:** `{ planId, currentWeek }`
-**Logic:** Fetch current and target scores from objective. Call Claude API with Prompt 4. Regenerate all remaining weeks. Update weekly_targets in database.
+**Input:** `{ planId, currentWeek, actualScores, expectedScores, targetScores }`
+**Logic:** Math-only rebalancing. Recalculates expected scores from current actuals, recalculates hours, clears sessions for on-demand regeneration. Does NOT call Claude.
 **Output:** `{ updatedWeeks[] }`
+
+### POST /api/generate-alternatives
+
+**Input:** `{ planId, weekNumber, sessionIndex, dimension }`
+**Logic:** Call Claude with Prompt 6 to generate 2 alternative sessions. Provides outdoor/gym cardio options, bodyweight/equipment strength options, etc.
+**Output:** `{ alternatives: [session, session] }`
+
+### POST /api/replace-session
+
+**Input:** `{ planId, weekNumber, sessionIndex, alternativeIndex }`
+**Logic:** Swaps session with selected alternative. Preserves original.
+**Output:** `{ updatedSession }`
+
+### POST /api/adjust-difficulty
+
+**Input:** `{ planId, adjustment: "much_easier" | "slightly_easier" | "slightly_harder" | "much_harder" }`
+**Logic:** Call Claude with Prompt RESCALE. Scale factors: much_easier=0.60, slightly_easier=0.80, slightly_harder=1.20, much_harder=1.50. Applied to remaining gap between current and target scores.
+**Output:** `{ updatedTargetScores, updatedBenchmarks }`
 
 ### POST /api/find-routes
 
 **Input:** `{ location, targetDistance, targetElevation, preferences }`
-**Logic:** Call Claude API with Prompt 5 (web search enabled).
+**Logic:** Call Claude with Prompt 5. **TODO: Enable `web_search` tool for real results.**
 **Output:** `{ routes[] }`
+
+### POST /api/delete-plan
+
+**Input:** `{ planId }`
+**Logic:** Cascading delete of plan + objective + weekly targets.
+**Output:** `{ success }`
+
+### POST /api/delete-workout
+
+**Input:** `{ workoutId }`
+**Logic:** Deletes workout log. If week was already completed, reverts scores and week number.
+**Output:** `{ updatedScores?, weekReverted? }`
+
+### GET /api/debug-claude
+
+Diagnostic endpoint for Claude API connectivity testing.
 
 -----
 
 ## Scoring Rules
 
-### Self-Rating System
-
-After each workout session, the user rates the session on a 1–5 scale:
-- **1** = Way too hard / couldn't complete
-- **2** = Harder than expected
-- **3** = Just right (as prescribed)
-- **4** = Easier than expected
-- **5** = Way too easy
-
-### Rating Multipliers
+### Formula
 
 ```
-RATING_MULTIPLIERS = { 1: 0, 2: 0.5, 3: 1.0, 4: 1.25, 5: 1.5 }
+newScore = currentScore + expectedWeeklyGain × multiplier
 ```
 
-### Score Calculation
+Where `multiplier` comes from the rating system (see table above). For ratings 1/2/4/5, the AI adjusts the base multiplier by ±0.25 based on relevance evaluation of the user’s comment.
 
-```
-expectedGain = expectedScore[dimension] - currentScore[dimension]
-newScore = currentScore + expectedGain × multiplier
-```
+### How the AI relevance evaluation works
 
-Where `multiplier` is the RATING_MULTIPLIER for the average rounded rating across all sessions in that dimension for the week. If no sessions were logged for a dimension, the score regresses by 1 point.
+Rating 3 (“Just right”) = user did the plan as prescribed. Full credit, no comment needed, no AI call.
 
-### Week Types
+Rating 1, 2, 4, or 5 = something was different. App requires a comment explaining what happened. The AI reads the comment against the objective’s relevance profiles and adjusts the multiplier:
 
-All weeks are `regular`. There are no test, recovery, or taper week types. Taper volume (~40% reduction) is baked into plan generation for the final 2 weeks.
+- User rates 2, writes “struggled through all the loaded step-ups but finished” → AI bumps toward 0.75 (relevant training, just hard)
+- User rates 2, writes “gave up on step-ups and went swimming” → AI keeps at 0.25 (irrelevant substitution)
+- User rates 5, writes “added extra step-ups and a 2-mile ruck” → AI bumps toward 1.75 (relevant extra work)
+- User rates 5, writes “did the session plus an hour of bench press” → AI keeps at 1.25 (irrelevant extra work)
 
-### Expected Scores
+### Week types (never overlap)
 
-Linear interpolation from current to target across plan duration. If cardio starts at 35 and target is 78 over 16 weeks: expected at week N = 35 + (78-35) × (N/16).
+|Type    |Volume|Benchmarks           |Scoring                        |Rebalancing                 |
+|--------|------|---------------------|-------------------------------|----------------------------|
+|test    |75–80%|Yes (3 of 5 sessions)|Rating system with AI relevance|Full rebalance if 5+ pts off|
+|recovery|50%   |No                   |No changes                     |No                          |
+|regular |100%  |No                   |Rating system with AI relevance|Emergency if 5+ pts behind  |
+|taper   |60%   |No                   |No changes (scores locked)     |No                          |
 
-### Graduation Benchmarks
+### Volume & Hours
 
-Graduation benchmarks are generated by Prompt 1 and displayed as aspirational “finish line” targets. They are **not used for scoring** — scoring is entirely based on self-ratings.
+- **Max weekly hours:** 20
+- **Volume progression:** Progressive factor `0.7 + (week/total × 0.3)` — gradual ramp, not flat 10% jumps
+- **Hours formula:** `min(daysPerWeek * hoursFactor, 20)`
 
-### Quick-log
+### Maintenance Mode
 
-- “Mark Complete” button on each session → defaults to rating 3 (“just right”), sets `completed_as_prescribed = true`.
-- “Log Different” → free-form entry with manual rating selection (1–5).
+When a dimension’s current score ≥ 1.25 × target score, that dimension enters maintenance:
 
-### Manual Rebalancing
+- Volume drops to 60%
+- Limited to 1 session per week
+- Prevents wasting time on a dimension you’ve already crushed
 
-- Rebalance button is always visible on the plan page.
-- Button is highlighted when any dimension's current score is 5+ points off the expected trajectory.
-- Triggered manually by user (no automatic rebalancing).
-- Regenerates all remaining weeks via Prompt 4.
-- Ahead dimensions drop to maintenance (never below 60% of planned volume).
-- Behind dimensions get the freed time.
-- Multiple behind → prioritize highest target score.
+### Progress Fractions (per-dimension session scaling)
+
+- **Maintenance** (current ≥ 1.25 × target): 60% volume
+- **At-target** (current ≥ target): 80% → 100% volume
+- **Below-target** (current < target): max(50%, current/target) → 100% volume
+
+### Overshoot Rule
+
+Graduation benchmarks are set at approximately 150% of actual objective requirements. If Mont Blanc needs 10 miles of cardio capacity, the graduation target might be 15 miles. This means if you can hit the graduation workout, you’re more than ready — not barely ready.
+
+### No-session regression
+
+-1 point per dimension per week with no logged sessions.
+
+### Rebalance threshold
+
+5+ points off expected trajectory triggers rebalancing.
+
+### Expected scores
+
+Linear interpolation from current to target across plan duration. Expected at week N = current + (target - current) × (N / totalWeeks).
+
+### Exceeded benchmarks
+
+Cap at 100% for scoring. Surface to user: “Your [dimension] exceeds requirements.”
+
+### Taper
+
+Final 2 weeks before objective. Volume at 60%. No scoring changes. No rebalancing. Last test week must fall before taper.
+
+### Week revert on workout deletion
+
+Deleting a workout from a completed week reverts scores and week number. Safety net.
 
 -----
 
@@ -351,217 +480,272 @@ Graduation benchmarks are generated by Prompt 1 and displayed as aspirational �
 
 ### Prompt 1: Target Score Estimation & Graduation Benchmarks
 
-**System prompt:**
-
 ```
-You are an expert mountain athletics coach who assesses the physical demands of mountaineering, alpine climbing, and trail running objectives. Given an objective's details, you evaluate the fitness required across four fixed dimensions and define what each dimension specifically means for this objective.
+You are an expert mountain athletics coach who assesses the physical demands of mountaineering, alpine climbing, and trail running objectives. You think in the style of Mountain Tactical Institute. Given an objective's details, you evaluate the fitness required across four fixed dimensions.
 
 The four training dimensions are fixed: Cardio, Strength, Climbing/Technical, and Flexibility. For each dimension, generate:
 
-1. A target score (0–100). Scoring scale: 0 = no capacity, 25 = beginner, 50 = intermediate recreational athlete, 75 = strong amateur, 100 = elite/professional. Target scores should reflect 'ready to do this safely and enjoyably,' not bare minimum survival.
+1. A target score (0–100). Scale: 0 = no capacity, 25 = beginner, 50 = intermediate, 75 = strong amateur, 100 = elite. Scores reflect 'ready safely and enjoyably.'
 
-2. A tagline of 4–7 words: vivid coach shorthand for what this dimension means for this objective.
+2. A tagline of 4–7 words: vivid coach shorthand.
 
-3. A relevance profile with keyComponents (7–10 items) and irrelevantComponents (7–10 items). Components should be at a practical level — the kind of thing a coach writes on a whiteboard. Broad surface area across the dimension, not drilling deep into one sub-area. Each component should be distinct enough that a coach could look at a training log and say 'yes, this trained that component' or 'no, it didn't.'
+3. A relevance profile with keyComponents (7–10 items) and irrelevantComponents (7–10 items). Practical, whiteboard-level. Broad surface area.
 
-4. Graduation benchmarks: 2–4 benchmark exercises per dimension selected from the provided benchmark exercise library. For each, set an objective-specific graduation target. The graduation workout represents the exact performance level needed to complete this objective safely and comfortably. Cardio: always 2 benchmarks. Strength: 2–4. Climbing/Technical: 1–3. Flexibility: 1–3. The exact count depends on the objective's demands.
+4. Graduation benchmarks: 2–4 per dimension from the provided library. Cardio: 1–2. Strength: 2–4. Climbing/Technical: 1–3. Flexibility: 1–3.
 
-[If validated feedback exists:] Experienced validators have confirmed these components for similar objectives: {insert aggregated feedback}. Use this to refine your assessment.
+TRAINING OVERSHOOT RULE: Set graduation benchmarks above actual requirements (~150% for cardio distance/elevation, +1/+2 climbing sub-grades). If the athlete can hit the graduation workout, they should be MORE than ready.
 
-[If calibration anchors exist:] Here are calibrated profiles for similar validated objectives: {insert closest matches with their full profiles}. Use these as anchors to calibrate your assessment relative to known standards.
+Select benchmark exercises ONLY from the provided library.
 
-Select benchmark exercises ONLY from the provided library. Do not invent new exercises.
+[If validated feedback exists:] Experienced validators have confirmed: {feedback}. Use this to refine.
+[If calibration anchors exist:] Calibrated profiles for similar objectives: {anchors}. Use as anchors.
 
-Return only valid JSON matching this schema:
+Return only valid JSON.
+```
+
+### Prompt 2B: Single-Week Session Generation (Active)
+
+```
+You are an expert mountain athletics coach designing a single week of training in the style of Mountain Tactical Institute — sport-specific, no-fluff, approachable exercise names.
+
+Generate sessions for week {weekNumber} of {totalWeeks}.
+
+ATHLETE PROFILE (from assessment):
+{programmingHints}
+Climbing role: {climbingRole}
+
+Use the programming hints to adapt the session content to this specific athlete:
+- Start exercises at the recommended intensity level (e.g., "start step-ups at 25lb" not the full graduation weight if the athlete isn't ready)
+- Allocate time across dimensions as recommended (e.g., "3 cardio sessions/week" for an athlete with a massive cardio gap)
+- Apply specific adaptations (e.g., "include pull-up progression from zero" for a runner with no upper body, "focus trad on gear placement speed" for a climber who needs efficiency)
+- If a dimension is flagged as "maintain", prescribe maintenance-level volume, don't build
+- Adapt the coaching voice to the athlete — a bodybuilder needs to hear "your squat doesn't help here, this is endurance." A runner needs to hear "now do it with a pack." A climber needs to hear "you can climb this grade, now do it efficiently with gear."
+
+If climbing role is FOLLOW: climbing sessions focus on following, cleaning gear, rappelling, exposure comfort. No trad lead practice or anchor building under pressure.
+If climbing role is LEAD: climbing sessions include trad lead practice at one grade below max, anchor building drills, rack management, speed on moderate terrain.
+
+TRAINING OVERSHOOT RULES: Graduation benchmarks are set above actual requirements. Scale weekly sessions proportionally toward these targets.
+
+CLIMBING GRADE PRESCRIPTION RULES: Use relative descriptors ("one grade below your max", "at your comfortable outdoor level") not raw grades.
+
+MAINTENANCE MODE: If a dimension's current score >= 1.25x target, prescribe 60% volume, 1 session/week for that dimension.
+
+PROGRESS FRACTIONS: Scale session difficulty based on:
+- Maintenance (current >= 1.25x target): 60% of graduation targets
+- At-target (current >= target): 80-100% of graduation targets
+- Below-target: max(50%, current/target fraction) progressing to 100%
+
+EXERCISE SELECTION: Use standard, well-known exercises only. Step-ups, lunges, leg blasters, push-ups, pull-ups, dead hangs, farmer carries, planks, hip flexor stretches, climbing routes, rappels, and sport-specific movement drills. Graduation benchmark exercises anchor test weeks. Never invent novel or unusual exercises. The creativity is in the programming — emphasis, progression, and time allocation — not the exercise vocabulary.
+
+Each session must include:
+- Name, objective line with duration
+- Warm-up block with exercises and reps
+- Numbered training block with exact reps/sets/weight/distance/pace
+- Each exercise needs a durationMinutes field
+- warmUpMinutes and cooldownMinutes fields
+- Intensity descriptors: "Moderate = comfortable but not easy", "Zone 2 = conversational, nose-breathing", "Threshold = fastest sustainable"
+- Cool-down notes
+
+Every exercise must train key components from relevance profiles. Never prescribe irrelevant components. Approachable names only — no proprietary jargon.
+
+Max weekly hours: 20.
+
+On test weeks: 3 of 5 sessions contain benchmark exercises. Mark clearly with graduation targets inline.
+
+Return valid JSON.
+```
+
+### Prompt 3B: AI Relevance Evaluation (NEW — for non-3 ratings)
+
+```
+You are evaluating whether an athlete's actual training was relevant to their specific objective. The athlete rated their week as {rating} and provided this comment: "{comment}"
+
+The objective is: {objectiveName}
+The prescribed session was: {sessionDetails}
+The dimension being evaluated is: {dimension}
+
+Relevance profile for this dimension:
+Key components: {keyComponents}
+Irrelevant components: {irrelevantComponents}
+
+The base multiplier for rating {rating} is {baseMultiplier}. You may adjust it by up to ±0.25 based on how relevant the athlete's actual training was to the key components.
+
+Rules:
+- If the comment describes training that targets key components, adjust upward (toward +0.25)
+- If the comment describes training that targets irrelevant components, adjust downward (toward -0.25)
+- If the comment is ambiguous, keep the base multiplier unchanged
+- Return the adjusted multiplier and a brief explanation (1-2 sentences)
+
+Return JSON:
 {
-  "dimensions": {
-    "cardio": { "tagline": "string (4-7 words)", "targetScore": number },
-    "strength": { "tagline": "string", "targetScore": number },
-    "climbing_technical": { "tagline": "string", "targetScore": number },
-    "flexibility": { "tagline": "string", "targetScore": number }
+  "adjustedMultiplier": number,
+  "explanation": "string"
+}
+```
+
+### Prompt 4: Plan Rebalancing (Defined, not actively called)
+
+```
+Rebalance training plan. Regenerate future weekly sessions to get scores back on trajectory.
+Ahead dimensions drop to maintenance (min 60% volume). Behind dimensions get freed time.
+Total hours stay constant. Prioritize highest target score if behind in multiple.
+MAINTENANCE MODE: current >= 1.25x target → 60% volume, 1 session/week.
+Do not modify test/recovery/taper scheduling.
+```
+
+**Note:** Currently not called. Rebalancing is math-only with sessions regenerating on-demand.
+
+### Prompt 5: Route Recommendations
+
+```
+Find 3–5 trail running or hiking routes near {location} matching {distance} miles and {elevation} ft gain.
+Return JSON with name, location, distance, elevation, description, sourceUrl, whyItFits.
+```
+
+**TODO:** Enable `web_search` tool for real results.
+
+### Prompt 6: Session Alternatives
+
+```
+Generate 2 alternative sessions for {dimension} for week {weekNumber}.
+Provide variety: outdoor/gym options for cardio, bodyweight/equipment for strength,
+bouldering/outdoor for climbing, different modalities for flexibility.
+Same format as Prompt 2B sessions. Match the difficulty level of the original session.
+```
+
+### Prompt RESCALE: Difficulty Adjustment
+
+```
+Rescale graduation benchmark targets proportionally.
+Scale factors: much_easier=0.60, slightly_easier=0.80, slightly_harder=1.20, much_harder=1.50.
+Apply to remaining gap between current and target scores.
+Recalculate graduation targets to match new target scores.
+```
+
+### Prompt SEARCH: Objective Suggestions
+
+```
+The user is searching for an objective: "{query}"
+Suggest 3 geographically relevant mountain/trail objectives.
+For each, return name, route, type, difficulty, brief description.
+Cross-reference against the validated objectives library if possible.
+```
+
+### Prompt ASSESS-Q: Assessment Question Generation
+
+```
+You are an expert mountain athletics coach assessing an athlete's readiness for a specific objective. You have their standard fitness baseline answers. Now generate follow-up questions that will help you accurately score their current fitness against this objective's specific demands.
+
+Objective: {objectiveName} via {route}
+Target scores: Cardio {n}, Strength {n}, Climbing/Technical {n}, Flexibility {n}
+Graduation benchmarks: {graduationBenchmarks}
+Relevance profiles: {relevanceProfiles}
+
+Standard answers provided:
+{standardAnswers}
+
+REQUIRED: If this objective involves technical climbing (Climbing/Technical target > 15), your FIRST question MUST be:
+"Do you plan to lead or follow on this route?" with fieldType "dropdown" and options ["Lead", "Follow"].
+This answer reshapes the entire climbing dimension:
+- LEAD: Full climbing targets stay as-is. Graduation benchmarks include trad lead efficiency, anchor building, rack management.
+- FOLLOW: Climbing target score is reduced to approximately 60% of the lead target. Graduation benchmarks shift to: follow efficiently, clean gear, rappel confidently, comfortable on exposure. No lead-specific skills required.
+
+After the lead/follow question, generate 3–4 additional questions that probe the specific capabilities this objective demands. Each question should help you assess one or more dimensions more accurately. Focus on the key components from the relevance profiles.
+
+Your questions should also gather information that will help PROGRAM the training plan — not just score the athlete. For example:
+- Asking about loaded pack experience tells you both the score AND whether to start step-ups at 25lb or 35lb.
+- Asking about climbing gym frequency tells you both the score AND how many climbing sessions per week to prescribe.
+- Asking about grip endurance tells you both the score AND whether to include dead hang progressions or just maintenance.
+
+For Mont Blanc you might ask about loaded pack hiking experience and altitude exposure.
+For the Exum Ridge you might ask about multi-pitch trad efficiency and climbing after exhaustion.
+For a trail ultra you might ask about time on feet beyond 4 hours and fueling strategy.
+
+Return JSON:
+{
+  "questions": [{
+    "id": "string",
+    "question": "string",
+    "dimension": "string (primary dimension this helps assess)",
+    "fieldType": "text | number | dropdown | scale",
+    "options": ["string"] // only for dropdown
+  }]
+}
+```
+
+**For “want more questions” follow-up call:** Same prompt but add: “You already asked these questions: {previousQuestions}. The athlete answered: {previousAnswers}. Generate 2–3 additional questions targeting gaps in what you know. Do not repeat topics already covered.”
+
+### Prompt ASSESS-SCORE: AI Assessment Scoring
+
+```
+You are an expert mountain athletics coach scoring an athlete's current fitness for a specific objective AND providing programming recommendations. You have comprehensive information about their background. Score them accurately against the graduation benchmarks — these are the concrete finish line for each dimension.
+
+Objective: {objectiveName} via {route}
+Target scores: Cardio {n}, Strength {n}, Climbing/Technical {n}, Flexibility {n}
+Graduation benchmarks: {graduationBenchmarks}
+Relevance profiles (key components): {keyComponents per dimension}
+Climbing role: {lead | follow} (from assessment)
+
+If climbing role is FOLLOW:
+- Reduce the Climbing/Technical target score to approximately 60% of the original target.
+- Adjust graduation benchmarks: remove lead-specific benchmarks (gear placement speed, anchor building). Replace with follow-specific: "follow 5 pitches efficiently", "clean gear competently", "rappel confidently."
+- Return the adjusted target and adjusted benchmarks in the output.
+
+A score of 0 means no relevant capacity for this objective.
+A score equal to the target means the athlete could complete the graduation workout today.
+Use the graduation benchmarks as your calibration — map what the athlete tells you to what percentage of the graduation benchmark they could likely achieve.
+
+Standard fitness baseline:
+{standardAnswers}
+
+Objective-specific answers:
+{aiAnswers}
+
+Additional context from athlete:
+{freeformText}
+
+For each dimension, provide:
+1. A score (0 to the target score maximum — never above target)
+2. A 2-3 sentence explanation connecting their answers to the graduation benchmarks
+3. The key factor that most influenced your score
+4. Programming recommendations — specific guidance for the plan generator about this athlete's needs:
+   - Starting intensity for benchmark exercises (e.g., "start step-ups at 25lb not 35lb due to bodyweight")
+   - Time allocation priority (e.g., "needs 3 cardio sessions/week, not 2")
+   - Specific adaptations (e.g., "include pull-up progression from zero", "focus trad sessions on gear placement speed, not harder grades")
+   - Maintenance vs build (e.g., "cardio is strong — maintain with 2 sessions, invest time elsewhere")
+
+Return JSON:
+{
+  "climbingRole": "lead | follow",
+  "adjustedTargets": {
+    "cardio": number, "strength": number, "climbing_technical": number, "flexibility": number
   },
-  "relevanceProfiles": {
-    "cardio": {
-      "summary": "string (2-3 sentences)",
-      "keyComponents": ["string", ...7-10 items],
-      "irrelevantComponents": ["string", ...7-10 items]
-    },
-    "strength": { ... },
-    "climbing_technical": { ... },
-    "flexibility": { ... }
+  "adjustedBenchmarks": { ... } // only if climbing role changes targets
+  "scores": {
+    "cardio": number, "strength": number, "climbing_technical": number, "flexibility": number
   },
-  "graduationBenchmarks": {
-    "cardio": [{
-      "exerciseId": "string (from library)",
-      "exerciseName": "string",
-      "graduationTarget": "string",
-      "whyThisTarget": "string (1 sentence)"
-    }],
-    "strength": [ ... ],
-    "climbing_technical": [ ... ],
-    "flexibility": [ ... ]
+  "reasoning": {
+    "cardio": { "explanation": "string", "keyFactor": "string" },
+    "strength": { "explanation": "string", "keyFactor": "string" },
+    "climbing_technical": { "explanation": "string", "keyFactor": "string" },
+    "flexibility": { "explanation": "string", "keyFactor": "string" }
+  },
+  "programmingHints": {
+    "cardio": { "startingIntensity": "string", "sessionsPerWeek": number, "keyAdaptation": "string" },
+    "strength": { "startingIntensity": "string", "sessionsPerWeek": number, "keyAdaptation": "string" },
+    "climbing_technical": { "startingIntensity": "string", "sessionsPerWeek": number, "keyAdaptation": "string" },
+    "flexibility": { "startingIntensity": "string", "sessionsPerWeek": number, "keyAdaptation": "string" }
   }
 }
 ```
 
-**User message template:**
-
-```
-Objective: {name}. Route: {route}. Type: {type}. Season: {season}. Duration: {duration}. Summit elevation: {elevation}. Total gain: {gain}. Distance: {distance}. Technical grade: {grade}. Additional details: {details}. Pack weight: {packWeight}.
-
-Available benchmark exercises: {JSON array of benchmark_exercises from database}
-
-[If Silver tier:] Calibration anchors: {JSON array of closest validated objectives with full profiles}
-
-[If validator feedback exists:] Validated feedback for similar objectives: {aggregated feedback}
-```
-
-### Prompt 2: Plan Generation
-
-**System prompt:**
-
-```
-You are an expert mountain athletics coach who designs periodized training plans for mountaineering, alpine climbing, and trail running objectives. You create detailed, session-level programming in the style of Mountain Tactical Institute — sport-specific, no-fluff, focused on exercises that directly build the fitness demands of the objective.
-
-Reference Plans:
-https://mtntactical.com/shop/kilimanjaro-training-plan/
-https://mtntactical.com/shop/wasach-ultimate-ridge-link-up-wurl-training-plan/
-https://mtntactical.com/shop/mountain-hiking-prep/
-https://mtntactical.com/shop/everest-training-plan/
-https://mtntactical.com/shop/denali-training-plan/
-https://mtntactical.com/shop/rainier-training-plan/
-https://mtntactical.com/shop/big-mountain-training-program/
-https://mtntactical.com/shop/peak-bagger-training-plan/
-https://mtntactical.com/shop/half-dome-day-hike-training-plan/
-https://mtntactical.com/shop/teton-grand-traverse-training-plan/
-https://mtntactical.com/shop/big-wall-training-plan/
-https://mtntactical.com/shop/pre-season-rock-climb-training-plan/
-https://mtntactical.com/shop/alpine-rock-climb-training-program/
-
-You will receive: the athlete's current dimension scores (0–100), the objective's target scores, graduation benchmarks for each dimension, the objective details, relevance profiles (key and irrelevant components per dimension), the number of weeks available, and user preferences (training days per week, equipment access, location).
-
-Design a plan that progresses each dimension's score from current to target over the available weeks. The weekly sessions are scaled-down versions of the graduation workouts, progressively getting closer. Week 1's step-up count is a fraction of the graduation target; the final pre-taper week is at or near the graduation target.
-
-Periodization rules:
-- Increase total volume by no more than 10% per week.
-- Default to 5 sessions per week (adjust if user specifies fewer).
-- All weeks are regular. No test, recovery, or taper week types.
-- Reduce volume by ~40% in the final 2 weeks before the objective date (taper baked into plan generation).
-- At least one full rest day per week.
-- Never exceed 12 hours per week for a recreational athlete.
-
-For each week, provide named training sessions (not assigned to specific days). Each session must include:
-- A short objective line with estimated duration.
-- A warm-up block with specific exercises and reps.
-- A numbered training block with exact reps, sets, weight, distance, duration, or pace as appropriate.
-- Intensity descriptors in plain language: "Moderate = comfortable but not easy", "Zone 2 = conversational pace, nose-breathing", "Threshold = fastest sustainable pace".
-- Foam rolling or recovery notes where appropriate.
-
-Every prescribed exercise must directly train a key component from the relevance profiles. Never prescribe exercises that target irrelevant components. If a dimension's target score is under 15, limit to one session per week focused on basic competence.
-
-Exercise names must be approachable and generic — "single-leg box step-downs" not proprietary names. Each exercise clear enough to follow without a coach.
-
-Include expected scores per week as linear interpolation from current to target scores.
-
-Return valid JSON matching this schema:
-{
-  "planSummary": {
-    "philosophy": "string",
-    "weeklyStructure": "string",
-    "equipmentNeeded": ["string"],
-    "keyExercises": ["string"]
-  },
-  "weeks": [{
-    "weekNumber": number,
-    "weekStartDate": "YYYY-MM-DD",
-    "weekType": "regular",
-    "totalHoursTarget": number,
-    "expectedScores": { "cardio": number, "strength": number, "climbing_technical": number, "flexibility": number },
-    "sessions": [{
-      "name": "string",
-      "objective": "string (with duration)",
-      "estimatedMinutes": number,
-      "dimension": "string (primary dimension)",
-      "warmUp": {
-        "rounds": number,
-        "exercises": [{ "name": "string", "reps": "string" }]
-      },
-      "training": [{
-        "exerciseNumber": number,
-        "description": "string",
-        "details": "string",
-        "intensityNote": "string | null"
-      }],
-      "cooldown": "string | null"
-    }]
-  }]
-}
-```
-
-**User message template:**
-
-```
-Athlete profile: Available {days}/week. Equipment: {equipment list}. Location: {city}. Injuries: {injuries or "none"}.
-
-Objective: {full objective details from objectives table}.
-
-Current scores: Cardio {n}, Strength {n}, Climbing/Technical {n}, Flexibility {n}.
-Target scores: Cardio {n}, Strength {n}, Climbing/Technical {n}, Flexibility {n}.
-Weeks available: {n}.
-
-Graduation benchmarks: {JSON of graduation benchmarks per dimension}
-
-Relevance profiles: {JSON of full relevance profiles per dimension}
-```
-
-### Prompt 3: (Removed)
-
-Weekly score evaluation is no longer done by AI. Scores are calculated from self-ratings using the multiplier formula (see Scoring Rules).
-
-### Prompt 4: Plan Rebalancing
-
-**System prompt:**
-
-```
-You are rebalancing a training plan because the athlete's actual scores deviate from expected scores. Regenerate future weekly sessions to get scores back on the linear trajectory toward target scores.
-
-Rules:
-- Ahead-of-schedule dimensions drop to maintenance level (never below 60% of their planned volume).
-- Behind-schedule dimensions get the freed time.
-- Total weekly hours stay roughly the same.
-- If behind in multiple dimensions, prioritize the highest target score.
-- Maintain the same session format (warm-up, training blocks, intensity notes).
-- Regenerate ALL remaining weeks.
-
-Return the same weekly session JSON format as Prompt 2.
-```
-
-### Prompt 5: Route Recommendations
-
-**System prompt:**
-
-```
-Find 3–5 trail running or hiking routes near the athlete's location matching their weekly cardio target parameters. Return structured results.
-
-Return JSON:
-{
-  "routes": [{
-    "name": "string",
-    "location": "string",
-    "distanceMiles": number,
-    "elevationGainFt": number,
-    "description": "string (2-3 sentences)",
-    "sourceUrl": "string",
-    "whyItFits": "string (1 sentence)"
-  }]
-}
-```
-
-Enable web_search tool for this call.
-
 -----
 
 ## Pages & UI
+
+### / (Landing Page)
+
+Mountain silhouette background with blur effect. Title, tagline, Login/Sign Up CTAs.
 
 ### /login, /signup
 
@@ -569,68 +753,84 @@ Standard Supabase Auth UI. Email/password. Redirect to /dashboard after login.
 
 ### /dashboard
 
-- If no assessment: “Take your fitness assessment” CTA.
-- If assessment but no objective: “Add your first objective” CTA.
-- If objective but no plan: “Generate Training Plan” button.
+- If no objective: “Add your first objective” CTA → /calendar.
+- If objective but no assessment: “Assess your fitness for [objective name]” CTA → /assessment/[objectiveId].
+- If assessment but no plan: “Generate Training Plan” button.
 - If plan exists:
-  - **Readiness section:** 4 progress arcs (current vs target per dimension). Tagline under each. Green/yellow/red coloring.
-  - **This week summary:** Sessions with “Mark Complete” buttons.
-  - **Graduation benchmarks:** Display-only aspirational targets.
+  - **Readiness section:** 4 progress arcs (current vs target). Tagline under each. Green/yellow/red.
+  - **This week summary:** Week type badge. Sessions with “Mark Complete” buttons.
+  - **Graduation benchmarks:** Latest results vs targets.
   - **Objective countdown:** Name, date, weeks remaining.
-  - **Score chart:** Line chart over time from self-ratings. Horizontal dashed lines = targets.
+  - **DeletePlanButton** and **UpdateAssessmentButton** components.
+  - Banner if scores are estimates: “Estimated scores — take your first benchmark test to calibrate.”
 
 ### /calendar
 
-- react-big-calendar monthly view.
+- Monthly grid view (desktop), sorted list view (mobile < 768px).
 - Objectives as colored events (green = hike, blue = trail run, orange = climb).
-- Click empty date → create objective modal.
+- Click empty date → create objective modal with search mode (Prompt SEARCH).
 - Click event → objective detail modal (edit/delete).
-- Mobile: switch to sorted list view below 768px.
 - Tier badge on each objective (Gold/Silver/Bronze).
 
-### /assessment
+### /assessment/[objectiveId]
 
-- 4-step wizard. Quick self-report (under 5 minutes).
-  - Step 1 (Cardio): Longest zone 2 run (distance + duration), weekly cardio hours.
-  - Step 2 (Strength): Push-up reps, squat reps or experience level dropdown.
-  - Step 3 (Climbing/Technical): Highest grade, experience level dropdown, comfort on exposure (1–5).
-  - Step 4 (Flexibility): Self-rated hip tightness (1–5), self-rated ankle mobility (1–5), any regular routine (yes/no).
-- Summary screen: gauges per dimension with target alongside. Graduation workouts displayed below each gauge. “Estimated” banner.
+Assessment is per-objective and happens AFTER creating the objective. Two layers:
+
+**Layer 1: Standard Questions (same for everyone, ~2 minutes)**
+
+- Training days per week
+- Longest cardio effort in last 3 months (distance, duration, elevation gain)
+- Strength training frequency and type (dropdown)
+- Climbing experience level + skill checkboxes (indoor gym, outdoor sport, trad, multi-pitch, glacier, crevasse rescue)
+- Flexibility self-assessment: hip tightness (1–5), ankle mobility (1–5), regular routine (yes/no)
+
+**Layer 2: AI-Generated Questions (3–5 tailored to this objective)**
+
+- After Layer 1 is submitted, call `/api/generate-assessment-questions`
+- Display 3–5 AI-generated questions specific to this objective
+- Each question has an appropriate field type (text input, number, dropdown, scale)
+- **“Want a more precise assessment?” button** → calls `/api/generate-more-questions` for 2–3 additional questions based on gaps
+- Final free-form box: “Anything else you think is relevant to your readiness for [objective name]?”
+
+**Scoring step:**
+
+- Call `/api/score-assessment` with all data
+- **Summary screen:** Gauges per dimension with target alongside. Graduation workouts displayed below each gauge.
+- **AI reasoning shown per dimension:** e.g., “Cardio: 35 — You run 5 miles weekly but haven’t done loaded hiking. The graduation benchmark requires 700 loaded step-ups in 30 min. Your current base is roughly 35% of that capacity.”
+- “Estimated” banner: “These scores will calibrate as you train and complete test weeks.”
 
 ### /plan
 
-- **Header:** Objective name, total weeks, current week highlighted.
-- **Graduation workouts:** Pinned “finish line” section showing all benchmarks and targets.
+- **Header:** Objective name, mountain hero image (SVG fallback + Unsplash), total weeks, current week.
+- **Difficulty selector:** Easier/harder/way easier/way harder buttons.
+- **Graduation workouts:** Pinned “finish line” section.
 - **Score trajectory chart:** 4 lines + dashed targets.
-- **Week list:** Scrollable. Each week shows:
-  - Week number, date range, week_type badge.
-  - Total hours target.
-  - Expected scores.
-  - Session cards (collapsed by default, current week expanded).
-- **Session card:**
-  - Session name, objective line, duration.
-  - “Mark Complete” button (or “Log Different”).
-  - Expandable to show full warm-up + training + cooldown.
-- **Rebalance button:** Always visible. Highlighted when any dimension is 5+ points off trajectory.
+- **Week list:** Expandable. Each week shows:
+  - Week number, date range, week_type badge (test=blue, recovery=green, taper=amber).
+  - Sessions generated on-demand when week is expanded.
+  - Session cards with “Mark Complete” button and 1–5 rating selector.
+  - **Rating 3:** One tap, done.
+  - **Rating 1/2/4/5:** Comment field appears, required before submission.
+  - Benchmark sessions: star icon + blue highlight + graduation target inline.
+  - **“Try Different” button** per session → AlternativesPanel with 2 AI-generated alternatives.
+- **Rebalance button** if scores deviate significantly.
 
 ### /log
 
-- If accessed from “Mark Complete” on a plan session: pre-filled with session data, defaults to rating 3 (“just right”), one-tap confirm.
-- If accessed from “Log Different” or standalone:
-  - Dimension selector (cardio/strength/climbing/flexibility).
-  - 1–5 rating selector with descriptive labels.
-  - Dimension-specific fields:
-    - Cardio: activity type, distance, duration, elevation, avg HR.
-    - Strength: add-exercise pattern (name, sets, reps, weight).
-    - Climbing: type, grade, pitches, duration.
-    - Flexibility: routine name, duration, body areas worked.
+- Accessed from “Mark Complete” on plan session: pre-filled, one-tap confirm (rating 3).
+- Rating selector (1–5). If non-3, comment field is mandatory.
+- Dimension-specific fields for manual entry:
+  - Cardio: activity type, distance, duration, elevation, avg HR.
+  - Strength: add-exercise pattern (name, sets, reps, weight).
+  - Climbing: type, grade, pitches, duration.
+  - Flexibility: routine name, duration, body areas worked.
+- Benchmark sessions on test weeks: structured fields for exact results.
 
 ### /progress
 
-- Line chart of all four scores over time from score_history.
-- Uniform data points (all from self-ratings).
-- Horizontal dashed lines for target scores.
-- Date range selector.
+- Line chart per dimension over time from score_history.
+- Solid dots = test weeks (high confidence). Lighter dots = regular weeks.
+- Horizontal dashed lines = target scores.
 
 ### /admin/objectives (validator only)
 
@@ -639,50 +839,56 @@ Standard Supabase Auth UI. Email/password. Redirect to /dashboard after login.
 - Add new validated objective form.
 - Only visible if `profiles.is_validator = true`.
 
-### Validator overlay (on objective detail page)
+### Validator overlay (NOT YET BUILT — Priority 2)
 
-- Only visible if `profiles.is_validator = true`.
+- On objective detail page, if is_validator.
 - Shows relevance profile components per dimension.
-- Each component has upvote/downvote buttons.
-- “Add missing component” text input per dimension.
-- Vote counts displayed next to each component.
+- Upvote/downvote buttons per component.
+- “Add missing component” text input.
+- Vote counts displayed.
+
+-----
+
+## Features Not Yet Built (Priority Order)
+
+1. **AI relevance evaluation on non-3 ratings** — Prompt 3B. Comment required, AI adjusts multiplier ±0.25. The core product differentiator.
+1. **Assessment redesign** — Two-layer assessment: standard questions + AI-generated objective-specific follow-ups + AI scoring with per-dimension reasoning. Objective-first flow. Prompts ASSESS-Q and ASSESS-SCORE.
+1. **Validator overlay UI** — Upvote/downvote components on relevance profiles. Table exists, no UI.
+1. **Route recommendations UI** — “Find Routes” button on cardio sessions. API exists, needs UI integration + web_search enablement.
+1. **Score chart on dashboard** — Line chart over time. Exists on /progress, not on dashboard.
+1. **AI-powered rebalancing** — Prompt 4 exists but not called. Math-only rebalancing works for now.
 
 -----
 
 ## Seed Data
 
-Seed the database with 15 validated objectives on first deployment:
+15 validated objectives seeded:
 
 1. Half Dome (Mist Trail + Cables)
-1. Colorado 14er Class 1–2 (Quandary, Elbert, Bierstadt)
+1. Colorado 14er Class 1–2
 1. Mt. Whitney (Main Trail)
 1. Mont Blanc (Goûter Route)
 1. Mt. Rainier (Disappointment Cleaver)
 1. Denali (West Buttress)
 1. Grand Teton (Upper Exum Ridge)
 1. Cathedral Peak (SE Buttress)
-1. Trail Half Marathon (~4,000ft gain)
-1. 50K Mountain Ultra (~8,000ft gain)
-1. Colorado 14er Class 3–4 (Capitol Peak, Longs Peak)
+1. Trail Half Marathon
+1. 50K Mountain Ultra
+1. Colorado 14er Class 3–4
 1. Enchantments Traverse
 1. John Muir Trail
 1. Kilimanjaro (Machame Route)
 1. Tour du Mont Blanc
 
-Full data for each (target scores, taglines, relevance profiles, graduation benchmarks) is in the companion Validated Objectives Library document.
+15 benchmark exercises seeded (3 cardio, 5 strength, 3 climbing, 3 flexibility + 1 flexibility).
 
 -----
 
-## Build Order
+## Build Order (remaining work)
 
-1. **Project setup:** Next.js + Tailwind + Supabase auth + deploy to Vercel.
-1. **Foundation tables:** validated_objectives, benchmark_exercises. Seed with 15 objectives. Admin page.
-1. **User objectives + calendar:** objectives table, /calendar, /api/match-objective, /api/estimate-scores (Prompt 1), tier badging.
-1. **Assessment:** /assessment wizard, scoring, “estimated” labeling, graduation workout display.
-1. **Plan generation:** /api/generate-plan (Prompt 2), /plan view with session cards, score trajectory.
-1. **Logging + scoring:** /log with quick-log and 1–5 ratings, /api/complete-week (rating-based scoring), score_history, /progress chart.
-1. **Rebalancing:** /api/rebalance (Prompt 4), manual trigger with highlight when 5+ pts off.
-1. **Readiness dashboard:** /dashboard with arcs, countdown, score chart.
-1. **Validator feedback:** component_feedback table, overlay UI, wire into Prompt 1.
-1. **Route recommendations:** /api/find-routes (Prompt 5), UI integration on cardio cards.
-1. **Polish:** Mobile responsiveness, empty states, onboarding flow, error handling.
+1. **AI relevance evaluation** — Implement Prompt 3B. Add mandatory comment field for non-3 ratings. Wire AI multiplier adjustment into /api/complete-week.
+1. **Assessment redesign** — Implement two-layer assessment (Prompts ASSESS-Q and ASSESS-SCORE). Standard questions → AI-generated follow-ups → AI scoring with reasoning. Flip flow to objective-first, then assess. Update /assessment/[objectiveId] page and dashboard CTAs.
+1. **Validator overlay** — Build UI on objective detail page for is_validator users.
+1. **Route recommendations** — Wire /api/find-routes into cardio session cards. Enable web_search tool.
+1. **Dashboard score chart** — Add line chart from score_history to /dashboard.
+1. **Max hours update** — Change cap from 10 to 20.
