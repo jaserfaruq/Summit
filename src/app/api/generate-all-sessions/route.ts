@@ -75,6 +75,11 @@ export async function POST(request: NextRequest) {
 
   const totalWeeks = allWeeks.length;
 
+  // Extract programmingHints and climbing role for session generation
+  const programmingHints = plan.plan_data?.programmingHints || null;
+  const climbingRole = objective.climbing_role || null;
+  const daysPerWeek = profile?.training_days_per_week || 5;
+
   // Generate sessions in batches of MAX_CONCURRENT
   let generated = 0;
   const errors: { weekNumber: number; error: string }[] = [];
@@ -85,11 +90,11 @@ export async function POST(request: NextRequest) {
     const results = await Promise.allSettled(
       batch.map(async (weekTarget) => {
         const userMessage = buildUserMessage(
-          profile, objective, weekTarget, totalWeeks
+          profile, objective, weekTarget, totalWeeks, programmingHints, climbingRole, daysPerWeek
         );
 
         const responseText = await callClaudeWithCache(
-          PROMPT_2B_SYSTEM, userMessage, 8192, "opus"
+          PROMPT_2B_SYSTEM, userMessage, 8192, "sonnet"
         );
         const result = parseClaudeJSON<{ sessions: PlanSession[] }>(responseText);
         calculateAllSessionMinutes(result.sessions);
@@ -131,11 +136,19 @@ function buildUserMessage(
   profile: { training_days_per_week?: number; equipment_access?: string[]; location?: string } | null,
   objective: Record<string, unknown>,
   weekTarget: Record<string, unknown>,
-  totalWeeks: number
+  totalWeeks: number,
+  programmingHints: Record<string, unknown> | null,
+  climbingRole: string | null,
+  daysPerWeek: number
 ): string {
   const weekNumber = weekTarget.week_number as number;
-  return `Athlete profile: Available ${profile?.training_days_per_week || 5}/week. Equipment: ${(profile?.equipment_access || []).join(", ") || "basic gym equipment"}. Location: ${profile?.location || "not specified"}. Injuries: none.
 
+  const programmingHintsBlock = programmingHints
+    ? `\nATHLETE PROFILE (from assessment):\n${JSON.stringify(programmingHints, null, 2)}\nClimbing role: ${climbingRole || "not specified"}\n\nUse the programming hints to adapt session content to this specific athlete:\n- Start exercises at the recommended intensity level\n- Allocate time across dimensions as recommended\n- Apply specific adaptations noted above\n- If a dimension is flagged as "maintain", prescribe maintenance-level volume\n`
+    : "";
+
+  return `Athlete profile: Available ${daysPerWeek} days/week. Generate EXACTLY ${daysPerWeek} sessions total — no more, no fewer. Equipment: ${(profile?.equipment_access || []).join(", ") || "basic gym equipment"}. Location: ${profile?.location || "not specified"}. Injuries: none.
+${programmingHintsBlock}
 Objective: ${objective.name}. Type: ${objective.type}. Target date: ${objective.target_date}. Distance: ${objective.distance_miles || "N/A"} miles. Elevation gain: ${objective.elevation_gain_ft || "N/A"} ft. Technical grade: ${objective.technical_grade || "N/A"}.
 
 Current scores: Cardio ${objective.current_cardio_score}, Strength ${objective.current_strength_score}, Climbing/Technical ${objective.current_climbing_score}, Flexibility ${objective.current_flexibility_score}.
