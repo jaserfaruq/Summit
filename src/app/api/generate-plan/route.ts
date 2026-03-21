@@ -255,6 +255,12 @@ export async function POST(request: NextRequest) {
 
     if (weekError) {
       console.error("Error saving weekly targets:", weekError);
+      // Clean up the orphaned plan
+      await supabase.from("training_plans").delete().eq("id", plan.id);
+      return NextResponse.json(
+        { error: "Failed to save weekly targets: " + weekError.message },
+        { status: 500 }
+      );
     }
 
     // Update current scores on objective from assessment
