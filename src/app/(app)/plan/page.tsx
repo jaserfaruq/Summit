@@ -124,11 +124,13 @@ function PlanContent() {
     setWorkoutLogs((logData as WorkoutLog[]) || []);
 
     // Fetch score_history to detect which weeks have already been scored
+    // Only look at weekly_rating entries — not assessment entries which share week_ending dates
     const { data: scoreData } = await supabase
       .from("score_history")
       .select("week_ending")
       .eq("user_id", user.id)
-      .eq("objective_id", activePlan.objective_id);
+      .eq("objective_id", activePlan.objective_id)
+      .eq("change_reason", "weekly_rating");
 
     if (scoreData && weeksArr.length > 0) {
       const scoredEndings = new Set(scoreData.map((s: { week_ending: string }) => s.week_ending));
