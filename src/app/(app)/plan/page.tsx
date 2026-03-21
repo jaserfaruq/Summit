@@ -80,13 +80,32 @@ function PlanContent() {
 
     setPlan(activePlan);
 
-    const { data: weekData } = await supabase
-      .from("weekly_targets")
-      .select("*")
-      .eq("plan_id", activePlan.id)
-      .order("week_number");
+    // Parallel fetch: these 4 queries are independent of each other
+    const [weekResult, objResult, logResult, scoreResult] = await Promise.all([
+      supabase
+        .from("weekly_targets")
+        .select("*")
+        .eq("plan_id", activePlan.id)
+        .order("week_number"),
+      supabase
+        .from("objectives")
+        .select("*")
+        .eq("id", activePlan.objective_id)
+        .single(),
+      supabase
+        .from("workout_logs")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("plan_id", activePlan.id),
+      supabase
+        .from("score_history")
+        .select("week_ending")
+        .eq("user_id", user.id)
+        .eq("objective_id", activePlan.objective_id)
+        .eq("change_reason", "weekly_rating"),
+    ]);
 
-    const weeksArr = (weekData as WeeklyTarget[]) || [];
+    const weeksArr = (weekResult.data as WeeklyTarget[]) || [];
     setWeeks(weeksArr);
 
     const cached: Record<number, PlanSession[]> = {};
@@ -103,40 +122,25 @@ function PlanContent() {
     }
     setWeekSessions(cached);
 
-    const { data: objData } = await supabase
-      .from("objectives")
-      .select("*")
-      .eq("id", activePlan.objective_id)
-      .single();
-
-    const objTyped = objData as Objective;
+    const objTyped = objResult.data as Objective;
     setObjective(objTyped);
 
+    // Fetch validated objective in background (non-blocking for render)
     if (objTyped?.matched_validated_id) {
-      const { data: voData } = await supabase
+      supabase
         .from("validated_objectives")
         .select("*")
         .eq("id", objTyped.matched_validated_id)
-        .single();
-      setValidatedObj(voData as ValidatedObjective | null);
+        .single()
+        .then(({ data: voData }: { data: ValidatedObjective | null }) => {
+          setValidatedObj(voData as ValidatedObjective | null);
+        });
     }
 
-    const { data: logData } = await supabase
-      .from("workout_logs")
-      .select("*")
-      .eq("user_id", user.id);
+    setWorkoutLogs((logResult.data as WorkoutLog[]) || []);
 
-    setWorkoutLogs((logData as WorkoutLog[]) || []);
-
-    // Fetch score_history to detect which weeks have already been scored
-    // Only look at weekly_rating entries — not assessment entries which share week_ending dates
-    const { data: scoreData } = await supabase
-      .from("score_history")
-      .select("week_ending")
-      .eq("user_id", user.id)
-      .eq("objective_id", activePlan.objective_id)
-      .eq("change_reason", "weekly_rating");
-
+    // Detect which weeks have already been scored
+    const scoreData = scoreResult.data;
     if (scoreData && weeksArr.length > 0) {
       const scoredEndings = new Set(scoreData.map((s: { week_ending: string }) => s.week_ending));
       const scored = new Set<number>();
