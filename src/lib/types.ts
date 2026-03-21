@@ -323,6 +323,7 @@ export interface PlanData {
     keyExercises: string[];
   };
   heroImageUrl?: string | null;
+  programmingHints?: ProgrammingHints | null;
   weeks: PlanWeek[];
   difficultyAdjustments?: DifficultyAdjustment[];
 }

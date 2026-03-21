@@ -201,6 +201,9 @@ export async function POST(request: NextRequest) {
     keyExercises: extractKeyExercises(objective.graduation_benchmarks),
   };
 
+  // Extract programmingHints from assessment raw_data
+  const programmingHints = assessment.raw_data?.programmingHints || null;
+
   // Fetch hero image (non-blocking — plan still works without it)
   let heroImageUrl: string | null = null;
   try {
@@ -220,6 +223,7 @@ export async function POST(request: NextRequest) {
         plan_data: {
           planSummary,
           heroImageUrl,
+          programmingHints,
           weeks: weeks.map((w) => ({ ...w, sessions: [] })),
         },
         graduation_workouts: objective.graduation_benchmarks,

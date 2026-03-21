@@ -75,8 +75,16 @@ export async function POST(request: NextRequest) {
     .select("*", { count: "exact", head: true })
     .eq("plan_id", planId);
 
-  const userMessage = `Athlete profile: Available ${profile?.training_days_per_week || 5}/week. Equipment: ${(profile?.equipment_access || []).join(", ") || "basic gym equipment"}. Location: ${profile?.location || "not specified"}. Injuries: none.
+  // Extract programmingHints from plan_data
+  const programmingHints = plan.plan_data?.programmingHints || null;
+  const climbingRole = objective.climbing_role || null;
 
+  const programmingHintsBlock = programmingHints
+    ? `\nATHLETE PROFILE (from assessment):\n${JSON.stringify(programmingHints, null, 2)}\nClimbing role: ${climbingRole || "not specified"}\n\nUse the programming hints to adapt session content to this specific athlete:\n- Start exercises at the recommended intensity level\n- Allocate time across dimensions as recommended\n- Apply specific adaptations noted above\n- If a dimension is flagged as "maintain", prescribe maintenance-level volume\n`
+    : "";
+
+  const userMessage = `Athlete profile: Available ${profile?.training_days_per_week || 5}/week. Equipment: ${(profile?.equipment_access || []).join(", ") || "basic gym equipment"}. Location: ${profile?.location || "not specified"}. Injuries: none.
+${programmingHintsBlock}
 Objective: ${objective.name}. Type: ${objective.type}. Target date: ${objective.target_date}. Distance: ${objective.distance_miles || "N/A"} miles. Elevation gain: ${objective.elevation_gain_ft || "N/A"} ft. Technical grade: ${objective.technical_grade || "N/A"}.
 
 Current scores: Cardio ${objective.current_cardio_score}, Strength ${objective.current_strength_score}, Climbing/Technical ${objective.current_climbing_score}, Flexibility ${objective.current_flexibility_score}.
