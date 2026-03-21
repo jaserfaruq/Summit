@@ -1,17 +1,16 @@
-import { createServiceClient } from "@/lib/supabase-service";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_REPORT_SYSTEM } from "@/lib/prompts";
 import { WeeklyReport, Dimension, DimensionScores } from "@/lib/types";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 const DIMENSIONS: Dimension[] = ["cardio", "strength", "climbing_technical", "flexibility"];
 
 export async function generateWeeklyReport(
+  supabase: SupabaseClient,
   userId: string,
   planId: string,
   weekNumber: number
 ): Promise<void> {
-  const supabase = createServiceClient();
-
   console.log(`[Report] Starting generation for plan=${planId}, week=${weekNumber}, user=${userId}`);
 
   try {

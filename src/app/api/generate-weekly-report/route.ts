@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   console.log(`[Report Route] POST generate-weekly-report: plan=${planId}, week=${weekNumber}, user=${user.id}`);
 
   try {
-    await generateWeeklyReport(user.id, planId, weekNumber);
+    await generateWeeklyReport(supabase, user.id, planId, weekNumber);
     console.log(`[Report Route] Successfully generated report for week ${weekNumber}`);
     return NextResponse.json({ success: true });
   } catch (error) {
