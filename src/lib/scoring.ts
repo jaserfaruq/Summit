@@ -201,6 +201,33 @@ export function calculateWeekTotalHours(sessions: PlanSession[]): number {
   return Math.round(totalMinutes / 60 * 10) / 10;
 }
 
+/**
+ * Scale target scores for difficulty adjustment.
+ * Scales the remaining gap between current and target by the given factor.
+ * Caps at 100, floors at current + 1 to preserve a training gap.
+ * Skips maintenance dimensions (current >= target).
+ */
+export function scaleDifficultyTargets(
+  currentScores: DimensionScores,
+  targetScores: DimensionScores,
+  scaleFactor: number
+): DimensionScores {
+  const result = { ...targetScores };
+
+  for (const dim of DIMENSIONS) {
+    const current = currentScores[dim];
+    const target = targetScores[dim];
+    const gap = target - current;
+
+    if (gap <= 0) continue; // maintenance dimension, skip
+
+    const newTarget = current + gap * scaleFactor;
+    result[dim] = Math.min(100, Math.max(current + 1, Math.round(newTarget)));
+  }
+
+  return result;
+}
+
 export interface DimensionProgress {
   /** For normal dimensions: percentage of graduation targets (0-100).
    *  For maintenance dimensions: volume percentage (always 60). */

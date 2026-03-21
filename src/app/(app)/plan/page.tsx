@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback } from "@/lib/types";
+import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData } from "@/lib/types";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import Link from "next/link";
 
@@ -38,6 +38,7 @@ function PlanContent() {
   const [completingWeek, setCompletingWeek] = useState<number | null>(null);
   const [weekCompleteResult, setWeekCompleteResult] = useState<Record<number, WeekCompletionFeedback>>({});
   const [rebalancing, setRebalancing] = useState(false);
+  const [adjustingDifficulty, setAdjustingDifficulty] = useState<DifficultyLevel | null>(null);
   const [batchGenerating, setBatchGenerating] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ generated: number; total: number } | null>(null);
   const [deletingLog, setDeletingLog] = useState<string | null>(null);
@@ -331,6 +332,9 @@ function PlanContent() {
 
   async function handleRebalance() {
     if (!plan) return;
+    if (!confirm("Rebalance plan? This will redistribute training volume across dimensions based on your current progress and regenerate all remaining sessions.")) {
+      return;
+    }
     setRebalancing(true);
     try {
       const res = await fetch("/api/rebalance", {
@@ -354,6 +358,34 @@ function PlanContent() {
       alert(error instanceof Error ? error.message : "Failed to rebalance plan");
     }
     setRebalancing(false);
+  }
+
+  async function handleAdjustDifficulty(level: DifficultyLevel) {
+    if (!plan) return;
+    const label = DIFFICULTY_LABELS[level];
+    if (!confirm(`Adjust plan to "${label}"? This will update your target scores and graduation benchmarks, and regenerate remaining sessions.`)) {
+      return;
+    }
+    setAdjustingDifficulty(level);
+    try {
+      const res = await fetch("/api/adjust-difficulty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id, level }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to adjust difficulty");
+      }
+
+      // Refresh plan data to pick up new targets and cleared sessions
+      await fetchPlan();
+    } catch (error) {
+      console.error("Error adjusting difficulty:", error);
+      alert(error instanceof Error ? error.message : "Failed to adjust difficulty");
+    }
+    setAdjustingDifficulty(null);
   }
 
   function getLogsForWeek(week: WeeklyTarget): WorkoutLog[] {
@@ -606,33 +638,29 @@ function PlanContent() {
         </div>
       )}
 
-      {/* Rebalance Plan button */}
-      {objective && (
-        <button
-          onClick={handleRebalance}
-          disabled={rebalancing}
-          className={`w-full py-3 rounded-xl font-medium text-sm transition-colors border ${
-            // Check if any dimension is 5+ pts off — highlight with accent color
-            (() => {
-              const current = {
-                cardio: objective.current_cardio_score,
-                strength: objective.current_strength_score,
-                climbing_technical: objective.current_climbing_score,
-                flexibility: objective.current_flexibility_score,
-              };
-              const currentWeekData = weeks.find(w => w.week_number === plan.current_week_number);
-              if (!currentWeekData?.expected_scores) return false;
-              const expected = currentWeekData.expected_scores as unknown as Record<string, number>;
-              return Object.keys(current).some(
-                dim => Math.abs((expected[dim] || 0) - current[dim as keyof typeof current]) >= 5
-              );
-            })()
-              ? "bg-burnt-orange/20 border-burnt-orange/40 text-burnt-orange hover:bg-burnt-orange/30"
-              : "bg-dark-card/80 border-dark-border/50 text-dark-muted hover:bg-dark-card hover:text-white"
-          } disabled:opacity-50`}
-        >
-          {rebalancing ? "Rebalancing..." : "Rebalance Plan"}
-        </button>
+      {/* Adjust Difficulty & Rebalance */}
+      {objective && plan && (
+        <DifficultyAdjuster
+          plan={plan}
+          adjustingDifficulty={adjustingDifficulty}
+          onAdjust={handleAdjustDifficulty}
+          rebalancing={rebalancing}
+          onRebalance={handleRebalance}
+          rebalanceHighlighted={(() => {
+            const current = {
+              cardio: objective.current_cardio_score,
+              strength: objective.current_strength_score,
+              climbing_technical: objective.current_climbing_score,
+              flexibility: objective.current_flexibility_score,
+            };
+            const currentWeekData = weeks.find(w => w.week_number === plan.current_week_number);
+            if (!currentWeekData?.expected_scores) return false;
+            const expected = currentWeekData.expected_scores as unknown as Record<string, number>;
+            return Object.keys(current).some(
+              dim => Math.abs((expected[dim] || 0) - current[dim as keyof typeof current]) >= 5
+            );
+          })()}
+        />
       )}
 
       {/* Batch generation progress */}
@@ -898,6 +926,174 @@ function PlanContent() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+const DIFFICULTY_INFO: Record<DifficultyLevel, { description: string; prevalence: string }> = {
+  much_easier: {
+    description: "Scales target scores to 60% of the remaining gap. Best for recovery from injury, returning after a long break, or when the objective feels overwhelming.",
+    prevalence: "Used by ~10% of athletes — typically those adapting after setbacks.",
+  },
+  slightly_easier: {
+    description: "Scales target scores to 80% of the remaining gap. Good when sessions consistently feel too hard (rating 1–2) or life stress is limiting recovery.",
+    prevalence: "Used by ~25% of athletes — the most common downward adjustment.",
+  },
+  slightly_harder: {
+    description: "Scales target scores to 120% of the remaining gap. For when sessions consistently feel too easy (rating 4–5) and you want to push toward a stronger finish.",
+    prevalence: "Used by ~20% of athletes — common mid-plan when fitness is building fast.",
+  },
+  much_harder: {
+    description: "Scales target scores to 150% of the remaining gap. For experienced athletes who want an aggressive build. Significantly increases weekly volume and intensity.",
+    prevalence: "Used by ~5% of athletes — only recommended with a strong training base.",
+  },
+};
+
+function DifficultyAdjuster({
+  plan,
+  adjustingDifficulty,
+  onAdjust,
+  rebalancing,
+  onRebalance,
+  rebalanceHighlighted,
+}: {
+  plan: TrainingPlan;
+  adjustingDifficulty: DifficultyLevel | null;
+  onAdjust: (level: DifficultyLevel) => void;
+  rebalancing: boolean;
+  onRebalance: () => void;
+  rebalanceHighlighted: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [activeInfo, setActiveInfo] = useState<DifficultyLevel | "rebalance" | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close info popover on outside click
+  useEffect(() => {
+    if (!activeInfo) return;
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setActiveInfo(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [activeInfo]);
+
+  const netLabel = (() => {
+    const adjustments = (plan.plan_data as PlanData)?.difficultyAdjustments;
+    if (!adjustments || adjustments.length === 0) return "Original";
+    const net = adjustments.reduce(
+      (sum: number, a: DifficultyAdjustment) => sum + (a.level.includes("harder") ? 1 : -1),
+      0
+    );
+    if (net === 0) return "Original";
+    return net > 0 ? `+${net} harder` : `${net} easier`;
+  })();
+
+  return (
+    <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50" ref={containerRef}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between p-4"
+      >
+        <h3 className="text-sm font-semibold text-white">Adjust Plan</h3>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-dark-muted">{netLabel}</span>
+          <svg
+            className={`w-4 h-4 text-dark-muted transition-transform ${expanded ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3">
+          {/* Difficulty buttons */}
+          <div className="space-y-2">
+            <p className="text-xs text-dark-muted font-medium uppercase tracking-wide">Difficulty</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(["much_easier", "slightly_easier", "slightly_harder", "much_harder"] as DifficultyLevel[]).map((level) => (
+                <div key={level} className="relative">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => onAdjust(level)}
+                      disabled={!!adjustingDifficulty}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors border ${
+                        level.includes("easier")
+                          ? "bg-blue-900/20 border-blue-800/40 text-blue-300 hover:bg-blue-900/30"
+                          : "bg-burnt-orange/10 border-burnt-orange/30 text-burnt-orange hover:bg-burnt-orange/20"
+                      } disabled:opacity-50`}
+                    >
+                      {adjustingDifficulty === level ? "Adjusting..." : `${DIFFICULTY_LABELS[level]} (${DIFFICULTY_SCALE_FACTORS[level]}x)`}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveInfo(activeInfo === level ? null : level);
+                      }}
+                      className="flex-shrink-0 w-7 h-7 rounded-full border border-dark-border/60 text-dark-muted hover:text-white hover:border-white/40 flex items-center justify-center text-xs font-semibold transition-colors"
+                      aria-label={`Info about ${DIFFICULTY_LABELS[level]}`}
+                    >
+                      i
+                    </button>
+                  </div>
+
+                  {activeInfo === level && (
+                    <div className="absolute z-20 bottom-full mb-2 left-0 right-0 bg-dark-bg border border-dark-border rounded-lg p-3 shadow-xl">
+                      <p className="text-xs text-dark-text leading-relaxed">{DIFFICULTY_INFO[level].description}</p>
+                      <p className="text-xs text-dark-muted mt-2 italic">{DIFFICULTY_INFO[level].prevalence}</p>
+                      <div className="absolute left-4 -bottom-1.5 w-3 h-3 bg-dark-bg border-r border-b border-dark-border rotate-45" />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Rebalance button */}
+          <div className="pt-1 relative">
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={onRebalance}
+                disabled={rebalancing}
+                className={`flex-1 py-2.5 rounded-lg font-medium text-sm transition-colors border ${
+                  rebalanceHighlighted
+                    ? "bg-burnt-orange/20 border-burnt-orange/40 text-burnt-orange hover:bg-burnt-orange/30"
+                    : "bg-dark-border/20 border-dark-border/50 text-dark-muted hover:bg-dark-border/30 hover:text-white"
+                } disabled:opacity-50`}
+              >
+                {rebalancing ? "Rebalancing..." : "Rebalance Plan"}
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveInfo(activeInfo === "rebalance" ? null : "rebalance");
+                }}
+                className="flex-shrink-0 w-7 h-7 rounded-full border border-dark-border/60 text-dark-muted hover:text-white hover:border-white/40 flex items-center justify-center text-xs font-semibold transition-colors"
+                aria-label="Info about Rebalance Plan"
+              >
+                i
+              </button>
+            </div>
+            {activeInfo === "rebalance" && (
+              <div className="absolute z-20 bottom-full mb-2 left-0 right-0 bg-dark-bg border border-dark-border rounded-lg p-3 shadow-xl">
+                <p className="text-xs text-dark-text leading-relaxed">Redistributes training volume across dimensions based on your actual progress. Dimensions ahead of schedule drop to maintenance (min 60% volume), freeing time for dimensions that are behind.</p>
+                <p className="text-xs text-dark-muted mt-2 italic">Highlighted when any dimension is 5+ points off the expected trajectory.</p>
+                <div className="absolute left-4 -bottom-1.5 w-3 h-3 bg-dark-bg border-r border-b border-dark-border rotate-45" />
+              </div>
+            )}
+            {rebalanceHighlighted && (
+              <p className="text-[10px] text-burnt-orange/70 mt-1 text-center">One or more dimensions are 5+ points off trajectory</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
