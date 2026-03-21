@@ -12,6 +12,8 @@ export async function generateWeeklyReport(
 ): Promise<void> {
   const supabase = createServiceClient();
 
+  console.log(`[Report] Starting generation for plan=${planId}, week=${weekNumber}, user=${userId}`);
+
   try {
     // Fetch the weekly target
     const { data: weekTarget, error: weekError } = await supabase
@@ -22,8 +24,11 @@ export async function generateWeeklyReport(
       .single();
 
     if (weekError || !weekTarget) {
-      throw new Error("Week target not found");
+      console.error(`[Report] Week target not found:`, weekError);
+      throw new Error(`Week target not found: ${weekError?.message || "no data"}`);
     }
+
+    console.log(`[Report] Found week target id=${weekTarget.id}, type=${weekTarget.week_type}`);
 
     // Fetch the plan + objective
     const { data: plan } = await supabase
@@ -198,20 +203,30 @@ For each dimension, one line: actual score vs expected trajectory at this point.
 ## Consider Adjusting?
 ONLY include this section (non-null) if any dimension is 4+ points behind trajectory for 2+ consecutive weeks. Otherwise return null for this field.`;
 
+    console.log(`[Report] Calling Claude API for report generation...`);
     const responseText = await callClaude(PROMPT_REPORT_SYSTEM, userMessage, 4096, "sonnet");
+    console.log(`[Report] Claude API returned ${responseText.length} chars`);
     const report = parseClaudeJSON<WeeklyReport>(responseText);
+    console.log(`[Report] Parsed report successfully, sections: ${Object.keys(report).join(", ")}`);
 
     if (!report.generatedAt) {
       report.generatedAt = new Date().toISOString();
     }
 
     // Store report in weekly_targets
-    await supabase
+    const { error: updateError } = await supabase
       .from("weekly_targets")
       .update({ weekly_report: report })
       .eq("id", weekTarget.id);
+
+    if (updateError) {
+      console.error(`[Report] Failed to store report in DB:`, updateError);
+      throw new Error(`Failed to store report: ${updateError.message}`);
+    }
+
+    console.log(`[Report] Successfully stored report for week ${weekNumber}`);
   } catch (error) {
-    console.error("Error generating weekly report:", error);
+    console.error("[Report] Error generating weekly report:", error);
 
     // Write error sentinel so the UI can detect failure instead of polling forever
     try {

@@ -4,8 +4,6 @@ import { CompleteWeekRequest, DimensionScores, Dimension, SessionRating, RATING_
 import { calculateAllScoresFromRatings, shouldHighlightRebalance, generateCompletionSummary } from "@/lib/scoring";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_3B_SYSTEM } from "@/lib/prompts";
-import { generateWeeklyReport } from "@/lib/generate-report";
-
 export const maxDuration = 60;
 
 const DIMENSIONS: Dimension[] = ["cardio", "strength", "climbing_technical", "flexibility"];
@@ -215,11 +213,9 @@ export async function POST(request: NextRequest) {
     gaps[dim] = safeUpdatedScores[dim] - expectedScores[dim];
   }
 
-  // Generate weekly report in background (detached promise, no HTTP hop)
-  // Uses service role client so it doesn't depend on request auth context
-  generateWeeklyReport(user.id, planId, weekNumber).catch((err) => {
-    console.error("Background report generation failed:", err);
-  });
+  // Report generation is now triggered by the client after receiving this response.
+  // Previously used a detached promise here, but Vercel serverless can kill
+  // the function after sending the response, making it unreliable.
 
   return NextResponse.json({
     updatedScores: safeUpdatedScores,
