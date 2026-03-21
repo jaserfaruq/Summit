@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Objective, Assessment, TrainingPlan, WeeklyTarget, ValidatedObjective } from "@/lib/types";
 import ScoreArc from "@/components/ScoreArc";
 import DeletePlanButton from "@/components/DeletePlanButton";
+import DeleteAssessmentButton from "@/components/DeleteAssessmentButton";
 import UpdateAssessmentButton from "@/components/UpdateAssessmentButton";
 import ThisWeekSessions from "@/components/ThisWeekSessions";
 
@@ -124,12 +125,18 @@ export default async function DashboardPage() {
           Climbing: {objectiveAssessment.climbing_score} | Flexibility: {objectiveAssessment.flexibility_score}
         </p>
         <p className="text-dark-muted mb-8">Assessment complete. Generate your training plan.</p>
-        <Link
-          href={`/plan?generate=true&objectiveId=${activeObjective.id}&assessmentId=${objectiveAssessment.id}`}
-          className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
-        >
-          Generate Training Plan
-        </Link>
+        <div className="flex flex-col items-center gap-4">
+          <Link
+            href={`/plan?generate=true&objectiveId=${activeObjective.id}&assessmentId=${objectiveAssessment.id}`}
+            className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
+          >
+            Generate Training Plan
+          </Link>
+          <DeleteAssessmentButton
+            assessmentId={objectiveAssessment.id}
+            objectiveId={activeObjective.id}
+          />
+        </div>
       </div>
     );
   }
