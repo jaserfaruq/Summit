@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData } from "@/lib/types";
 import DeletePlanButton from "@/components/DeletePlanButton";
+import AlternativesPanel from "@/components/AlternativesPanel";
 import Link from "next/link";
 
 /** Inline SVG mountain silhouette used when no hero image URL is stored */
@@ -43,6 +44,11 @@ function PlanContent() {
   const [batchProgress, setBatchProgress] = useState<{ generated: number; total: number } | null>(null);
   const [deletingLog, setDeletingLog] = useState<string | null>(null);
   const [scoredWeekNumbers, setScoredWeekNumbers] = useState<Set<number>>(new Set());
+  const [alternativesPanel, setAlternativesPanel] = useState<{
+    weekNumber: number;
+    sessionIndex: number;
+    session: PlanSession;
+  } | null>(null);
 
   const shouldGenerate = searchParams.get("generate") === "true";
   const objectiveId = searchParams.get("objectiveId");
@@ -801,6 +807,9 @@ function PlanContent() {
                             <span className={`font-medium text-sm ${logged ? "line-through opacity-60" : "text-white"}`}>
                               {session.name}
                             </span>
+                            {session.isAlternative && (
+                              <span className="text-[10px] bg-burnt-orange/20 text-burnt-orange px-1.5 py-0.5 rounded font-medium">Alt</span>
+                            )}
                             <span className="text-xs text-dark-muted">{session.estimatedMinutes} min</span>
                           </div>
                           <div className="flex items-center gap-2">
@@ -818,13 +827,24 @@ function PlanContent() {
                               ) : null;
                             })()}
                             {!logged && (
-                              <Link
-                                href={`/log?session=${encodeURIComponent(session.name)}&planId=${plan.id}&week=${week.week_number}`}
-                                className="text-xs bg-gold/90 text-dark-bg px-2.5 py-1 rounded hover:bg-gold transition-colors font-medium"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                Log
-                              </Link>
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setAlternativesPanel({ weekNumber: week.week_number, sessionIndex: i, session });
+                                  }}
+                                  className="text-xs text-dark-muted hover:text-white px-2 py-1 rounded hover:bg-dark-border/50 transition-colors"
+                                >
+                                  Alternatives
+                                </button>
+                                <Link
+                                  href={`/log?session=${encodeURIComponent(session.name)}&planId=${plan.id}&week=${week.week_number}`}
+                                  className="text-xs bg-gold/90 text-dark-bg px-2.5 py-1 rounded hover:bg-gold transition-colors font-medium"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  Log
+                                </Link>
+                              </>
                             )}
                             <span className="text-dark-muted text-xs">{isSessionExpanded ? "▾" : "▸"}</span>
                           </div>
@@ -926,6 +946,25 @@ function PlanContent() {
           );
         })}
       </div>
+
+      {/* Alternatives Panel */}
+      {alternativesPanel && plan && (
+        <AlternativesPanel
+          isOpen={!!alternativesPanel}
+          onClose={() => setAlternativesPanel(null)}
+          planId={plan.id}
+          weekNumber={alternativesPanel.weekNumber}
+          sessionIndex={alternativesPanel.sessionIndex}
+          session={alternativesPanel.session}
+          onSessionReplaced={(newSessions) => {
+            setWeekSessions(prev => ({
+              ...prev,
+              [alternativesPanel.weekNumber]: newSessions,
+            }));
+            setAlternativesPanel(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1094,6 +1133,7 @@ function DifficultyAdjuster({
           </div>
         </div>
       )}
+
     </div>
   );
 }

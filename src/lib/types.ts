@@ -314,6 +314,8 @@ export interface PlanSession {
   }[];
   cooldown: string | null;
   cooldownMinutes?: number;
+  originalSession?: PlanSession;  // preserved original when alternative is active
+  isAlternative?: boolean;        // true if this replaced the original
 }
 
 // ============================================
@@ -455,4 +457,31 @@ export interface RouteRecommendation {
   description: string;
   sourceUrl: string;
   whyItFits: string;
+}
+
+// ============================================
+// Workout alternatives types
+// ============================================
+
+export interface GenerateAlternativesRequest {
+  planId: string;
+  weekNumber: number;
+  sessionIndex: number;
+}
+
+export interface AlternativeSession extends PlanSession {
+  durationDifference?: string;    // e.g., "+10 min" vs original
+  alternativeRationale: string;   // 1-sentence why this alternative works
+}
+
+export interface GenerateAlternativesResponse {
+  original: PlanSession;
+  alternatives: AlternativeSession[];
+}
+
+export interface ReplaceSessionRequest {
+  planId: string;
+  weekNumber: number;
+  sessionIndex: number;
+  replacementSession: PlanSession;
 }

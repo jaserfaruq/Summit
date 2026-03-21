@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { WeeklyTarget, PlanSession } from "@/lib/types";
+import AlternativesPanel from "./AlternativesPanel";
 
 export default function ThisWeekSessions({
   weekTarget,
@@ -12,6 +13,11 @@ export default function ThisWeekSessions({
   planId: string;
 }) {
   const [expandedSession, setExpandedSession] = useState<number | null>(null);
+  const [sessions, setSessions] = useState<PlanSession[]>(weekTarget.sessions);
+  const [alternativesPanel, setAlternativesPanel] = useState<{
+    sessionIndex: number;
+    session: PlanSession;
+  } | null>(null);
 
   function toggle(i: number) {
     setExpandedSession(expandedSession === i ? null : i);
@@ -26,7 +32,7 @@ export default function ThisWeekSessions({
         </span>
       </div>
       <div className="space-y-2">
-        {weekTarget.sessions.map((session, i) => {
+        {sessions.map((session, i) => {
           const isExpanded = expandedSession === i;
           return (
             <div
@@ -48,14 +54,25 @@ export default function ThisWeekSessions({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                   <span className="font-medium text-sm text-white truncate">{session.name}</span>
+                  {session.isAlternative && (
+                    <span className="text-[10px] bg-burnt-orange/20 text-burnt-orange px-1.5 py-0.5 rounded font-medium shrink-0">Alt</span>
+                  )}
                   <span className="text-dark-muted text-xs shrink-0">{session.estimatedMinutes} min</span>
                 </button>
-                <Link
-                  href={`/log?session=${encodeURIComponent(session.name)}&planId=${planId}&week=${weekTarget.week_number}`}
-                  className="text-sm bg-gold/90 text-dark-bg px-3 py-1 rounded hover:bg-gold transition-colors font-medium shrink-0 ml-3"
-                >
-                  Mark Complete
-                </Link>
+                <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                  <button
+                    onClick={() => setAlternativesPanel({ sessionIndex: i, session })}
+                    className="text-xs text-dark-muted hover:text-white px-2 py-1 rounded hover:bg-dark-border/50 transition-colors"
+                  >
+                    Alternatives
+                  </button>
+                  <Link
+                    href={`/log?session=${encodeURIComponent(session.name)}&planId=${planId}&week=${weekTarget.week_number}`}
+                    className="text-sm bg-gold/90 text-dark-bg px-3 py-1 rounded hover:bg-gold transition-colors font-medium"
+                  >
+                    Mark Complete
+                  </Link>
+                </div>
               </div>
 
               {isExpanded && (
@@ -65,6 +82,22 @@ export default function ThisWeekSessions({
           );
         })}
       </div>
+
+      {/* Alternatives Panel */}
+      {alternativesPanel && (
+        <AlternativesPanel
+          isOpen={!!alternativesPanel}
+          onClose={() => setAlternativesPanel(null)}
+          planId={planId}
+          weekNumber={weekTarget.week_number}
+          sessionIndex={alternativesPanel.sessionIndex}
+          session={alternativesPanel.session}
+          onSessionReplaced={(newSessions) => {
+            setSessions(newSessions);
+            setAlternativesPanel(null);
+          }}
+        />
+      )}
     </div>
   );
 }
