@@ -81,48 +81,48 @@ export async function POST(request: NextRequest) {
   try {
     // Recalculate expected scores and hours for each remaining week,
     // then clear sessions so they regenerate on-demand with updated context
-    const updatedWeeks = [];
+    const updatedWeeks = await Promise.all(
+      weeksToRebalance.map(async (week) => {
+        const weekNumber = week.week_number;
 
-    for (const week of weeksToRebalance) {
-      const weekNumber = week.week_number;
+        // Recalculate expected scores using linear interpolation from CURRENT scores
+        // (not original assessment scores) — this is the key rebalance logic
+        const newExpectedScores = expectedScoresAtWeek(
+          currentScores,
+          targetScores,
+          weekNumber - currentWeek + 1, // relative week from now
+          totalWeeks - currentWeek + 1   // remaining weeks
+        );
 
-      // Recalculate expected scores using linear interpolation from CURRENT scores
-      // (not original assessment scores) — this is the key rebalance logic
-      const newExpectedScores = expectedScoresAtWeek(
-        currentScores,
-        targetScores,
-        weekNumber - currentWeek + 1, // relative week from now
-        totalWeeks - currentWeek + 1   // remaining weeks
-      );
+        // Recalculate hours with taper for final 2 weeks
+        const isTaper = weekNumber > totalWeeks - 2;
+        const volumeMultiplier = isTaper ? 0.6 : 1.0;
+        const progressionFactor = Math.min(1.0, 0.7 + (weekNumber / totalWeeks) * 0.3);
+        const totalHours = Math.round(baseHours * volumeMultiplier * progressionFactor * 10) / 10;
 
-      // Recalculate hours with taper for final 2 weeks
-      const isTaper = weekNumber > totalWeeks - 2;
-      const volumeMultiplier = isTaper ? 0.6 : 1.0;
-      const progressionFactor = Math.min(1.0, 0.7 + (weekNumber / totalWeeks) * 0.3);
-      const totalHours = Math.round(baseHours * volumeMultiplier * progressionFactor * 10) / 10;
+        // Update the week: new expected scores, recalculated hours, and clear sessions
+        // so they get regenerated on-demand via /api/generate-week-sessions with new context
+        const { error: updateError } = await supabase
+          .from("weekly_targets")
+          .update({
+            expected_scores: newExpectedScores,
+            total_hours: totalHours,
+            sessions: [], // Clear — will regenerate on-demand
+          })
+          .eq("id", week.id);
 
-      // Update the week: new expected scores, recalculated hours, and clear sessions
-      // so they get regenerated on-demand via /api/generate-week-sessions with new context
-      const { error: updateError } = await supabase
-        .from("weekly_targets")
-        .update({
-          expected_scores: newExpectedScores,
-          total_hours: totalHours,
-          sessions: [], // Clear — will regenerate on-demand
-        })
-        .eq("id", week.id);
+        if (updateError) {
+          console.error(`Error updating week ${weekNumber}:`, updateError);
+        }
 
-      if (updateError) {
-        console.error(`Error updating week ${weekNumber}:`, updateError);
-      }
-
-      updatedWeeks.push({
-        weekNumber,
-        expectedScores: newExpectedScores,
-        totalHoursTarget: totalHours,
-        sessions: [],
-      });
-    }
+        return {
+          weekNumber,
+          expectedScores: newExpectedScores,
+          totalHoursTarget: totalHours,
+          sessions: [],
+        };
+      })
+    );
 
     return NextResponse.json({ updatedWeeks });
   } catch (error) {
