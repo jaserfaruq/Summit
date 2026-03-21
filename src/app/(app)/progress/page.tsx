@@ -2,43 +2,61 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { ScoreHistory, Objective } from "@/lib/types";
+import { ScoreHistory, Objective, WeeklyTarget } from "@/lib/types";
 
 const CHART_WIDTH = 800;
-const CHART_HEIGHT = 220;
-const PADDING = { top: 20, right: 20, bottom: 40, left: 50 };
+const CHART_HEIGHT = 260;
+const PADDING = { top: 30, right: 20, bottom: 50, left: 55 };
 const PLOT_WIDTH = CHART_WIDTH - PADDING.left - PADDING.right;
 const PLOT_HEIGHT = CHART_HEIGHT - PADDING.top - PADDING.bottom;
 
-function xScale(i: number, dataPoints: number) {
-  if (dataPoints <= 1) return PADDING.left + PLOT_WIDTH / 2;
-  return PADDING.left + (i / (dataPoints - 1)) * PLOT_WIDTH;
-}
+type ExpectedScoreKey = "cardio" | "strength" | "climbing_technical" | "flexibility";
 
 function DimensionChart({
   scoreHistory,
+  weeklyTargets,
   dimensionKey,
+  expectedScoreKey,
   label,
   color,
   target,
 }: {
   scoreHistory: ScoreHistory[];
+  weeklyTargets: WeeklyTarget[];
   dimensionKey: "cardio_score" | "strength_score" | "climbing_score" | "flexibility_score";
+  expectedScoreKey: ExpectedScoreKey;
   label: string;
   color: string;
   target: number;
 }) {
-  const dataPoints = scoreHistory.length;
+  // Build time-based X scale from both data sources
+  const scoreDates = scoreHistory.map((p) => new Date(p.week_ending).getTime());
+  const trajectoryDates = weeklyTargets.map((w) => new Date(w.week_start).getTime());
+  const allTimestamps = [...scoreDates, ...trajectoryDates];
+  const minTime = allTimestamps.length > 0 ? Math.min(...allTimestamps) : 0;
+  const maxTime = allTimestamps.length > 0 ? Math.max(...allTimestamps) : 0;
+  const timeRange = maxTime - minTime;
 
-  // Compute dynamic Y-axis range from data + target
-  const allValues = [...scoreHistory.map((p) => p[dimensionKey]), target];
+  function dateToX(dateStr: string): number {
+    if (timeRange === 0) return PADDING.left + PLOT_WIDTH / 2;
+    const t = new Date(dateStr).getTime();
+    return PADDING.left + ((t - minTime) / timeRange) * PLOT_WIDTH;
+  }
+
+  // Compute dynamic Y-axis range from data + trajectory + target
+  const trajectoryValues = weeklyTargets.map((w) => w.expected_scores[expectedScoreKey]);
+  const allValues = [
+    ...scoreHistory.map((p) => p[dimensionKey]),
+    ...trajectoryValues,
+    target,
+  ];
   const rawMin = Math.min(...allValues);
   const rawMax = Math.max(...allValues);
   const range = rawMax - rawMin;
   const buffer = Math.max(range * 0.1, 5);
   const yMin = Math.max(0, Math.floor((rawMin - buffer) / 5) * 5);
   const yMax = Math.min(100, Math.ceil((rawMax + buffer) / 5) * 5);
-  const yRange = yMax - yMin || 10; // fallback if all values identical
+  const yRange = yMax - yMin || 10;
 
   function yScale(score: number) {
     return PADDING.top + PLOT_HEIGHT - ((score - yMin) / yRange) * PLOT_HEIGHT;
@@ -54,28 +72,50 @@ function DimensionChart({
     gridLines.push(yMax);
   }
 
+  // Actual score path
   const pathData =
-    dataPoints >= 2
+    scoreHistory.length >= 2
       ? scoreHistory
-          .map((point, i) => `${i === 0 ? "M" : "L"} ${xScale(i, dataPoints)} ${yScale(point[dimensionKey])}`)
+          .map((point, i) => `${i === 0 ? "M" : "L"} ${dateToX(point.week_ending)} ${yScale(point[dimensionKey])}`)
+          .join(" ")
+      : null;
+
+  // Expected trajectory path
+  const trajectoryPath =
+    weeklyTargets.length >= 2
+      ? weeklyTargets
+          .map((w, i) => `${i === 0 ? "M" : "L"} ${dateToX(w.week_start)} ${yScale(w.expected_scores[expectedScoreKey])}`)
           .join(" ")
       : null;
 
   return (
     <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-4">
-      <div className="flex items-baseline justify-between mb-2">
+      <div className="flex items-baseline justify-between mb-1">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-          <h3 className="text-sm font-semibold text-white">{label}</h3>
+          <h3 className="text-base font-semibold text-white">{label}</h3>
         </div>
-        <span className="text-xs text-dark-muted">Target: {target}</span>
+        <span className="text-sm text-dark-muted">Target: {target}</span>
       </div>
+      {/* Legend */}
+      {weeklyTargets.length >= 2 && (
+        <div className="flex items-center gap-4 mb-1 ml-5">
+          <div className="flex items-center gap-1.5">
+            <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke={color} strokeWidth="2" /></svg>
+            <span className="text-xs text-dark-muted">Actual</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke={color} strokeWidth="1.5" strokeDasharray="3 3" opacity="0.4" /></svg>
+            <span className="text-xs text-dark-muted">Expected</span>
+          </div>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="w-full" style={{ minWidth: 300 }}>
           {/* Y-axis labels & grid */}
           {gridLines.map((v) => (
             <g key={v}>
-              <text x={PADDING.left - 10} y={yScale(v) + 4} textAnchor="end" className="text-[10px]" fill="#888">
+              <text x={PADDING.left - 10} y={yScale(v) + 5} textAnchor="end" fontSize="14" fill="#888">
                 {v}
               </text>
               <line
@@ -101,6 +141,18 @@ function DimensionChart({
             opacity={0.4}
           />
 
+          {/* Expected trajectory line */}
+          {trajectoryPath && (
+            <path
+              d={trajectoryPath}
+              fill="none"
+              stroke={color}
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+              opacity={0.35}
+            />
+          )}
+
           {/* Data line */}
           {pathData && (
             <path d={pathData} fill="none" stroke={color} strokeWidth={2} />
@@ -110,22 +162,37 @@ function DimensionChart({
           {scoreHistory.map((point, i) => (
             <circle
               key={i}
-              cx={xScale(i, dataPoints)}
+              cx={dateToX(point.week_ending)}
               cy={yScale(point[dimensionKey])}
-              r={4}
+              r={5}
               fill={color}
               opacity={0.8}
             />
           ))}
 
-          {/* X-axis labels */}
+          {/* Data labels */}
+          {scoreHistory.map((point, i) => (
+            <text
+              key={`label-${i}`}
+              x={dateToX(point.week_ending)}
+              y={yScale(point[dimensionKey]) - 12}
+              textAnchor="middle"
+              fontSize="13"
+              fill={color}
+              fontWeight="600"
+            >
+              {point[dimensionKey]}
+            </text>
+          ))}
+
+          {/* X-axis labels (only for score_history points) */}
           {scoreHistory.map((point, i) => (
             <text
               key={i}
-              x={xScale(i, dataPoints)}
-              y={CHART_HEIGHT - 5}
+              x={dateToX(point.week_ending)}
+              y={CHART_HEIGHT - 8}
               textAnchor="middle"
-              className="text-[9px]"
+              fontSize="12"
               fill="#888"
             >
               {new Date(point.week_ending).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -139,6 +206,7 @@ function DimensionChart({
 
 export default function ProgressPage() {
   const [scoreHistory, setScoreHistory] = useState<ScoreHistory[]>([]);
+  const [weeklyTargets, setWeeklyTargets] = useState<WeeklyTarget[]>([]);
   const [objective, setObjective] = useState<Objective | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -169,6 +237,26 @@ export default function ProgressPage() {
         .order("week_ending");
 
       setScoreHistory((history as ScoreHistory[]) || []);
+
+      // Fetch active training plan and its weekly targets for trajectory line
+      const { data: plans } = await supabase
+        .from("training_plans")
+        .select("id")
+        .eq("objective_id", obj.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      const activePlan = plans?.[0];
+      if (activePlan) {
+        const { data: targets } = await supabase
+          .from("weekly_targets")
+          .select("id, week_number, week_start, expected_scores")
+          .eq("plan_id", activePlan.id)
+          .order("week_number");
+
+        setWeeklyTargets((targets as WeeklyTarget[]) || []);
+      }
     }
     setLoading(false);
   }
@@ -201,10 +289,10 @@ export default function ProgressPage() {
   };
 
   const dimensions = [
-    { key: "cardio_score" as const, label: "Cardio", color: "#ef4444", target: targets.cardio },
-    { key: "strength_score" as const, label: "Strength", color: "#3b82f6", target: targets.strength },
-    { key: "climbing_score" as const, label: "Climbing", color: "#f59e0b", target: targets.climbing },
-    { key: "flexibility_score" as const, label: "Flexibility", color: "#22c55e", target: targets.flexibility },
+    { key: "cardio_score" as const, expectedKey: "cardio" as const, label: "Cardio", color: "#ef4444", target: targets.cardio },
+    { key: "strength_score" as const, expectedKey: "strength" as const, label: "Strength", color: "#3b82f6", target: targets.strength },
+    { key: "climbing_score" as const, expectedKey: "climbing_technical" as const, label: "Climbing", color: "#f59e0b", target: targets.climbing },
+    { key: "flexibility_score" as const, expectedKey: "flexibility" as const, label: "Flexibility", color: "#22c55e", target: targets.flexibility },
   ];
 
   return (
@@ -223,7 +311,9 @@ export default function ProgressPage() {
               <DimensionChart
                 key={dim.key}
                 scoreHistory={scoreHistory}
+                weeklyTargets={weeklyTargets}
                 dimensionKey={dim.key}
+                expectedScoreKey={dim.expectedKey}
                 label={dim.label}
                 color={dim.color}
                 target={dim.target}
