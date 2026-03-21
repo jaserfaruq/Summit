@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData, WeeklyReport } from "@/lib/types";
+import { usePlanData } from "@/lib/use-plan-data";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import ScoreArc from "@/components/ScoreArc";
 import AlternativesPanel from "@/components/AlternativesPanel";
@@ -23,6 +24,11 @@ export default function PlanPage() {
 function PlanContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // SWR-cached plan data — returns stale data instantly on revisit, revalidates in background
+  const { data: planData, isLoading: swrLoading, mutate } = usePlanData();
+
+  // Local state derived from SWR (allows real-time mutation feedback)
   const [plan, setPlan] = useState<TrainingPlan | null>(null);
   const [weeks, setWeeks] = useState<WeeklyTarget[]>([]);
   const [objective, setObjective] = useState<Objective | null>(null);
@@ -30,7 +36,6 @@ function PlanContent() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const [loadingSessions, setLoadingSessions] = useState<Record<number, boolean>>({});
   const [sessionErrors, setSessionErrors] = useState<Record<number, string>>({});
@@ -59,111 +64,43 @@ function PlanContent() {
   const assessmentId = searchParams.get("assessmentId");
   const loggedParam = searchParams.get("logged");
 
-  const fetchPlan = useCallback(async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  const loading = swrLoading && !plan;
 
-    const { data: plans } = await supabase
-      .from("training_plans")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    const activePlan = (plans as TrainingPlan[] | null)?.[0];
-    if (!activePlan) {
-      setLoading(false);
-      return;
-    }
-
-    setPlan(activePlan);
-
-    const { data: weekData } = await supabase
-      .from("weekly_targets")
-      .select("*")
-      .eq("plan_id", activePlan.id)
-      .order("week_number");
-
-    const weeksArr = (weekData as WeeklyTarget[]) || [];
-    setWeeks(weeksArr);
-
-    const cached: Record<number, PlanSession[]> = {};
-    for (const w of weeksArr) {
-      if (w.sessions && w.sessions.length > 0) {
-        cached[w.week_number] = w.sessions;
-        // Recompute total_hours from actual session durations
-        const totalMin = (w.sessions as PlanSession[]).reduce(
-          (sum: number, s: PlanSession) => sum + (s.estimatedMinutes || 0),
-          0
-        );
-        w.total_hours = Math.round((totalMin / 60) * 10) / 10;
-      }
-    }
-    setWeekSessions(cached);
-
-    const { data: objData } = await supabase
-      .from("objectives")
-      .select("*")
-      .eq("id", activePlan.objective_id)
-      .single();
-
-    const objTyped = objData as Objective;
-    setObjective(objTyped);
-
-    if (objTyped?.matched_validated_id) {
-      const { data: voData } = await supabase
-        .from("validated_objectives")
-        .select("*")
-        .eq("id", objTyped.matched_validated_id)
-        .single();
-      setValidatedObj(voData as ValidatedObjective | null);
-    }
-
-    const { data: logData } = await supabase
-      .from("workout_logs")
-      .select("*")
-      .eq("user_id", user.id);
-
-    setWorkoutLogs((logData as WorkoutLog[]) || []);
-
-    // Fetch score_history to detect which weeks have already been scored
-    // Only look at weekly_rating entries — not assessment entries which share week_ending dates
-    const { data: scoreData } = await supabase
-      .from("score_history")
-      .select("week_ending")
-      .eq("user_id", user.id)
-      .eq("objective_id", activePlan.objective_id)
-      .eq("change_reason", "weekly_rating");
-
-    if (scoreData && weeksArr.length > 0) {
-      const scoredEndings = new Set(scoreData.map((s: { week_ending: string }) => s.week_ending));
-      const scored = new Set<number>();
-      for (const w of weeksArr) {
-        if (scoredEndings.has(w.week_start)) {
-          scored.add(w.week_number);
+  // Sync SWR data into local state whenever it updates
+  useEffect(() => {
+    if (!planData.plan) return;
+    setPlan(planData.plan);
+    setWeeks(planData.weeks);
+    setObjective(planData.objective);
+    setValidatedObj(planData.validatedObj);
+    setWorkoutLogs(planData.workoutLogs);
+    setWeekSessions((prev) => {
+      // Merge: keep locally-generated sessions, update from SWR for the rest
+      const merged = { ...prev };
+      for (const [k, v] of Object.entries(planData.weekSessions)) {
+        if (!merged[Number(k)] || merged[Number(k)].length === 0) {
+          merged[Number(k)] = v;
         }
       }
-      setScoredWeekNumbers(scored);
+      return merged;
+    });
+    setScoredWeekNumbers(planData.scoredWeekNumbers);
+    if (planData.activeWeek && expandedWeek === null) {
+      setExpandedWeek(planData.activeWeek);
     }
+  }, [planData]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Auto-expand the active week (tracked by current_week_number, not calendar)
-    if (activePlan.current_week_number) {
-      setExpandedWeek(activePlan.current_week_number);
-    }
-
-    setLoading(false);
-  }, []);
+  // Re-fetch on loggedParam change (after logging a workout)
+  useEffect(() => {
+    if (loggedParam) mutate();
+  }, [loggedParam, mutate]);
 
   useEffect(() => {
     if (shouldGenerate && objectiveId && assessmentId) {
       generatePlan(objectiveId, assessmentId);
-    } else {
-      fetchPlan();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loggedParam]);
+  }, []);
 
   async function generatePlan(objId: string, assId: string) {
     setGenerating(true);
@@ -186,7 +123,7 @@ function PlanContent() {
 
       const planResult = await res.json();
       router.replace("/plan");
-      await fetchPlan();
+      await mutate();
 
       // Fire batch session generation in the background (don't await)
       if (planResult.planId) {
@@ -347,8 +284,8 @@ function PlanContent() {
         throw new Error(data.error || "Failed to rebalance plan");
       }
 
-      // Refresh plan data to pick up rebalanced weeks
-      await fetchPlan();
+      // Refresh plan data to pick up rebalanced sessions
+      await mutate();
 
       // Fire batch session generation in the background (don't await)
       fetch("/api/generate-all-sessions", {
@@ -383,7 +320,7 @@ function PlanContent() {
       }
 
       // Refresh plan data to pick up new targets and cleared sessions
-      await fetchPlan();
+      await mutate();
     } catch (error) {
       console.error("Error adjusting difficulty:", error);
       alert(error instanceof Error ? error.message : "Failed to adjust difficulty");
@@ -424,7 +361,7 @@ function PlanContent() {
       if (result.weekReverted) {
         alert("Week un-completed and scores reverted to previous values.");
       }
-      await fetchPlan();
+      await mutate();
     } catch (error) {
       console.error("Error deleting workout:", error);
       alert(error instanceof Error ? error.message : "Failed to delete workout");

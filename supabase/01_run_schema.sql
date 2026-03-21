@@ -130,6 +130,8 @@ CREATE TABLE objectives (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE INDEX idx_objectives_user ON objectives (user_id);
+
 ALTER TABLE objectives ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can read own objectives" ON objectives
@@ -182,6 +184,8 @@ CREATE TABLE score_history (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE INDEX idx_score_history_user_objective ON score_history (user_id, objective_id, change_reason);
+
 ALTER TABLE score_history ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users own their score history" ON score_history
@@ -199,6 +203,8 @@ CREATE TABLE training_plans (
   status TEXT DEFAULT 'active'
 );
 
+CREATE INDEX idx_training_plans_user_status ON training_plans (user_id, status);
+
 ALTER TABLE training_plans ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users own their training plans" ON training_plans
@@ -208,6 +214,7 @@ CREATE POLICY "Users own their training plans" ON training_plans
 CREATE TABLE weekly_targets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   plan_id UUID NOT NULL REFERENCES training_plans(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   week_number INT NOT NULL,
   week_start DATE NOT NULL,
   week_type TEXT NOT NULL,
@@ -216,16 +223,13 @@ CREATE TABLE weekly_targets (
   sessions JSONB NOT NULL DEFAULT '[]'
 );
 
+CREATE INDEX idx_weekly_targets_plan_week ON weekly_targets (plan_id, week_number);
+CREATE INDEX idx_weekly_targets_user ON weekly_targets (user_id);
+
 ALTER TABLE weekly_targets ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can read weekly targets via plan" ON weekly_targets
-  FOR SELECT TO authenticated USING (
-    EXISTS (SELECT 1 FROM training_plans WHERE training_plans.id = weekly_targets.plan_id AND training_plans.user_id = auth.uid())
-  );
-CREATE POLICY "Users can manage weekly targets via plan" ON weekly_targets
-  FOR ALL TO authenticated USING (
-    EXISTS (SELECT 1 FROM training_plans WHERE training_plans.id = weekly_targets.plan_id AND training_plans.user_id = auth.uid())
-  );
+CREATE POLICY "Users own their weekly targets" ON weekly_targets
+  FOR ALL TO authenticated USING (auth.uid() = user_id);
 
 -- 9. WORKOUT_LOGS
 CREATE TABLE workout_logs (
@@ -241,6 +245,8 @@ CREATE TABLE workout_logs (
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+CREATE INDEX idx_workout_logs_user_plan ON workout_logs (user_id, plan_id);
 
 ALTER TABLE workout_logs ENABLE ROW LEVEL SECURITY;
 

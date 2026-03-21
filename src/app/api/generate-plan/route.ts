@@ -240,6 +240,7 @@ export async function POST(request: NextRequest) {
     // Store weekly targets with empty sessions
     const weeklyTargets = weeks.map((week) => ({
       plan_id: plan.id,
+      user_id: user.id,
       week_number: week.weekNumber,
       week_start: week.weekStartDate,
       week_type: week.weekType,
