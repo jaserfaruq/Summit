@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { ValidatedObjective } from "@/lib/types";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function GET(request: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
