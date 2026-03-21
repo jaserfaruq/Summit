@@ -280,6 +280,7 @@ export interface PlanData {
   };
   heroImageUrl?: string | null;
   weeks: PlanWeek[];
+  difficultyAdjustments?: DifficultyAdjustment[];
 }
 
 export interface PlanWeek {
@@ -404,6 +405,39 @@ export type CompleteWeekResponse = WeekCompletionFeedback;
 export interface RebalanceRequest {
   planId: string;
   currentWeek: number;
+}
+
+// ============================================
+// Difficulty adjustment types
+// ============================================
+
+export type DifficultyLevel = 'much_easier' | 'slightly_easier' | 'slightly_harder' | 'much_harder';
+
+export const DIFFICULTY_SCALE_FACTORS: Record<DifficultyLevel, number> = {
+  much_easier: 0.60,
+  slightly_easier: 0.80,
+  slightly_harder: 1.20,
+  much_harder: 1.50,
+};
+
+export const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
+  much_easier: 'Much Easier',
+  slightly_easier: 'Slightly Easier',
+  slightly_harder: 'Slightly Harder',
+  much_harder: 'Much Harder',
+};
+
+export interface AdjustDifficultyRequest {
+  planId: string;
+  level: DifficultyLevel;
+}
+
+export interface DifficultyAdjustment {
+  timestamp: string;
+  level: DifficultyLevel;
+  scaleFactor: number;
+  previousTargets: DimensionScores;
+  newTargets: DimensionScores;
 }
 
 export interface FindRoutesRequest {

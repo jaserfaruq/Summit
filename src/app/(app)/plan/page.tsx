@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback } from "@/lib/types";
+import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DifficultyAdjustment, PlanData } from "@/lib/types";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import Link from "next/link";
 
@@ -38,6 +38,7 @@ function PlanContent() {
   const [completingWeek, setCompletingWeek] = useState<number | null>(null);
   const [weekCompleteResult, setWeekCompleteResult] = useState<Record<number, WeekCompletionFeedback>>({});
   const [rebalancing, setRebalancing] = useState(false);
+  const [adjustingDifficulty, setAdjustingDifficulty] = useState<DifficultyLevel | null>(null);
   const [batchGenerating, setBatchGenerating] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ generated: number; total: number } | null>(null);
   const [deletingLog, setDeletingLog] = useState<string | null>(null);
@@ -356,6 +357,34 @@ function PlanContent() {
     setRebalancing(false);
   }
 
+  async function handleAdjustDifficulty(level: DifficultyLevel) {
+    if (!plan) return;
+    const label = DIFFICULTY_LABELS[level];
+    if (!confirm(`Adjust plan to "${label}"? This will update your target scores and graduation benchmarks, and regenerate remaining sessions.`)) {
+      return;
+    }
+    setAdjustingDifficulty(level);
+    try {
+      const res = await fetch("/api/adjust-difficulty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id, level }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to adjust difficulty");
+      }
+
+      // Refresh plan data to pick up new targets and cleared sessions
+      await fetchPlan();
+    } catch (error) {
+      console.error("Error adjusting difficulty:", error);
+      alert(error instanceof Error ? error.message : "Failed to adjust difficulty");
+    }
+    setAdjustingDifficulty(null);
+  }
+
   function getLogsForWeek(week: WeeklyTarget): WorkoutLog[] {
     return workoutLogs.filter(
       (log) => log.week_number === week.week_number && log.plan_id === plan?.id
@@ -602,6 +631,41 @@ function PlanContent() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Adjust Difficulty */}
+      {objective && plan && (
+        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-white">Adjust Difficulty</h3>
+            <span className="text-xs text-dark-muted">
+              {(() => {
+                const adjustments = (plan.plan_data as PlanData)?.difficultyAdjustments;
+                if (!adjustments || adjustments.length === 0) return "Original";
+                const net = adjustments.reduce((sum: number, a: DifficultyAdjustment) =>
+                  sum + (a.level.includes("harder") ? 1 : -1), 0);
+                if (net === 0) return "Original";
+                return net > 0 ? `+${net} harder` : `${net} easier`;
+              })()}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {(["much_easier", "slightly_easier", "slightly_harder", "much_harder"] as DifficultyLevel[]).map((level) => (
+              <button
+                key={level}
+                onClick={() => handleAdjustDifficulty(level)}
+                disabled={!!adjustingDifficulty}
+                className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors border ${
+                  level.includes("easier")
+                    ? "bg-blue-900/20 border-blue-800/40 text-blue-300 hover:bg-blue-900/30"
+                    : "bg-burnt-orange/10 border-burnt-orange/30 text-burnt-orange hover:bg-burnt-orange/20"
+                } disabled:opacity-50`}
+              >
+                {adjustingDifficulty === level ? "Adjusting..." : DIFFICULTY_LABELS[level]}
+              </button>
+            ))}
           </div>
         </div>
       )}

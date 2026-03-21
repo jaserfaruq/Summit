@@ -310,6 +310,31 @@ MAINTENANCE MODE: You will receive per-dimension status flags. Dimensions marked
 
 Return the same weekly session JSON format as the plan generation prompt.`;
 
+export const PROMPT_RESCALE_BENCHMARKS_SYSTEM = `You are an expert mountain athletics coach rescaling graduation benchmarks for a training plan whose difficulty has been adjusted. The athlete wants their plan to be harder or easier, so the target scores have changed. You must update the graduation benchmark targets to match the new target scores while keeping the same exercises.
+
+Rules:
+- Keep the SAME exerciseId and exerciseName for every benchmark — only change graduationTarget and whyThisTarget.
+- Scale the numeric values in graduationTarget proportionally to the score change. For example, if a dimension's target score increases by 15%, increase the benchmark distances, reps, elevation, or duration by roughly 15%.
+- Maintain the TRAINING OVERSHOOT RULE: graduation targets should remain above the objective's actual requirements (~150% for cardio distance/elevation, +1 sub-grade for outdoor climbing, +2 for indoor). When scaling harder, overshoot increases. When scaling easier, overshoot decreases but should still exceed the objective requirements unless the new target is very low.
+- For text-based targets (e.g., "Complete 10-mile hike with 4500 ft gain"), update the numbers proportionally.
+- For climbing grades, adjust by sub-grades when the score change is significant enough (10+ point change).
+- Round to sensible values (whole reps, nearest 0.5 miles, nearest 100 ft elevation, etc.).
+
+Return only valid JSON matching this schema:
+{
+  "graduationBenchmarks": {
+    "cardio": [{
+      "exerciseId": "string (same as input)",
+      "exerciseName": "string (same as input)",
+      "graduationTarget": "string (rescaled)",
+      "whyThisTarget": "string (1 sentence explaining the new target)"
+    }],
+    "strength": [ ... ],
+    "climbing_technical": [ ... ],
+    "flexibility": [ ... ]
+  }
+}`;
+
 export const PROMPT_SEARCH_SYSTEM = `You are an expert mountaineering and outdoor athletics guide. Given a search query for a mountain, peak, trail, or route, suggest exactly 3 closely related objectives in the same geographic area. These should be real, well-known routes that someone searching for this term would likely be interested in.
 
 Focus on:
