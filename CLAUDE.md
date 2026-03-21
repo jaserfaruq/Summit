@@ -195,7 +195,8 @@ CREATE TABLE weekly_targets (
   week_type TEXT NOT NULL,       -- test | recovery | regular | taper
   total_hours FLOAT,
   expected_scores JSONB NOT NULL,
-  sessions JSONB NOT NULL
+  sessions JSONB NOT NULL,
+  weekly_report JSONB              -- AI-generated weekly report, stored after background generation
 );
 -- RLS: via plan ownership
 ```
@@ -336,7 +337,19 @@ CREATE TABLE component_feedback (
 1. Update current scores on objective.
 1. Advance `current_week_number`.
 1. Check rebalance threshold (5+ points off trajectory in any dimension). If triggered, call `/api/rebalance`.
+1. **Trigger background report generation:** Fire `/api/generate-weekly-report` asynchronously (don’t wait for it). The report generates in the background.
    **Output:** `{ updatedScores, rebalanceTriggered }`
+
+### POST /api/generate-weekly-report
+
+**Input:** `{ planId, weekNumber }`
+**Logic:**
+
+1. Fetch: weekly_target (sessions, expected_scores, week_type), workout_logs for this week, score_history entries for this week and previous week, objective (target scores, relevance profiles, taglines), AI relevance evaluation results (multiplier adjustments and explanations from Prompt 3B).
+1. Call Claude with Prompt REPORT (see below).
+1. Store the report in `weekly_targets.weekly_report` as JSON.
+1. **This runs in the background** — the user doesn’t wait for it. The UI polls or checks for the report and shows a “View Report” button on the week card when it’s available.
+   **Output:** `{ report }` (stored, not returned to user directly)
 
 ### Rating Multipliers
 
@@ -739,6 +752,65 @@ Return JSON:
 }
 ```
 
+### Prompt REPORT: Weekly Report Generation
+
+```
+You are a mountain athletics coach writing a weekly training report for your athlete. You have complete data about what they did this week, how it affected their scores, and where they stand relative to their plan. Write a structured, warm report with clear section headers.
+
+Objective: {objectiveName} via {route}
+Week: {weekNumber} of {totalWeeks}
+Week type: {weekType}
+
+Sessions prescribed: {sessionsList}
+Sessions completed: {completedCount} of {totalCount}
+Ratings given: {ratingsPerDimension}
+Comments provided: {commentsPerDimension}
+
+AI relevance evaluations (from Prompt 3B):
+{relevanceResults — multiplier adjustments and explanations per dimension}
+
+Score changes:
+{perDimension: { before, after, change, expectedGain, actualMultiplier, reason }}
+
+Expected scores at this point (from linear trajectory):
+{expectedScores}
+
+Target scores: {targetScores}
+
+Write the report with these 5 sections:
+
+## Week Summary
+One paragraph. How many sessions completed, ratings breakdown, overall effort level. Acknowledge what they did well first.
+
+## Score Changes & Why
+For EACH dimension that had a score change, explain: the score before → after, what caused it. If the AI adjusted the multiplier because of a relevance evaluation, explain in plain language why — connect their specific comment to the specific relevance profile components. Example: "Your flexibility dropped because the yoga class you described focused on neck and shoulders, which aren't key components for Mont Blanc. The prescribed session targeted hip flexors and ankles — those are what move your score."
+
+For dimensions where they scored 3 (just right), keep it brief: "Cardio: 35 → 38 (+3). You completed both sessions as prescribed. On track."
+
+For missed sessions, explain the -1 regression.
+
+## Where You Stand
+For each dimension, one line: actual score vs expected trajectory at this point. Flag anything 3+ points ahead or behind. Keep it visual and clear.
+
+## Next Week Focus
+2-3 sentences of specific, actionable guidance. Name the session(s) to prioritize. If a dimension has buffer, name it as the one to skip if life gets busy. Be concrete — "prioritize Tuesday's hip mobility session" not "work on flexibility."
+
+## Consider Adjusting?
+ONLY include this section if any dimension is 4+ points behind trajectory for 2+ consecutive weeks. Suggest "consider rebalancing" or "consider making [dimension] easier/harder" with a brief explanation of why. If everything is on track or ahead, DO NOT include this section.
+
+Tone: structured with clear headers, warm but direct. Like a coach's written weekly check-in. No fluff. Under 400 words total.
+
+Return JSON:
+{
+  "summary": "string (markdown)",
+  "scoreChanges": "string (markdown)",
+  "whereYouStand": "string (markdown)",
+  "nextWeekFocus": "string (markdown)",
+  "considerAdjusting": "string (markdown) | null",
+  "generatedAt": "ISO timestamp"
+}
+```
+
 -----
 
 ## Pages & UI
@@ -814,6 +886,7 @@ Assessment is per-objective and happens AFTER creating the objective. Two layers
   - Benchmark sessions: star icon + blue highlight + graduation target inline.
   - **“Try Different” button** per session → AlternativesPanel with 2 AI-generated alternatives.
 - **Rebalance button** if scores deviate significantly.
+- **“View Report” button** on completed weeks — appears when weekly_report is populated. Opens the AI-generated weekly report inline or as a modal. Shows all 5 sections with markdown rendering. The button should have a subtle animation or indicator when the report first becomes available.
 
 ### /log
 
@@ -832,31 +905,94 @@ Assessment is per-objective and happens AFTER creating the objective. Two layers
 - Solid dots = test weeks (high confidence). Lighter dots = regular weeks.
 - Horizontal dashed lines = target scores.
 
-### /admin/objectives (validator only)
+### /admin (validator only — single page with 5 tabs)
 
-- List of validated_objectives with search/filter.
-- Edit form for each: all fields editable.
-- Add new validated objective form.
-- Only visible if `profiles.is_validator = true`.
+Only accessible if `profiles.is_validator = true`. Redirects non-validators to /dashboard.
 
-### Validator overlay (NOT YET BUILT — Priority 2)
+**Tab 1: Objectives**
 
-- On objective detail page, if is_validator.
-- Shows relevance profile components per dimension.
-- Upvote/downvote buttons per component.
-- “Add missing component” text input.
+- List view of all validated_objectives with columns: name, route, type, difficulty, status, user match count.
+- Search and filter by type, difficulty, status, tags.
+- Click any objective to expand inline editing panel showing ALL fields:
+  - Core: name, route, match_aliases (editable tag list), type (dropdown), difficulty (dropdown), description (textarea), status (active/draft/retired).
+  - Physical: summit_elevation_ft, total_gain_ft, distance_miles, duration_days, technical_grade.
+  - Tags: editable tag list.
+  - **Target Scores:** 4 number inputs (cardio, strength, climbing_technical, flexibility) with tagline text fields next to each.
+  - **Relevance Profiles (inline):** For each dimension, show key components and irrelevant components as editable lists. Each component has: text (editable), vote count from component_feedback (read-only). Add component button. Delete component button.
+  - **Graduation Benchmarks (inline):** For each dimension, show assigned benchmark exercises with their graduation targets. Each benchmark row: exercise name (dropdown from benchmark_exercises library), graduation target (editable text). Add benchmark button. Remove benchmark button.
+  - **Recommended weeks:** number input.
+  - **Metadata:** created_by, last_reviewed (auto-updates on save).
+- “Add New Objective” button at top → opens empty form.
+- “Save” button persists all changes directly to Supabase.
+- “Retire” button sets status = retired (soft delete).
+
+**Tab 2: Exercises**
+
+- List view of all benchmark_exercises with columns: name, dimension, measurement type, status, usage count (how many validated objectives reference this exercise).
+- Search and filter by dimension, tags, gym-reproducible.
+- Click to expand inline editing:
+  - Name, description (textarea — should be clear enough to follow without a coach).
+  - Dimension (dropdown), tags (editable tag list), equipment_required (editable list).
+  - is_gym_reproducible (checkbox).
+  - Difficulty scale: beginner, intermediate, strong, elite targets (4 text fields).
+  - Measurement type (dropdown: reps/time/distance/pass_fail/self_rated), measurement unit.
+  - **Cross-reference (read-only):** List of validated objectives that use this exercise with their graduation targets. Click to jump to that objective in Tab 1.
+- “Add New Exercise” button.
+- “Save” persists to Supabase.
+
+**Tab 3: Feedback**
+
+- Shows all component_feedback rows, grouped by objective.
+- Filter by: dimension, objective type, vote direction, component type (key/irrelevant/user_added).
+- Sort by: most upvoted, most recent, most controversial (high votes both directions).
+- Each feedback item shows: component text, dimension, vote (up/down), user who submitted, objective name.
+- **Pending queue:** User-added components that haven’t been reviewed. Admin can:
+  - “Approve” → adds the component to the validated objective’s canonical relevance profile.
+  - “Reject” → removes from queue, keeps in feedback table for record.
+  - “Edit & Approve” → modify text before adding to canonical profile.
+- **Trending view:** Components with 3+ upvotes across similar objective types, not yet in canonical profiles. Candidates for addition.
+
+**Tab 4: Activity**
+
+- **Usage stats:** Total users, active plans, objectives created this month.
+- **Popular objectives:** Table of validated objectives sorted by match count. Shows Gold/Silver/Bronze breakdown.
+- **Novel objective candidates:** Table of user-created objectives that are Bronze tier, sorted by frequency. Shows: objective name, route (if provided), type, how many users created it, average AI-generated target scores. These are candidates for your team to validate and promote to the library.
+  - “Promote to Validated” button → pre-fills a new validated objective form in Tab 1 with the AI-generated data as starting point.
+- **Tier distribution:** Simple chart showing % of objectives that are Gold/Silver/Bronze.
+
+**Tab 5: AI Review**
+
+- Shows AI-generated outputs for Silver and Bronze tier objectives.
+- Filter by: tier, objective type, date range.
+- Each row shows: user’s objective name, tier, AI-generated target scores, AI-generated taglines, AI-generated graduation benchmarks.
+- Expandable to see full relevance profiles.
+- **Quality flags:** Admin can mark an AI output as:
+  - “Looks good” — no action needed.
+  - “Needs adjustment” — flag for review, add a note.
+  - “Promote to validated” — takes the AI output, opens it in Tab 1 for refinement, then saves as a validated objective.
+- This is how you catch bad AI outputs and also discover new objectives to add to the library.
+
+### Validator overlay on objective detail page (user-facing)
+
+- On the regular /plan or objective detail page, if is_validator.
+- Shows relevance profile components per dimension with upvote/downvote buttons.
+- “Add missing component” text input per dimension.
 - Vote counts displayed.
+- This is the lightweight feedback mechanism. The admin portal (Tab 3) is where you review and act on it.
 
 -----
 
 ## Features Not Yet Built (Priority Order)
 
 1. **AI relevance evaluation on non-3 ratings** — Prompt 3B. Comment required, AI adjusts multiplier ±0.25. The core product differentiator.
-1. **Assessment redesign** — Two-layer assessment: standard questions + AI-generated objective-specific follow-ups + AI scoring with per-dimension reasoning. Objective-first flow. Prompts ASSESS-Q and ASSESS-SCORE.
-1. **Validator overlay UI** — Upvote/downvote components on relevance profiles. Table exists, no UI.
-1. **Route recommendations UI** — “Find Routes” button on cardio sessions. API exists, needs UI integration + web_search enablement.
-1. **Score chart on dashboard** — Line chart over time. Exists on /progress, not on dashboard.
-1. **AI-powered rebalancing** — Prompt 4 exists but not called. Math-only rebalancing works for now.
+1. **Assessment redesign** — Two-layer assessment: standard questions + AI-generated objective-specific follow-ups (including lead/follow) + AI scoring with per-dimension reasoning + programming hints. Objective-first flow. Prompts ASSESS-Q and ASSESS-SCORE.
+1. **Max hours update** — Change cap from 10 to 20.
+1. **Weekly report** — AI-generated end-of-week report (Prompt REPORT). Background generation after week completion. 5 sections: summary, score changes with relevance explanations, trajectory status, next week focus, optional adjustment suggestions. “View Report” button on completed weeks.
+1. **Admin portal** — Single page at /admin with 5 tabs: Objectives (with inline relevance profiles and graduation benchmarks), Exercises (with cross-references), Feedback (vote aggregation + approval queue), Activity (usage stats + novel objective candidates), AI Review (audit Silver/Bronze outputs). Replaces the current basic /admin/objectives page.
+1. **Validator overlay UI** — Lightweight upvote/downvote on objective detail page for validators.
+1. **Route recommendations UI** — “Find Routes” on cardio sessions. Enable web_search.
+1. **Score chart on dashboard** — Compact line chart from score_history.
+1. **AI-powered rebalancing** — Prompt 4 exists but not called. Math-only works for now.
 
 -----
 
@@ -886,9 +1022,12 @@ Assessment is per-objective and happens AFTER creating the objective. Two layers
 
 ## Build Order (remaining work)
 
+1. **Assessment redesign** — Implement two-layer assessment (Prompts ASSESS-Q and ASSESS-SCORE). Standard questions → AI-generated follow-ups (lead/follow first for climbing objectives) → AI scoring with reasoning + programming hints. Flip flow to objective-first, then assess. Wire programming hints through to plan generation and Prompt 2B.
 1. **AI relevance evaluation** — Implement Prompt 3B. Add mandatory comment field for non-3 ratings. Wire AI multiplier adjustment into /api/complete-week.
-1. **Assessment redesign** — Implement two-layer assessment (Prompts ASSESS-Q and ASSESS-SCORE). Standard questions → AI-generated follow-ups → AI scoring with reasoning. Flip flow to objective-first, then assess. Update /assessment/[objectiveId] page and dashboard CTAs.
-1. **Validator overlay** — Build UI on objective detail page for is_validator users.
-1. **Route recommendations** — Wire /api/find-routes into cardio session cards. Enable web_search tool.
-1. **Dashboard score chart** — Add line chart from score_history to /dashboard.
 1. **Max hours update** — Change cap from 10 to 20.
+1. **Weekly report** — Implement Prompt REPORT and /api/generate-weekly-report. Add weekly_report column to weekly_targets. Trigger background generation from /api/complete-week. Add “View Report” button on completed weeks in /plan.
+1. **Admin portal** — Replace /admin/objectives with full 5-tab admin portal at /admin. Tabs: Objectives, Exercises, Feedback, Activity, AI Review. All inline editing with direct Supabase persistence.
+1. **Validator overlay** — Build lightweight UI on objective detail page for is_validator users.
+1. **Route recommendations** — Wire /api/find-routes into cardio session cards. Enable web_search tool.
+1. **Dashboard score chart** — Add compact line chart from score_history to /dashboard.
+1. **AI-powered rebalancing** — Prompt 4 via Claude for session regeneration (currently math-only).
