@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GeneratePlanRequest } from "@/lib/types";
 import { expectedScoresAtWeek } from "@/lib/scoring";
 import { fetchHeroImageUrl } from "@/lib/unsplash";
+import { findSeedMatch } from "@/lib/seed-data";
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
@@ -43,9 +44,46 @@ export async function POST(request: NextRequest) {
     .eq("id", user.id)
     .single();
 
-  // If objective has a matched validated objective, refresh graduation benchmarks
-  // from the validated source (fixes stale AI-generated data)
-  if (objective.matched_validated_id) {
+  // Look up seed data first (authoritative), then fall back to validated_objectives table
+  const seedData = findSeedMatch(objective.name);
+
+  if (seedData) {
+    // Seed data is the single source of truth for gold objectives
+    objective.graduation_benchmarks = seedData.graduation_benchmarks;
+    const updateFields: Record<string, unknown> = {
+      graduation_benchmarks: seedData.graduation_benchmarks,
+      taglines: seedData.taglines,
+      target_cardio_score: seedData.target_scores.cardio,
+      target_strength_score: seedData.target_scores.strength,
+      target_climbing_score: seedData.target_scores.climbing_technical,
+      target_flexibility_score: seedData.target_scores.flexibility,
+      tier: "gold",
+    };
+
+    // Also link to validated objective if not already linked
+    if (!objective.matched_validated_id) {
+      const { data: allVOs } = await supabase
+        .from("validated_objectives")
+        .select("id, name")
+        .eq("status", "active");
+      const voMatch = allVOs?.find((vo: { name: string }) =>
+        vo.name.toLowerCase() === seedData.name.toLowerCase()
+      );
+      if (voMatch) {
+        updateFields.matched_validated_id = voMatch.id;
+        objective.matched_validated_id = voMatch.id;
+      }
+    }
+
+    await supabase.from("objectives").update(updateFields).eq("id", objectiveId);
+
+    // Update local target scores for plan generation
+    objective.target_cardio_score = seedData.target_scores.cardio;
+    objective.target_strength_score = seedData.target_scores.strength;
+    objective.target_climbing_score = seedData.target_scores.climbing_technical;
+    objective.target_flexibility_score = seedData.target_scores.flexibility;
+  } else if (objective.matched_validated_id) {
+    // No seed match but has a validated ID — refresh from DB
     const { data: validatedObj } = await supabase
       .from("validated_objectives")
       .select("graduation_benchmarks, target_scores, taglines, relevance_profiles")
@@ -54,7 +92,6 @@ export async function POST(request: NextRequest) {
 
     if (validatedObj?.graduation_benchmarks) {
       objective.graduation_benchmarks = validatedObj.graduation_benchmarks;
-      // Update the objective record so it stays in sync
       await supabase
         .from("objectives")
         .update({
@@ -65,7 +102,7 @@ export async function POST(request: NextRequest) {
         .eq("id", objectiveId);
     }
   } else {
-    // No validated match — try to find one by name
+    // No seed match, no validated match — try to find one by name in DB
     const normalizedName = objective.name.toLowerCase().trim();
     const { data: allVOs } = await supabase
       .from("validated_objectives")
@@ -98,7 +135,6 @@ export async function POST(request: NextRequest) {
           })
           .eq("id", objectiveId);
 
-        // Update local target scores for plan generation
         objective.target_cardio_score = match.target_scores.cardio;
         objective.target_strength_score = match.target_scores.strength;
         objective.target_climbing_score = match.target_scores.climbing_technical;
