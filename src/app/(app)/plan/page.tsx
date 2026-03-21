@@ -286,6 +286,13 @@ function PlanContent() {
 
       // Refresh plan data to pick up rebalanced sessions
       await mutate();
+
+      // Fire batch session generation in the background (don't await)
+      fetch("/api/generate-all-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id }),
+      }).catch((err) => console.error("Background session generation after rebalance failed:", err));
     } catch (error) {
       console.error("Error rebalancing:", error);
       alert(error instanceof Error ? error.message : "Failed to rebalance plan");
