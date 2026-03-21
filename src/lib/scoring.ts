@@ -1,4 +1,4 @@
-import { DimensionScores, PlanSession, Dimension, WorkoutRating, RATING_MULTIPLIERS, DifficultyLevel, DIFFICULTY_SCALE_FACTORS } from "./types";
+import { DimensionScores, PlanSession, Dimension, WorkoutRating, RATING_MULTIPLIERS } from "./types";
 
 const DIMENSIONS: Dimension[] = ["cardio", "strength", "climbing_technical", "flexibility"];
 
