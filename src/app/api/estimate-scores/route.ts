@@ -41,6 +41,16 @@ ${anchors.length > 0 ? `Calibration anchors: ${JSON.stringify(anchors.map(a => (
   try {
     const responseText = await callClaude(systemPrompt, userMessage);
     const parsed = parseClaudeJSON<EstimateScoresResponse>(responseText);
+
+    // Enforce minimum benchmark counts per dimension
+    const gb = parsed.graduationBenchmarks;
+    if (!gb.cardio || gb.cardio.length < 2) {
+      throw new Error("AI returned fewer than 2 cardio graduation benchmarks");
+    }
+    if (!gb.strength || gb.strength.length < 2) {
+      throw new Error("AI returned fewer than 2 strength graduation benchmarks");
+    }
+
     return NextResponse.json(parsed);
   } catch (error) {
     console.error("Error estimating scores:", error);
