@@ -19,8 +19,10 @@ export default function UpdateAssessmentButton({
   function handleClick() {
     if (planId) {
       setShowConfirm(true);
+    } else if (objectiveId) {
+      router.push(`/assessment/${objectiveId}`);
     } else {
-      router.push("/assessment");
+      router.push("/calendar");
     }
   }
 
@@ -53,10 +55,11 @@ export default function UpdateAssessmentButton({
               </button>
               <button
                 onClick={() => {
-                  const params = new URLSearchParams();
-                  if (planId) params.set("planId", planId);
-                  if (objectiveId) params.set("objectiveId", objectiveId);
-                  router.push(`/assessment?${params.toString()}`);
+                  if (objectiveId) {
+                    router.push(`/assessment/${objectiveId}`);
+                  } else {
+                    router.push("/calendar");
+                  }
                 }}
                 className="px-4 py-2 text-sm bg-gold hover:bg-gold/90 text-dark-bg rounded-lg font-medium transition-colors"
               >

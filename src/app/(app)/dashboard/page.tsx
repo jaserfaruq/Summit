@@ -73,55 +73,59 @@ export default async function DashboardPage() {
     }
   }
 
-  // No assessment state
-  if (!latestAssessment) {
+  // No objective — first CTA is to add one
+  if (!activeObjective) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-12 text-center">
         <h2 className="text-3xl font-bold text-white mb-4">Welcome to Summit Planner</h2>
         <p className="text-dark-muted mb-8">
-          Start by taking a quick fitness assessment to establish your baseline scores.
+          Start by adding your first summit objective, then we&apos;ll assess your fitness for it.
         </p>
         <Link
-          href="/assessment"
+          href="/calendar"
           className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
         >
-          Take Your Fitness Assessment
+          Add Your First Objective
         </Link>
       </div>
     );
   }
 
-  // Has assessment but no objective
-  if (!activeObjective) {
+  // Has objective but no assessment for it — assess fitness
+  // Check for an assessment linked to this specific objective
+  const objectiveAssessment = latestAssessment?.objective_id === activeObjective.id
+    ? latestAssessment
+    : null;
+
+  if (!objectiveAssessment) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-12 text-center">
-        <h2 className="text-3xl font-bold text-white mb-4">Assessment Complete</h2>
-        <p className="text-dark-muted mb-2">
-          Cardio: {latestAssessment.cardio_score} | Strength: {latestAssessment.strength_score} |
-          Climbing: {latestAssessment.climbing_score} | Flexibility: {latestAssessment.flexibility_score}
+        <h2 className="text-3xl font-bold text-white mb-4">{activeObjective.name}</h2>
+        <p className="text-dark-muted mb-8">
+          Assess your current fitness level for this objective so we can build your training plan.
         </p>
-        <p className="text-dark-muted mb-8">Now add your first summit objective to start training.</p>
-        <div className="flex flex-col items-center gap-3">
-          <Link
-            href="/calendar"
-            className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
-          >
-            Add Your First Objective
-          </Link>
-          <UpdateAssessmentButton />
-        </div>
+        <Link
+          href={`/assessment/${activeObjective.id}`}
+          className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
+        >
+          Assess Your Fitness for {activeObjective.name}
+        </Link>
       </div>
     );
   }
 
-  // Has objective but no plan (shouldn't happen in V1 — objective creation auto-generates a plan)
+  // Has assessment but no plan — generate plan
   if (!activePlan) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-12 text-center">
         <h2 className="text-3xl font-bold text-white mb-4">{activeObjective.name}</h2>
-        <p className="text-dark-muted mb-8">Your plan is being set up. Head to the plan page to get started.</p>
+        <p className="text-dark-muted mb-2">
+          Cardio: {objectiveAssessment.cardio_score} | Strength: {objectiveAssessment.strength_score} |
+          Climbing: {objectiveAssessment.climbing_score} | Flexibility: {objectiveAssessment.flexibility_score}
+        </p>
+        <p className="text-dark-muted mb-8">Assessment complete. Generate your training plan.</p>
         <Link
-          href={`/plan?generate=true&objectiveId=${activeObjective.id}&assessmentId=${latestAssessment.id}`}
+          href={`/plan?generate=true&objectiveId=${activeObjective.id}&assessmentId=${objectiveAssessment.id}`}
           className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
         >
           Generate Training Plan
