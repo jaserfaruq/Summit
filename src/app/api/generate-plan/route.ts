@@ -43,6 +43,70 @@ export async function POST(request: NextRequest) {
     .eq("id", user.id)
     .single();
 
+  // If objective has a matched validated objective, refresh graduation benchmarks
+  // from the validated source (fixes stale AI-generated data)
+  if (objective.matched_validated_id) {
+    const { data: validatedObj } = await supabase
+      .from("validated_objectives")
+      .select("graduation_benchmarks, target_scores, taglines, relevance_profiles")
+      .eq("id", objective.matched_validated_id)
+      .single();
+
+    if (validatedObj?.graduation_benchmarks) {
+      objective.graduation_benchmarks = validatedObj.graduation_benchmarks;
+      // Update the objective record so it stays in sync
+      await supabase
+        .from("objectives")
+        .update({
+          graduation_benchmarks: validatedObj.graduation_benchmarks,
+          taglines: validatedObj.taglines,
+          relevance_profiles: validatedObj.relevance_profiles,
+        })
+        .eq("id", objectiveId);
+    }
+  } else {
+    // No validated match — try to find one by name
+    const normalizedName = objective.name.toLowerCase().trim();
+    const { data: allVOs } = await supabase
+      .from("validated_objectives")
+      .select("*")
+      .eq("status", "active");
+
+    if (allVOs) {
+      const match = allVOs.find((vo: { match_aliases: string[] }) =>
+        vo.match_aliases.some((alias: string) => {
+          const a = alias.toLowerCase().trim();
+          return a === normalizedName || normalizedName.includes(a) || a.includes(normalizedName);
+        })
+      );
+
+      if (match) {
+        objective.graduation_benchmarks = match.graduation_benchmarks;
+        objective.matched_validated_id = match.id;
+        await supabase
+          .from("objectives")
+          .update({
+            graduation_benchmarks: match.graduation_benchmarks,
+            taglines: match.taglines,
+            relevance_profiles: match.relevance_profiles,
+            matched_validated_id: match.id,
+            tier: "gold",
+            target_cardio_score: match.target_scores.cardio,
+            target_strength_score: match.target_scores.strength,
+            target_climbing_score: match.target_scores.climbing_technical,
+            target_flexibility_score: match.target_scores.flexibility,
+          })
+          .eq("id", objectiveId);
+
+        // Update local target scores for plan generation
+        objective.target_cardio_score = match.target_scores.cardio;
+        objective.target_strength_score = match.target_scores.strength;
+        objective.target_climbing_score = match.target_scores.climbing_technical;
+        objective.target_flexibility_score = match.target_scores.flexibility;
+      }
+    }
+  }
+
   // Calculate weeks available
   const now = new Date();
   const targetDate = new Date(objective.target_date);
