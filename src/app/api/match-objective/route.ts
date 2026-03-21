@@ -19,6 +19,26 @@ interface SearchSuggestion {
   matchReason: string;
 }
 
+/**
+ * Server-side alias match against validated objectives.
+ * Checks the query against all match_aliases using substring matching.
+ */
+function findAliasMatch(
+  query: string,
+  allVOs: ValidatedObjective[],
+  excludeIds?: Set<string>
+): ValidatedObjective | null {
+  const normalized = query.toLowerCase().trim();
+  if (!normalized) return null;
+  return allVOs.find((vo) => {
+    if (excludeIds?.has(vo.id)) return false;
+    return vo.match_aliases.some((alias) => {
+      const a = alias.toLowerCase().trim();
+      return a === normalized || normalized.includes(a) || a.includes(normalized);
+    });
+  }) || null;
+}
+
 export async function POST(request: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -45,8 +65,26 @@ export async function POST(request: NextRequest) {
 
   const allVOs = (validatedObjectives as ValidatedObjective[]) || [];
 
-  // Search mode: use Claude to suggest 3 closely related objectives
+  // Search mode: pre-match aliases FIRST, then use Claude for additional suggestions
   if (mode === "search") {
+    // Pre-search: check raw query against aliases before calling Claude
+    const preMatch = findAliasMatch(normalizedName, allVOs);
+
+    const matches: SearchMatch[] = [];
+    const includedIds = new Set<string>();
+
+    // Add pre-matched Gold result first
+    if (preMatch) {
+      matches.push({
+        validatedObjective: preMatch,
+        tier: "gold",
+        matchReason: "Direct match from our validated library",
+      });
+      includedIds.add(preMatch.id);
+    }
+
+    // Call Claude for additional suggestions
+    const suggestionCount = preMatch ? 2 : 3;
     const voSummaries = allVOs.map(vo => ({
       id: vo.id,
       name: vo.name,
@@ -55,94 +93,82 @@ export async function POST(request: NextRequest) {
       match_aliases: vo.match_aliases,
     }));
 
+    const excludeClause = preMatch
+      ? `\n\nDo NOT suggest "${preMatch.name} (${preMatch.route})" — it has already been matched. Suggest ${suggestionCount} other related objectives instead.`
+      : "";
+
     const userMessage = `Search query: "${name}"
 
 Validated objectives in our library:
 ${JSON.stringify(voSummaries, null, 2)}
 
-Suggest 3 closely related routes/objectives for this search. Prioritize validated objectives when they match, but also suggest real routes not in our library if they're geographically relevant.`;
+Suggest ${suggestionCount} closely related routes/objectives for this search.${excludeClause} Prioritize validated objectives when they match, but also suggest real routes not in our library if they're geographically relevant.`;
 
     try {
       const response = await callClaude(PROMPT_SEARCH_SYSTEM, userMessage, 2048);
       const parsed = parseClaudeJSON<{ suggestions: SearchSuggestion[] }>(response);
 
-      const matches: SearchMatch[] = parsed.suggestions.slice(0, 3).map(suggestion => {
-        // First try Claude's validated flag + ID
+      for (const suggestion of parsed.suggestions.slice(0, suggestionCount)) {
+        // Try Claude's validated flag + ID first
         let matchedVO = suggestion.validated && suggestion.validatedId
           ? allVOs.find(vo => vo.id === suggestion.validatedId)
           : null;
 
-        // Fallback: server-side alias match by name/route regardless of what Claude said
-        // This catches cases where Claude returns wrong UUID or validated: false for a real match
+        // Fallback: server-side alias match on suggestion name
         if (!matchedVO) {
-          const suggestionName = suggestion.name.toLowerCase().trim();
-          const suggestionRoute = suggestion.route?.toLowerCase().trim() || "";
-          matchedVO = allVOs.find(vo =>
-            vo.match_aliases.some(alias => {
-              const a = alias.toLowerCase().trim();
-              return (
-                a === suggestionName ||
-                a === `${suggestionName} ${suggestionRoute}`.trim() ||
-                suggestionName.includes(a) ||
-                a.includes(suggestionName)
-              );
-            })
-          ) || null;
+          matchedVO = findAliasMatch(suggestion.name, allVOs, includedIds)
+            || findAliasMatch(`${suggestion.name} ${suggestion.route || ""}`.trim(), allVOs, includedIds);
         }
+
+        // Skip if already included via pre-match
+        if (matchedVO && includedIds.has(matchedVO.id)) continue;
 
         if (matchedVO) {
-          return {
+          includedIds.add(matchedVO.id);
+          matches.push({
             validatedObjective: matchedVO,
-            tier: "gold" as const,
+            tier: "gold",
             matchReason: suggestion.matchReason,
-          };
+          });
+        } else {
+          matches.push({
+            suggestedObjective: {
+              name: suggestion.name,
+              route: suggestion.route,
+              type: suggestion.type as ValidatedObjective["type"],
+              description: suggestion.description,
+              difficulty: suggestion.difficulty,
+              total_gain_ft: suggestion.total_gain_ft,
+              distance_miles: suggestion.distance_miles,
+              summit_elevation_ft: suggestion.summit_elevation_ft,
+              technical_grade: suggestion.technical_grade,
+            },
+            tier: "silver",
+            matchReason: suggestion.matchReason,
+          });
         }
-
-        return {
-          suggestedObjective: {
-            name: suggestion.name,
-            route: suggestion.route,
-            type: suggestion.type as ValidatedObjective["type"],
-            description: suggestion.description,
-            difficulty: suggestion.difficulty,
-            total_gain_ft: suggestion.total_gain_ft,
-            distance_miles: suggestion.distance_miles,
-            summit_elevation_ft: suggestion.summit_elevation_ft,
-            technical_grade: suggestion.technical_grade,
-          },
-          tier: "silver" as const,
-          matchReason: suggestion.matchReason,
-        };
-      });
-
-      const response2: MatchObjectiveResponse = {
-        tier: matches[0]?.tier || "bronze",
-        matches,
-        anchors: [],
-      };
-      return NextResponse.json(response2);
+      }
     } catch {
-      // Fallback to basic matching if Claude fails
-      return NextResponse.json({
-        tier: "bronze" as const,
-        matches: [],
-        anchors: [],
-      });
+      // Claude failed — if we have a pre-match, still return it
+      if (matches.length === 0) {
+        return NextResponse.json({
+          tier: "bronze" as const,
+          matches: [],
+          anchors: [],
+        });
+      }
     }
+
+    return NextResponse.json({
+      tier: matches[0]?.tier || "bronze",
+      matches,
+      anchors: [],
+    } as MatchObjectiveResponse);
   }
 
-  // Manual mode (original behavior): check for exact match first
-  const exactMatch = allVOs.find((vo) =>
-    vo.match_aliases.some((alias) => {
-      const normalizedAlias = alias.toLowerCase().trim();
-      return (
-        normalizedAlias === normalizedName ||
-        normalizedAlias === `${normalizedName} ${normalizedRoute}` ||
-        normalizedName.includes(normalizedAlias) ||
-        normalizedAlias.includes(normalizedName)
-      );
-    })
-  );
+  // Manual mode: check for exact alias match first
+  const exactMatch = findAliasMatch(normalizedName, allVOs)
+    || findAliasMatch(`${normalizedName} ${normalizedRoute}`, allVOs);
 
   if (exactMatch) {
     const response: MatchObjectiveResponse = {
