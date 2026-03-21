@@ -67,10 +67,28 @@ Suggest 3 closely related routes/objectives for this search. Prioritize validate
       const parsed = parseClaudeJSON<{ suggestions: SearchSuggestion[] }>(response);
 
       const matches: SearchMatch[] = parsed.suggestions.slice(0, 3).map(suggestion => {
-        // Check if this maps to a validated objective
-        const matchedVO = suggestion.validated && suggestion.validatedId
+        // First try Claude's validated flag + ID
+        let matchedVO = suggestion.validated && suggestion.validatedId
           ? allVOs.find(vo => vo.id === suggestion.validatedId)
           : null;
+
+        // Fallback: server-side alias match by name/route regardless of what Claude said
+        // This catches cases where Claude returns wrong UUID or validated: false for a real match
+        if (!matchedVO) {
+          const suggestionName = suggestion.name.toLowerCase().trim();
+          const suggestionRoute = suggestion.route?.toLowerCase().trim() || "";
+          matchedVO = allVOs.find(vo =>
+            vo.match_aliases.some(alias => {
+              const a = alias.toLowerCase().trim();
+              return (
+                a === suggestionName ||
+                a === `${suggestionName} ${suggestionRoute}`.trim() ||
+                suggestionName.includes(a) ||
+                a.includes(suggestionName)
+              );
+            })
+          ) || null;
+        }
 
         if (matchedVO) {
           return {
