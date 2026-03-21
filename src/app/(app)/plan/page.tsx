@@ -332,6 +332,9 @@ function PlanContent() {
 
   async function handleRebalance() {
     if (!plan) return;
+    if (!confirm("Rebalance plan? This will redistribute training volume across dimensions based on your current progress and regenerate all remaining sessions.")) {
+      return;
+    }
     setRebalancing(true);
     try {
       const res = await fetch("/api/rebalance", {
@@ -962,7 +965,7 @@ function DifficultyAdjuster({
   rebalanceHighlighted: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [activeInfo, setActiveInfo] = useState<DifficultyLevel | null>(null);
+  const [activeInfo, setActiveInfo] = useState<DifficultyLevel | "rebalance" | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close info popover on outside click
@@ -1054,18 +1057,37 @@ function DifficultyAdjuster({
           </div>
 
           {/* Rebalance button */}
-          <div className="pt-1">
-            <button
-              onClick={onRebalance}
-              disabled={rebalancing}
-              className={`w-full py-2.5 rounded-lg font-medium text-sm transition-colors border ${
-                rebalanceHighlighted
-                  ? "bg-burnt-orange/20 border-burnt-orange/40 text-burnt-orange hover:bg-burnt-orange/30"
-                  : "bg-dark-border/20 border-dark-border/50 text-dark-muted hover:bg-dark-border/30 hover:text-white"
-              } disabled:opacity-50`}
-            >
-              {rebalancing ? "Rebalancing..." : "Rebalance Plan"}
-            </button>
+          <div className="pt-1 relative">
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={onRebalance}
+                disabled={rebalancing}
+                className={`flex-1 py-2.5 rounded-lg font-medium text-sm transition-colors border ${
+                  rebalanceHighlighted
+                    ? "bg-burnt-orange/20 border-burnt-orange/40 text-burnt-orange hover:bg-burnt-orange/30"
+                    : "bg-dark-border/20 border-dark-border/50 text-dark-muted hover:bg-dark-border/30 hover:text-white"
+                } disabled:opacity-50`}
+              >
+                {rebalancing ? "Rebalancing..." : "Rebalance Plan"}
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveInfo(activeInfo === "rebalance" ? null : "rebalance");
+                }}
+                className="flex-shrink-0 w-7 h-7 rounded-full border border-dark-border/60 text-dark-muted hover:text-white hover:border-white/40 flex items-center justify-center text-xs font-semibold transition-colors"
+                aria-label="Info about Rebalance Plan"
+              >
+                i
+              </button>
+            </div>
+            {activeInfo === "rebalance" && (
+              <div className="absolute z-20 bottom-full mb-2 left-0 right-0 bg-dark-bg border border-dark-border rounded-lg p-3 shadow-xl">
+                <p className="text-xs text-dark-text leading-relaxed">Redistributes training volume across dimensions based on your actual progress. Dimensions ahead of schedule drop to maintenance (min 60% volume), freeing time for dimensions that are behind.</p>
+                <p className="text-xs text-dark-muted mt-2 italic">Highlighted when any dimension is 5+ points off the expected trajectory.</p>
+                <div className="absolute left-4 -bottom-1.5 w-3 h-3 bg-dark-bg border-r border-b border-dark-border rotate-45" />
+              </div>
+            )}
             {rebalanceHighlighted && (
               <p className="text-[10px] text-burnt-orange/70 mt-1 text-center">One or more dimensions are 5+ points off trajectory</p>
             )}
