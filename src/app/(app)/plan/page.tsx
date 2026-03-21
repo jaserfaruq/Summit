@@ -50,6 +50,9 @@ function PlanContent() {
   } | null>(null);
   const [reportModal, setReportModal] = useState<{ weekNumber: number; report: WeeklyReport } | null>(null);
   const [pollingReportWeeks, setPollingReportWeeks] = useState<Set<number>>(new Set());
+  const [reportErrors, setReportErrors] = useState<Set<number>>(new Set());
+  const [retryingReport, setRetryingReport] = useState<number | null>(null);
+  const pollAttemptsRef = useRef<Map<number, number>>(new Map());
 
   const shouldGenerate = searchParams.get("generate") === "true";
   const objectiveId = searchParams.get("objectiveId");
@@ -423,22 +426,56 @@ function PlanContent() {
   }
 
   // Poll for weekly report on completed weeks that don't have one yet
+  // Max 24 attempts (2 minutes at 5-second intervals)
   useEffect(() => {
     if (pollingReportWeeks.size === 0) return;
+    const MAX_POLL_ATTEMPTS = 24;
     const interval = setInterval(async () => {
       const supabase = createClient();
       for (const wn of Array.from(pollingReportWeeks)) {
         const week = weeks.find((w) => w.week_number === wn);
         if (!week) continue;
+
+        // Track attempts
+        const attempts = (pollAttemptsRef.current.get(wn) || 0) + 1;
+        pollAttemptsRef.current.set(wn, attempts);
+
+        if (attempts > MAX_POLL_ATTEMPTS) {
+          // Timed out — stop polling and show error
+          setPollingReportWeeks((prev) => {
+            const next = new Set(Array.from(prev));
+            next.delete(wn);
+            return next;
+          });
+          setReportErrors((prev) => new Set(Array.from(prev)).add(wn));
+          pollAttemptsRef.current.delete(wn);
+          continue;
+        }
+
         const { data } = await supabase
           .from("weekly_targets")
           .select("weekly_report")
           .eq("id", week.id)
           .single();
+
         if (data?.weekly_report) {
+          const report = data.weekly_report as WeeklyReport;
+
+          // Check for error sentinel
+          if (report.error) {
+            setPollingReportWeeks((prev) => {
+              const next = new Set(Array.from(prev));
+              next.delete(wn);
+              return next;
+            });
+            setReportErrors((prev) => new Set(Array.from(prev)).add(wn));
+            pollAttemptsRef.current.delete(wn);
+            continue;
+          }
+
           setWeeks((prev) =>
             prev.map((w) =>
-              w.week_number === wn ? { ...w, weekly_report: data.weekly_report } : w
+              w.week_number === wn ? { ...w, weekly_report: report } : w
             )
           );
           setPollingReportWeeks((prev) => {
@@ -446,6 +483,7 @@ function PlanContent() {
             next.delete(wn);
             return next;
           });
+          pollAttemptsRef.current.delete(wn);
         }
       }
     }, 5000);
@@ -456,14 +494,24 @@ function PlanContent() {
   useEffect(() => {
     if (weeks.length === 0 || !plan) return;
     const needsPolling = new Set<number>();
+    const errors = new Set<number>();
     for (const week of weeks) {
       const isScored = scoredWeekNumbers.has(week.week_number) || weekCompleteResult[week.week_number];
       if (isScored && !week.weekly_report) {
         needsPolling.add(week.week_number);
+      } else if (isScored && week.weekly_report?.error) {
+        errors.add(week.week_number);
       }
     }
     if (needsPolling.size > 0) {
       setPollingReportWeeks(needsPolling);
+    }
+    if (errors.size > 0) {
+      setReportErrors((prev) => {
+        const next = new Set(Array.from(prev));
+        errors.forEach((wn) => next.add(wn));
+        return next;
+      });
     }
   }, [weeks, scoredWeekNumbers, weekCompleteResult, plan]);
 
@@ -947,7 +995,7 @@ function PlanContent() {
                   {/* Weekly Report button */}
                   {(alreadyScored || completeResult) && (
                     <div className="mt-3">
-                      {week.weekly_report ? (
+                      {week.weekly_report && !week.weekly_report.error ? (
                         <button
                           onClick={() => setReportModal({ weekNumber: week.week_number, report: week.weekly_report! })}
                           className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors bg-burnt-orange/15 text-burnt-orange border border-burnt-orange/30 hover:bg-burnt-orange/25"
@@ -956,6 +1004,49 @@ function PlanContent() {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
                           View Report
+                        </button>
+                      ) : reportErrors.has(week.week_number) || week.weekly_report?.error ? (
+                        <button
+                          onClick={async () => {
+                            if (!plan) return;
+                            setRetryingReport(week.week_number);
+                            // Clear error sentinel from DB so fresh generation can write
+                            const supabase = createClient();
+                            await supabase
+                              .from("weekly_targets")
+                              .update({ weekly_report: null })
+                              .eq("id", week.id);
+                            // Clear error state and re-enter polling
+                            setReportErrors((prev) => {
+                              const next = new Set(Array.from(prev));
+                              next.delete(week.week_number);
+                              return next;
+                            });
+                            setWeeks((prev) =>
+                              prev.map((w) =>
+                                w.week_number === week.week_number ? { ...w, weekly_report: null } : w
+                              )
+                            );
+                            pollAttemptsRef.current.delete(week.week_number);
+                            try {
+                              await fetch("/api/generate-weekly-report", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ planId: plan.id, weekNumber: week.week_number }),
+                              });
+                            } catch {
+                              // Endpoint will store result/error; polling will pick it up
+                            }
+                            setPollingReportWeeks((prev) => new Set(Array.from(prev)).add(week.week_number));
+                            setRetryingReport(null);
+                          }}
+                          disabled={retryingReport === week.week_number}
+                          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors bg-red-900/20 text-red-400 border border-red-800/30 hover:bg-red-900/30 disabled:opacity-50"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          {retryingReport === week.week_number ? "Retrying..." : "Report failed — Retry"}
                         </button>
                       ) : (
                         <div className="flex items-center gap-2 px-4 py-2.5 text-sm text-dark-muted">
