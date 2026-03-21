@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { MatchObjectiveRequest, MatchObjectiveResponse, ValidatedObjective, SearchMatch } from "@/lib/types";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_SEARCH_SYSTEM } from "@/lib/prompts";
+import { VALIDATED_OBJECTIVE_SEED_DATA } from "@/lib/seed-data";
 
 interface SearchSuggestion {
   name: string;
@@ -37,6 +38,24 @@ function findAliasMatch(
       return a === normalized || normalized.includes(a) || a.includes(normalized);
     });
   }) || null;
+}
+
+/**
+ * Overlay seed data onto a validated objective from the DB,
+ * ensuring graduation_benchmarks, target_scores, and taglines
+ * are always from the authoritative seed file.
+ */
+function withSeedData(vo: ValidatedObjective): ValidatedObjective {
+  const seed = VALIDATED_OBJECTIVE_SEED_DATA.find(
+    (s) => s.name.toLowerCase() === vo.name.toLowerCase() && s.route.toLowerCase() === vo.route.toLowerCase()
+  );
+  if (!seed) return vo;
+  return {
+    ...vo,
+    graduation_benchmarks: seed.graduation_benchmarks,
+    target_scores: seed.target_scores,
+    taglines: seed.taglines,
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -76,7 +95,7 @@ export async function POST(request: NextRequest) {
     // Add pre-matched Gold result first
     if (preMatch) {
       matches.push({
-        validatedObjective: preMatch,
+        validatedObjective: withSeedData(preMatch),
         tier: "gold",
         matchReason: "Direct match from our validated library",
       });
@@ -126,7 +145,7 @@ Suggest ${suggestionCount} closely related routes/objectives for this search.${e
         if (matchedVO) {
           includedIds.add(matchedVO.id);
           matches.push({
-            validatedObjective: matchedVO,
+            validatedObjective: withSeedData(matchedVO),
             tier: "gold",
             matchReason: suggestion.matchReason,
           });
@@ -173,7 +192,7 @@ Suggest ${suggestionCount} closely related routes/objectives for this search.${e
   if (exactMatch) {
     const response: MatchObjectiveResponse = {
       tier: "gold",
-      validatedObjective: exactMatch,
+      validatedObjective: withSeedData(exactMatch),
       anchors: [],
     };
     return NextResponse.json(response);
