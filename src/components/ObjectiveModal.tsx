@@ -239,7 +239,7 @@ export default function ObjectiveModal({
         if (latestAssessment) {
           router.push(`/plan?generate=true&objectiveId=${newObj.id}&assessmentId=${latestAssessment.id}`);
         } else {
-          onSaved();
+          router.push(`/assessment/${newObj.id}`);
         }
       }
     } catch {
