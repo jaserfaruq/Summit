@@ -22,21 +22,32 @@ async function reseed() {
   const updatedUserObjectiveIds: string[] = [];
 
   for (const obj of VALIDATED_OBJECTIVE_SEED_DATA) {
-    // Update the validated objective
-    const { data: vo, error } = await supabase
+    // First find the validated objective ID
+    const { data: found } = await supabase
+      .from("validated_objectives")
+      .select("id")
+      .eq("name", obj.name)
+      .eq("route", obj.route);
+
+    if (!found || found.length === 0) {
+      results.push({ name: obj.name, status: "error", error: "not found in database" });
+      continue;
+    }
+
+    const voId = found[0].id;
+
+    // Update by ID (guaranteed unique)
+    const { error } = await supabase
       .from("validated_objectives")
       .update({
         target_scores: obj.target_scores,
         taglines: obj.taglines,
         graduation_benchmarks: obj.graduation_benchmarks,
       })
-      .eq("name", obj.name)
-      .eq("route", obj.route)
-      .select("id, name")
-      .single();
+      .eq("id", voId);
 
-    if (error || !vo) {
-      results.push({ name: obj.name, status: "error", error: error?.message || "not found" });
+    if (error) {
+      results.push({ name: obj.name, status: "error", error: error.message });
       continue;
     }
 
@@ -45,19 +56,25 @@ async function reseed() {
     // Also update any user objectives that reference this validated objective
     const { data: userObjs } = await supabase
       .from("objectives")
-      .update({
-        target_cardio_score: obj.target_scores.cardio,
-        target_strength_score: obj.target_scores.strength,
-        target_climbing_score: obj.target_scores.climbing_technical,
-        target_flexibility_score: obj.target_scores.flexibility,
-        taglines: obj.taglines,
-        graduation_benchmarks: obj.graduation_benchmarks,
-      })
-      .eq("matched_validated_id", vo.id)
-      .select("id");
+      .select("id")
+      .eq("matched_validated_id", voId);
 
-    if (userObjs) {
-      updatedUserObjectiveIds.push(...userObjs.map((o) => o.id));
+    if (userObjs && userObjs.length > 0) {
+      const { error: objError } = await supabase
+        .from("objectives")
+        .update({
+          target_cardio_score: obj.target_scores.cardio,
+          target_strength_score: obj.target_scores.strength,
+          target_climbing_score: obj.target_scores.climbing_technical,
+          target_flexibility_score: obj.target_scores.flexibility,
+          taglines: obj.taglines,
+          graduation_benchmarks: obj.graduation_benchmarks,
+        })
+        .eq("matched_validated_id", voId);
+
+      if (!objError) {
+        updatedUserObjectiveIds.push(...userObjs.map((o) => o.id));
+      }
     }
   }
 
