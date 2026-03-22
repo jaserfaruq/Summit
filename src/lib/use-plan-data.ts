@@ -1,12 +1,13 @@
 import useSWR from "swr";
 import { createClient } from "@/lib/supabase";
-import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective } from "@/lib/types";
+import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Assessment } from "@/lib/types";
 
 export interface CachedPlanData {
   plan: TrainingPlan | null;
   weeks: WeeklyTarget[];
   objective: Objective | null;
   validatedObj: ValidatedObjective | null;
+  assessment: Assessment | null;
   workoutLogs: WorkoutLog[];
   weekSessions: Record<number, PlanSession[]>;
   scoredWeekNumbers: Set<number>;
@@ -18,6 +19,7 @@ const EMPTY: CachedPlanData = {
   weeks: [],
   objective: null,
   validatedObj: null,
+  assessment: null,
   workoutLogs: [],
   weekSessions: {},
   scoredWeekNumbers: new Set(),
@@ -40,8 +42,11 @@ async function fetchPlanData(): Promise<CachedPlanData> {
   const activePlan = (plans as TrainingPlan[] | null)?.[0];
   if (!activePlan) return EMPTY;
 
-  // Parallel fetch: these 4 queries are independent
-  const [weekResult, objResult, logResult, scoreResult] = await Promise.all([
+  // Parallel fetch: these 5 queries are independent
+  const assessmentQuery = activePlan.assessment_id
+    ? supabase.from("assessments").select("*").eq("id", activePlan.assessment_id).single()
+    : Promise.resolve({ data: null });
+  const [weekResult, objResult, logResult, scoreResult, assessmentResult] = await Promise.all([
     supabase
       .from("weekly_targets")
       .select("*")
@@ -63,6 +68,7 @@ async function fetchPlanData(): Promise<CachedPlanData> {
       .eq("user_id", user.id)
       .eq("objective_id", activePlan.objective_id)
       .eq("change_reason", "weekly_rating"),
+    assessmentQuery,
   ]);
 
   const weeksArr = (weekResult.data as WeeklyTarget[]) || [];
@@ -108,6 +114,7 @@ async function fetchPlanData(): Promise<CachedPlanData> {
     weeks: weeksArr,
     objective: objTyped,
     validatedObj,
+    assessment: (assessmentResult.data as Assessment | null) ?? null,
     workoutLogs: (logResult.data as WorkoutLog[]) || [],
     weekSessions: cached,
     scoredWeekNumbers,

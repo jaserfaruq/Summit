@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { AIQuestion, DimensionScores, AIReasoning, ProgrammingHints } from "@/lib/types";
 
 type Phase = "layer1" | "layer2" | "scoring" | "results";
@@ -31,11 +31,21 @@ interface ScoreResults {
 }
 
 export default function AssessmentObjectivePage() {
+  return (
+    <Suspense fallback={<div className="max-w-2xl mx-auto px-4 py-8"><div className="animate-pulse h-8 bg-dark-border rounded w-1/3" /></div>}>
+      <AssessmentContent />
+    </Suspense>
+  );
+}
+
+function AssessmentContent() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const objectiveId = params.objectiveId as string;
+  const viewResults = searchParams.get("view") === "results";
 
-  const [phase, setPhase] = useState<Phase>("layer1");
+  const [phase, setPhase] = useState<Phase>(viewResults ? "results" : "layer1");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [objectiveName, setObjectiveName] = useState("");
@@ -63,24 +73,66 @@ export default function AssessmentObjectivePage() {
   // Results
   const [results, setResults] = useState<ScoreResults | null>(null);
 
-  // Fetch objective name on mount
+  // Fetch objective name on mount, and load existing assessment if deep-linking to results
   useEffect(() => {
     async function fetchObjective() {
       try {
         const { createClient } = await import("@/lib/supabase");
         const supabase = createClient();
-        const { data } = await supabase
+        const { data: objData } = await supabase
           .from("objectives")
-          .select("name")
+          .select("name, target_cardio_score, target_strength_score, target_climbing_score, target_flexibility_score")
           .eq("id", objectiveId)
           .single();
-        if (data) setObjectiveName(data.name);
+        if (objData) setObjectiveName(objData.name);
+
+        // If deep-linking to results, load the most recent assessment
+        if (viewResults && objData) {
+          const { data: assessmentData } = await supabase
+            .from("assessments")
+            .select("*")
+            .eq("objective_id", objectiveId)
+            .order("assessed_at", { ascending: false })
+            .limit(1)
+            .single();
+
+          if (assessmentData) {
+            setResults({
+              assessmentId: assessmentData.id,
+              scores: {
+                cardio: assessmentData.cardio_score,
+                strength: assessmentData.strength_score,
+                climbing_technical: assessmentData.climbing_score,
+                flexibility: assessmentData.flexibility_score,
+              },
+              reasoning: assessmentData.ai_reasoning || {
+                cardio: { explanation: "", keyFactor: "" },
+                strength: { explanation: "", keyFactor: "" },
+                climbing_technical: { explanation: "", keyFactor: "" },
+                flexibility: { explanation: "", keyFactor: "" },
+              },
+              programmingHints: assessmentData.raw_data?.programmingHints || {
+                cardio: { startingIntensity: "", sessionsPerWeek: 0, keyAdaptation: "" },
+                strength: { startingIntensity: "", sessionsPerWeek: 0, keyAdaptation: "" },
+                climbing_technical: { startingIntensity: "", sessionsPerWeek: 0, keyAdaptation: "" },
+                flexibility: { startingIntensity: "", sessionsPerWeek: 0, keyAdaptation: "" },
+              },
+              adjustedTargets: {
+                cardio: objData.target_cardio_score,
+                strength: objData.target_strength_score,
+                climbing_technical: objData.target_climbing_score,
+                flexibility: objData.target_flexibility_score,
+              },
+            });
+            setPhase("results");
+          }
+        }
       } catch {
         // ignore
       }
     }
     fetchObjective();
-  }, [objectiveId]);
+  }, [objectiveId, viewResults]);
 
   function buildStandardAnswers(): StandardAnswers {
     return {
@@ -551,12 +603,21 @@ export default function AssessmentObjectivePage() {
             })}
           </div>
 
-          <button
-            onClick={() => router.push(`/plan?generate=true&objectiveId=${objectiveId}&assessmentId=${results.assessmentId}`)}
-            className="w-full bg-gold text-dark-bg py-3 rounded-lg font-medium hover:bg-gold/90 transition-colors"
-          >
-            Generate Training Plan
-          </button>
+          {viewResults ? (
+            <button
+              onClick={() => router.push("/plan")}
+              className="w-full bg-dark-card/80 text-gold border border-gold/30 py-3 rounded-lg font-medium hover:bg-dark-card transition-colors"
+            >
+              ← Back to Plan
+            </button>
+          ) : (
+            <button
+              onClick={() => router.push(`/plan?generate=true&objectiveId=${objectiveId}&assessmentId=${results.assessmentId}`)}
+              className="w-full bg-gold text-dark-bg py-3 rounded-lg font-medium hover:bg-gold/90 transition-colors"
+            >
+              Generate Training Plan
+            </button>
+          )}
         </div>
       )}
     </div>
