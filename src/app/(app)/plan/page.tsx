@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData, WeeklyReport, Assessment } from "@/lib/types";
+import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData, WeeklyReport } from "@/lib/types";
 import { usePlanData } from "@/lib/use-plan-data";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import ScoreArc from "@/components/ScoreArc";
@@ -42,7 +42,6 @@ function PlanContent() {
   const [weekSessions, setWeekSessions] = useState<Record<number, PlanSession[]>>({});
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [validatedObj, setValidatedObj] = useState<ValidatedObjective | null>(null);
-  const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [philosophyExpanded, setPhilosophyExpanded] = useState(false);
   const [graduationExpanded, setGraduationExpanded] = useState(false);
   const [completingWeek, setCompletingWeek] = useState<number | null>(null);
@@ -76,7 +75,6 @@ function PlanContent() {
     setWeeks(planData.weeks);
     setObjective(planData.objective);
     setValidatedObj(planData.validatedObj);
-    setAssessment(planData.assessment);
     setWorkoutLogs(planData.workoutLogs);
     setWeekSessions((prev) => {
       // Merge: keep locally-generated sessions, update from SWR for the rest
@@ -710,27 +708,10 @@ function PlanContent() {
           </button>
           {philosophyExpanded && (
             <div className="px-5 pb-5 space-y-4">
-              <p className="text-sm text-dark-muted">{planSummary.philosophy}</p>
+              {planSummary.philosophy.split(/\n\n+/).map((paragraph: string, i: number) => (
+                <p key={i} className="text-sm text-dark-muted">{paragraph.trim()}</p>
+              ))}
               <p className="text-sm text-dark-muted">{planSummary.weeklyStructure}</p>
-
-              {/* Per-dimension assessment insights */}
-              {assessment?.ai_reasoning && (
-                <div className="space-y-3 pt-2">
-                  <h4 className="text-sm font-medium text-dark-text">Assessment Insights</h4>
-                  {(["cardio", "strength", "climbing_technical", "flexibility"] as const).map((dim) => {
-                    const reasoning = assessment.ai_reasoning?.[dim];
-                    if (!reasoning) return null;
-                    const label = dim === "climbing_technical" ? "Climbing / Technical" : dim.charAt(0).toUpperCase() + dim.slice(1);
-                    return (
-                      <div key={dim} className="bg-dark-bg/40 rounded-lg p-3 border border-dark-border/30">
-                        <h5 className="text-xs font-semibold text-gold mb-1">{label}</h5>
-                        <p className="text-sm text-dark-muted">{reasoning.explanation}</p>
-                        <p className="text-xs text-dark-muted/70 mt-1">Key factor: {reasoning.keyFactor}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
 
               {/* Initial Assessment link */}
               {objective && (
