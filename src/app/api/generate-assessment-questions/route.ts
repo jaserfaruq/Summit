@@ -42,7 +42,7 @@ Standard answers provided:
 ${JSON.stringify(standardAnswers, null, 2)}`;
 
   try {
-    const responseText = await callClaude(PROMPT_ASSESS_Q_SYSTEM, userMessage, 4096, "sonnet");
+    const responseText = await callClaude(PROMPT_ASSESS_Q_SYSTEM, userMessage, 4096, "opus");
     const result = parseClaudeJSON<{ questions: AIQuestion[] }>(responseText);
 
     return NextResponse.json({ questions: result.questions });

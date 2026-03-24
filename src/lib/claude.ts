@@ -18,7 +18,7 @@ export async function callClaude(
   systemPrompt: string,
   userMessage: string,
   maxTokens: number = 8192,
-  model: ClaudeModel = "sonnet"
+  model: ClaudeModel = "opus"
 ): Promise<string> {
   const response = await anthropic.messages.create({
     model: getModelId(model),
@@ -43,7 +43,7 @@ export async function callClaudeWithCache(
   systemPrompt: string,
   userMessage: string,
   maxTokens: number = 8192,
-  model: ClaudeModel = "sonnet"
+  model: ClaudeModel = "opus"
 ): Promise<string> {
   const response = await anthropic.messages.create({
     model: getModelId(model),

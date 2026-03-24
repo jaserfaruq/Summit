@@ -9,8 +9,7 @@
 - **Framework:** Next.js 14+ (App Router)
 - **Styling:** Tailwind CSS
 - **Database + Auth:** Supabase (PostgreSQL, Row Level Security, Auth with email/password)
-- **AI:** Anthropic Claude API — `claude-sonnet-4-20250514` (all prompts). `claude-opus-4-20250514` defined but not actively used.
-- **Client-side Data:** SWR (`swr` ^2.4.1) for client-side caching and revalidation
+- **AI:** Anthropic Claude API — `claude-opus-4-20250514` (all routes)
 - **Deployment:** Vercel (auto-deploy from GitHub)
 - **Prompt Caching:** `callClaudeWithCache()` with ephemeral cache control — used for session generation (Prompt 2B) and alternatives (Prompt 6)
 - **SDK Versions:** `@anthropic-ai/sdk` ^0.78.0, `@supabase/ssr` ^0.9.0, `@supabase/supabase-js` ^2.99.1, `next` 14.2.35
