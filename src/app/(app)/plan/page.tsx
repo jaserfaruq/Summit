@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData, WeeklyReport, Assessment } from "@/lib/types";
+import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData, WeeklyReport } from "@/lib/types";
 import { usePlanData } from "@/lib/use-plan-data";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import ScoreArc from "@/components/ScoreArc";
@@ -42,7 +42,6 @@ function PlanContent() {
   const [weekSessions, setWeekSessions] = useState<Record<number, PlanSession[]>>({});
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
   const [validatedObj, setValidatedObj] = useState<ValidatedObjective | null>(null);
-  const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [philosophyExpanded, setPhilosophyExpanded] = useState(false);
   const [graduationExpanded, setGraduationExpanded] = useState(false);
   const [completingWeek, setCompletingWeek] = useState<number | null>(null);
@@ -76,7 +75,6 @@ function PlanContent() {
     setWeeks(planData.weeks);
     setObjective(planData.objective);
     setValidatedObj(planData.validatedObj);
-    setAssessment(planData.assessment);
     setWorkoutLogs(planData.workoutLogs);
     setWeekSessions((prev) => {
       // Merge: keep locally-generated sessions, update from SWR for the rest
