@@ -4,6 +4,8 @@ import { GeneratePlanRequest } from "@/lib/types";
 import { expectedScoresAtWeek } from "@/lib/scoring";
 import { fetchHeroImageUrl } from "@/lib/unsplash";
 import { findSeedMatch } from "@/lib/seed-data";
+import { callClaude } from "@/lib/claude";
+import { PROMPT_PHILOSOPHY_SYSTEM } from "@/lib/prompts";
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
@@ -194,23 +196,29 @@ export async function POST(request: NextRequest) {
     };
   });
 
+  // Extract programmingHints from assessment raw_data
+  const programmingHints = assessment.raw_data?.programmingHints || null;
+
+  // Generate AI philosophy and fetch hero image in parallel
+  const philosophyFallback = buildPlanPhilosophy(objective.name, currentScores, targetScores, objective.taglines, totalWeeks);
+
+  const [philosophyText, heroImageUrl] = await Promise.all([
+    generateAIPhilosophy(objective, assessment, currentScores, targetScores, totalWeeks).catch((err) => {
+      console.warn("AI philosophy generation failed, using fallback:", err);
+      return philosophyFallback;
+    }),
+    fetchHeroImageUrl(objective.name).catch((err) => {
+      console.warn("Hero image fetch failed, continuing without:", err);
+      return null as string | null;
+    }),
+  ]);
+
   const planSummary = {
-    philosophy: buildPlanPhilosophy(objective.name, currentScores, targetScores, objective.taglines, totalWeeks),
+    philosophy: philosophyText,
     weeklyStructure: `${daysPerWeek} sessions per week across cardio, strength, climbing/technical, and flexibility. Sessions are generated on-demand when you expand each week.`,
     equipmentNeeded: profile?.equipment_access || ["basic gym equipment"],
     keyExercises: extractKeyExercises(objective.graduation_benchmarks),
   };
-
-  // Extract programmingHints from assessment raw_data
-  const programmingHints = assessment.raw_data?.programmingHints || null;
-
-  // Fetch hero image (non-blocking — plan still works without it)
-  let heroImageUrl: string | null = null;
-  try {
-    heroImageUrl = await fetchHeroImageUrl(objective.name);
-  } catch (error) {
-    console.warn("Hero image fetch failed, continuing without:", error);
-  }
 
   try {
     // Store the plan
@@ -285,6 +293,54 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Generate a personalized plan philosophy using Claude AI,
+ * incorporating assessment reasoning and programming hints.
+ */
+async function generateAIPhilosophy(
+  objective: Record<string, unknown>,
+  assessment: Record<string, unknown>,
+  currentScores: Record<string, number>,
+  targetScores: Record<string, number>,
+  totalWeeks: number
+): Promise<string> {
+  const aiReasoning = assessment.ai_reasoning as Record<string, { explanation: string; keyFactor: string }> | null;
+  const programmingHints = (assessment.raw_data as Record<string, unknown>)?.programmingHints || null;
+
+  const userMessage = `Objective: ${objective.name}${objective.type ? ` (${objective.type})` : ""}
+Route: ${(objective as Record<string, unknown>).technical_grade ? `Grade ${(objective as Record<string, unknown>).technical_grade}` : "N/A"}
+Plan duration: ${totalWeeks} weeks
+Target date: ${objective.target_date}
+
+Current → Target scores:
+- Cardio: ${currentScores.cardio} → ${targetScores.cardio}
+- Strength: ${currentScores.strength} → ${targetScores.strength}
+- Climbing/Technical: ${currentScores.climbing_technical} → ${targetScores.climbing_technical}
+- Flexibility: ${currentScores.flexibility} → ${targetScores.flexibility}
+
+${aiReasoning ? `Assessment findings:
+- Cardio: ${aiReasoning.cardio?.explanation || "N/A"} (Key factor: ${aiReasoning.cardio?.keyFactor || "N/A"})
+- Strength: ${aiReasoning.strength?.explanation || "N/A"} (Key factor: ${aiReasoning.strength?.keyFactor || "N/A"})
+- Climbing/Technical: ${aiReasoning.climbing_technical?.explanation || "N/A"} (Key factor: ${aiReasoning.climbing_technical?.keyFactor || "N/A"})
+- Flexibility: ${aiReasoning.flexibility?.explanation || "N/A"} (Key factor: ${aiReasoning.flexibility?.keyFactor || "N/A"})` : "No detailed assessment reasoning available."}
+
+${programmingHints ? `Programming hints: ${JSON.stringify(programmingHints)}` : ""}
+${objective.climbing_role ? `Climbing role: ${objective.climbing_role}` : ""}
+
+Write exactly 2 paragraphs. No formatting, no headers, no bullet points. Plain text only.`;
+
+  const response = await callClaude(PROMPT_PHILOSOPHY_SYSTEM, userMessage, 1024);
+
+  // Clean up: remove any markdown formatting the AI might add
+  const cleaned = response
+    .replace(/^#+\s.*$/gm, "")
+    .replace(/\*\*/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return cleaned;
 }
 
 const DIM_LABELS: Record<string, string> = {
