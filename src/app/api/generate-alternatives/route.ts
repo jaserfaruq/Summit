@@ -110,7 +110,7 @@ Athlete location: ${profile?.location || "not specified"}
 Week ${weekNumber} of ${totalWeeks || "?"}. Progress fraction for ${sessionForPrompt.dimension}: ${dimFraction?.fraction || 50}%.`;
 
   try {
-    const responseText = await callClaudeWithCache(PROMPT_6_SYSTEM, userMessage, 4096, "sonnet");
+    const responseText = await callClaudeWithCache(PROMPT_6_SYSTEM, userMessage, 4096, "opus");
     const result = parseClaudeJSON<{ alternatives: AlternativeSession[] }>(responseText);
 
     // Calculate estimated minutes for each alternative

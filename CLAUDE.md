@@ -9,7 +9,7 @@
 - **Framework:** Next.js 14+ (App Router)
 - **Styling:** Tailwind CSS
 - **Database + Auth:** Supabase (PostgreSQL, Row Level Security, Auth with email/password)
-- **AI:** Anthropic Claude API — `claude-sonnet-4-20250514` (default), `claude-opus-4-20250514` (session generation)
+- **AI:** Anthropic Claude API — `claude-opus-4-20250514` (all routes)
 - **Deployment:** Vercel (auto-deploy from GitHub)
 - **Prompt Caching:** `callClaudeWithCache()` with ephemeral cache control
 

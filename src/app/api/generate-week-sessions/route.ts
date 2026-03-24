@@ -103,7 +103,7 @@ Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}
 ${buildProgressFractionBlock(objective, weekNumber, totalWeeks || weekNumber)}`;
 
   try {
-    const responseText = await callClaudeWithCache(PROMPT_2B_SYSTEM, userMessage, 8192, "sonnet");
+    const responseText = await callClaudeWithCache(PROMPT_2B_SYSTEM, userMessage, 8192, "opus");
     const result = parseClaudeJSON<{ sessions: PlanSession[] }>(responseText);
     calculateAllSessionMinutes(result.sessions);
 

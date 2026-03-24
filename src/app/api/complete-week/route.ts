@@ -40,7 +40,7 @@ Irrelevant components: ${JSON.stringify(profile?.irrelevantComponents || [])}
 
 The base multiplier for rating ${rating} is ${baseMultiplier}. You may adjust it by up to ±0.25 based on how relevant the athlete's actual training was to the key components.`;
 
-  const responseText = await callClaude(PROMPT_3B_SYSTEM, userMessage, 1024, "sonnet");
+  const responseText = await callClaude(PROMPT_3B_SYSTEM, userMessage, 1024, "opus");
   const result = parseClaudeJSON<RelevanceResult>(responseText);
 
   // Clamp the multiplier within allowed range (base ±0.25)

@@ -47,7 +47,7 @@ The athlete answered: ${JSON.stringify(previousAnswers, null, 2)}
 Generate 2-3 additional questions targeting gaps in what you know. Do not repeat topics already covered.`;
 
   try {
-    const responseText = await callClaude(PROMPT_ASSESS_Q_SYSTEM, userMessage, 4096, "sonnet");
+    const responseText = await callClaude(PROMPT_ASSESS_Q_SYSTEM, userMessage, 4096, "opus");
     const result = parseClaudeJSON<{ questions: AIQuestion[] }>(responseText);
 
     return NextResponse.json({ questions: result.questions });
