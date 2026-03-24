@@ -9,9 +9,11 @@
 - **Framework:** Next.js 14+ (App Router)
 - **Styling:** Tailwind CSS
 - **Database + Auth:** Supabase (PostgreSQL, Row Level Security, Auth with email/password)
-- **AI:** Anthropic Claude API — `claude-sonnet-4-20250514` (default), `claude-opus-4-20250514` (session generation)
+- **AI:** Anthropic Claude API — `claude-sonnet-4-20250514` (all prompts). `claude-opus-4-20250514` defined but not actively used.
+- **Client-side Data:** SWR (`swr` ^2.4.1) for client-side caching and revalidation
 - **Deployment:** Vercel (auto-deploy from GitHub)
-- **Prompt Caching:** `callClaudeWithCache()` with ephemeral cache control
+- **Prompt Caching:** `callClaudeWithCache()` with ephemeral cache control — used for session generation (Prompt 2B) and alternatives (Prompt 6)
+- **SDK Versions:** `@anthropic-ai/sdk` ^0.78.0, `@supabase/ssr` ^0.9.0, `@supabase/supabase-js` ^2.99.1, `next` 14.2.35
 
 ## Design System
 
@@ -192,7 +194,7 @@ CREATE TABLE weekly_targets (
   plan_id UUID NOT NULL REFERENCES training_plans(id),
   week_number INT NOT NULL,
   week_start DATE NOT NULL,
-  week_type TEXT NOT NULL,       -- test | recovery | regular | taper
+  week_type TEXT NOT NULL,       -- test | recovery | regular | taper (currently all weeks generated as 'regular')
   total_hours FLOAT,
   expected_scores JSONB NOT NULL,
   sessions JSONB NOT NULL,
@@ -258,7 +260,7 @@ CREATE TABLE component_feedback (
 ### POST /api/estimate-scores
 
 **Input:** `{ objectiveDetails, benchmarkExercises[], anchors[], validatorFeedback[] }`
-**Logic:** Call Claude API with Prompt 1. Parse JSON response.
+**Logic:** Call Claude API with Prompt 1. Parse JSON response. Model: sonnet. Max tokens: 8192. Timeout: 60s.
 **Output:** `{ dimensions, relevanceProfiles, graduationBenchmarks }`
 
 ### POST /api/generate-assessment-questions
@@ -283,14 +285,15 @@ CREATE TABLE component_feedback (
 **Logic:**
 
 1. Fetch objective (target scores, graduation benchmarks, relevance profiles).
-1. Call Claude with Prompt ASSESS-SCORE with all data including climbing role from AI answers.
+1. Call Claude with Prompt ASSESS-SCORE with all data including climbing role from AI answers. Model: sonnet. Max tokens: 8192.
+1. **Lead/follow detection:** Scans AI questions for “lead or follow” keyword to extract climbing role from answers.
 1. If climbing role = “follow”, update objective’s target scores and graduation benchmarks with the adjusted values from the AI response.
 1. Store climbing_role on the objective.
 1. Store assessment with all fields (standard_answers, ai_questions, ai_answers, freeform_text, ai_reasoning).
 1. Store `programmingHints` in the assessment’s raw_data field — the plan generator uses these.
 1. Update current scores on objective.
 1. Write to score_history with confidence = “low”.
-   **Output:** `{ scores, reasoning, programmingHints, adjustedTargets?, climbingRole }`
+   **Output:** `{ scores, reasoning, programmingHints, adjustedTargets?, climbingRole, assessmentId }`
 
 ### POST /api/generate-plan
 
@@ -301,26 +304,28 @@ CREATE TABLE component_feedback (
 1. Calculate weeks available.
 1. Create plan structure with linear interpolation for expected scores per week.
 1. Use programmingHints.sessionsPerWeek per dimension to allocate time across dimensions (instead of equal allocation).
-1. Schedule week types (test/recovery/regular/taper).
-1. Calculate hours per week using progressive volume formula.
-1. Store plan in `training_plans` with empty sessions. Store programmingHints in plan_data so Prompt 2B can use them.
+1. **Week types:** Currently all weeks are generated as `weekType: "regular"`. Test/recovery/taper scheduling is not yet implemented — the schema supports it but the plan generator does not assign special week types.
+1. Calculate hours per week using progressive volume formula: `0.7 + (weekNumber / totalWeeks) * 0.3`, with taper multiplier (0.6) for final 2 weeks.
+1. **Seed data precedence:** Uses three-tier benchmark matching: (1) hardcoded seed data (authoritative), (2) validated_objectives FK, (3) match_aliases fuzzy match. Seed data overlays DB records.
+1. Store plan in `training_plans` with empty sessions. Store programmingHints in plan_data (along with heroImageUrl and difficultyAdjustments) so Prompt 2B can use them.
 1. Store weeks in `weekly_targets`.
 1. Sessions are generated on-demand via `/api/generate-week-sessions`.
-1. Fetch Unsplash hero image for the objective.
+1. Fetch Unsplash hero image for the objective (non-blocking).
+1. Build a data-driven `planPhilosophy` text summary stored in plan_data.
    **Output:** `{ planId, weekCount }`
    **Note:** Does NOT call Claude for sessions. Structure only. ProgrammingHints from assessment flow through to session generation.
 
 ### POST /api/generate-week-sessions
 
 **Input:** `{ planId, weekNumber }`
-**Logic:** Call Claude with Prompt 2B to generate sessions for a single week. Passes the programmingHints from the assessment so the AI adapts starting intensity, session content, and coaching voice to the athlete’s specific profile. Uses `claude-opus-4-20250514` model. Stores sessions in `weekly_targets.sessions`.
+**Logic:** Call Claude with Prompt 2B to generate sessions for a single week. Passes the programmingHints from the assessment so the AI adapts starting intensity, session content, and coaching voice to the athlete’s specific profile. Uses `claude-sonnet-4-20250514` with prompt caching (`callClaudeWithCache`). Max tokens: 8192. Timeout: 120s. Stores sessions in `weekly_targets.sessions`. Calculates per-dimension progress fractions (including maintenance mode detection at 1.25× target).
 **Output:** `{ sessions[] }`
 
 ### POST /api/generate-all-sessions
 
 **Input:** `{ planId }`
-**Logic:** Batch-generates all remaining weeks, up to 3 concurrent calls.
-**Output:** `{ generatedWeeks[] }`
+**Logic:** Batch-generates all remaining weeks using `Promise.allSettled()`, up to 3 concurrent calls. Uses `claude-sonnet-4-20250514` with prompt caching. Max tokens: 8192. Timeout: 300s (5 minutes). Tracks and reports errors per-week.
+**Output:** `{ generated, total, errors? }`
 
 ### POST /api/complete-week
 
@@ -337,8 +342,11 @@ CREATE TABLE component_feedback (
 1. Update current scores on objective.
 1. Advance `current_week_number`.
 1. Check rebalance threshold (5+ points off trajectory in any dimension). If triggered, call `/api/rebalance`.
-1. **Trigger background report generation:** Fire `/api/generate-weekly-report` asynchronously (don’t wait for it). The report generates in the background.
-   **Output:** `{ updatedScores, rebalanceTriggered }`
+1. **Report generation is client-triggered** (not background async). Due to Vercel serverless limitations (function can be killed after sending response), the client calls `/api/generate-weekly-report` after receiving the complete-week response. Previously used a detached promise, but this was unreliable on serverless.
+1. Returns `aiExplanations` per dimension so the UI can show why multipliers were adjusted.
+1. Validates all scores are finite before persisting (safety net).
+   **Output:** `{ updatedScores, expectedScores, gaps, summary, rebalanceRecommended, aiExplanations }`
+   **Timeout:** 60s. **Model:** sonnet. **Max tokens:** 1024 (for Prompt 3B calls).
 
 ### POST /api/generate-weekly-report
 
@@ -348,8 +356,10 @@ CREATE TABLE component_feedback (
 1. Fetch: weekly_target (sessions, expected_scores, week_type), workout_logs for this week, score_history entries for this week and previous week, objective (target scores, relevance profiles, taglines), AI relevance evaluation results (multiplier adjustments and explanations from Prompt 3B).
 1. Call Claude with Prompt REPORT (see below).
 1. Store the report in `weekly_targets.weekly_report` as JSON.
-1. **This runs in the background** — the user doesn’t wait for it. The UI polls or checks for the report and shows a “View Report” button on the week card when it’s available.
-   **Output:** `{ report }` (stored, not returned to user directly)
+1. **Client-triggered** (not background). The client calls this endpoint after receiving the complete-week response. The UI polls or checks for the report and shows a “View Report” button on the week card when it’s available.
+1. Logic is delegated to `src/lib/generate-report.ts`.
+   **Output:** `{ success }` (report stored in weekly_targets.weekly_report, not returned directly)
+   **Timeout:** 120s. **Model:** sonnet.
 
 ### Rating Multipliers
 
@@ -369,21 +379,22 @@ CREATE TABLE component_feedback (
 
 ### POST /api/generate-alternatives
 
-**Input:** `{ planId, weekNumber, sessionIndex, dimension }`
-**Logic:** Call Claude with Prompt 6 to generate 2 alternative sessions. Provides outdoor/gym cardio options, bodyweight/equipment strength options, etc.
-**Output:** `{ alternatives: [session, session] }`
+**Input:** `{ planId, weekNumber, sessionIndex }`
+**Logic:** Call Claude with Prompt 6 (with prompt caching) to generate 2 alternative sessions. Provides outdoor/gym cardio options, bodyweight/equipment strength options, bouldering/outdoor climbing options, different modality flexibility options. Model: sonnet. Max tokens: 4096. Timeout: 120s.
+**Output:** `{ original, alternatives: [session, session] }`
 
 ### POST /api/replace-session
 
-**Input:** `{ planId, weekNumber, sessionIndex, alternativeIndex }`
-**Logic:** Swaps session with selected alternative. Preserves original.
-**Output:** `{ updatedSession }`
+**Input:** `{ planId, weekNumber, sessionIndex, replacementSession }`
+**Logic:** Swaps session with selected alternative. Preserves original. Recalculates total hours for the week.
+**Output:** `{ success, sessions }`
 
 ### POST /api/adjust-difficulty
 
 **Input:** `{ planId, adjustment: "much_easier" | "slightly_easier" | "slightly_harder" | "much_harder" }`
-**Logic:** Call Claude with Prompt RESCALE. Scale factors: much_easier=0.60, slightly_easier=0.80, slightly_harder=1.20, much_harder=1.50. Applied to remaining gap between current and target scores.
-**Output:** `{ updatedTargetScores, updatedBenchmarks }`
+**Logic:** Two-step: (1) Math-only `scaleDifficultyTargets()` scales the remaining gap between current and target scores using scale factors: much_easier=0.60, slightly_easier=0.80, slightly_harder=1.20, much_harder=1.50. (2) Calls Claude with Prompt RESCALE_BENCHMARKS to rescale graduation benchmark values to match new targets. Recalculates expected scores for remaining weeks. Clears sessions for on-demand regeneration. Tracks adjustments in `plan_data.difficultyAdjustments` array.
+**Output:** `{ newTargets, newBenchmarks, updatedWeeks }`
+**Timeout:** 60s. **Model:** sonnet. **Max tokens:** 4096.
 
 ### POST /api/find-routes
 
@@ -394,18 +405,24 @@ CREATE TABLE component_feedback (
 ### POST /api/delete-plan
 
 **Input:** `{ planId }`
-**Logic:** Cascading delete of plan + objective + weekly targets.
+**Logic:** Cascading delete: detaches workout_logs (removes FK reference but keeps logs), deletes weekly_targets, deletes plan, deletes assessments, deletes objective, deletes score_history entries.
 **Output:** `{ success }`
 
 ### POST /api/delete-workout
 
-**Input:** `{ workoutId }`
-**Logic:** Deletes workout log. If week was already completed, reverts scores and week number.
-**Output:** `{ updatedScores?, weekReverted? }`
+**Input:** `{ logId }`
+**Logic:** Deletes workout log. If week was already completed, reverts scores to previous score_history entry (or assessment baseline if no prior history) and decrements week number.
+**Output:** `{ success, weekReverted? }`
+
+### POST /api/delete-assessment
+
+**Input:** `{ assessmentId }`
+**Logic:** Deletes assessment and resets objective's current scores to 0. Does NOT delete the associated plan — allows user to re-assess and regenerate.
+**Output:** `{ success }`
 
 ### GET /api/debug-claude
 
-Diagnostic endpoint for Claude API connectivity testing.
+Diagnostic endpoint for Claude API connectivity testing. Sends a simple 5-word prompt to sonnet and returns response time, token counts.
 
 -----
 
@@ -490,6 +507,8 @@ Deleting a workout from a completed week reverts scores and week number. Safety 
 -----
 
 ## AI Prompts
+
+> **Note:** All prompts are defined in `src/lib/prompts.ts`. The actual implementations include MTI reference plan URLs for calibration (13 URLs from mtntactical.com/shop/) and detailed JSON response schemas. The summaries below capture the intent; see the source file for exact prompt text. Deprecated prompts (PROMPT_2_SYSTEM full-plan generation, PROMPT_2A_SYSTEM structure-only) are kept in the file for reference but are not called.
 
 ### Prompt 1: Target Score Estimation & Graduation Benchmarks
 
@@ -629,10 +648,16 @@ Same format as Prompt 2B sessions. Match the difficulty level of the original se
 ### Prompt RESCALE: Difficulty Adjustment
 
 ```
-Rescale graduation benchmark targets proportionally.
-Scale factors: much_easier=0.60, slightly_easier=0.80, slightly_harder=1.20, much_harder=1.50.
-Apply to remaining gap between current and target scores.
-Recalculate graduation targets to match new target scores.
+You are an expert mountain athletics coach rescaling graduation benchmarks for a training plan whose difficulty has been adjusted. The athlete wants their plan to be harder or easier, so the target scores have changed. You must update the graduation benchmark targets to match the new target scores while keeping the same exercises.
+
+Rules:
+- Keep the SAME exerciseId and exerciseName for every benchmark — only change graduationTarget and whyThisTarget.
+- Scale the numeric values in graduationTarget proportionally to the score change.
+- Maintain the TRAINING OVERSHOOT RULE: graduation targets should remain above actual requirements.
+- For climbing grades, adjust by sub-grades when the score change is significant enough (10+ point change).
+- Round to sensible values (whole reps, nearest 0.5 miles, nearest 100 ft elevation).
+
+Return JSON with same structure as graduation benchmarks input.
 ```
 
 ### Prompt SEARCH: Objective Suggestions
@@ -844,6 +869,10 @@ Standard Supabase Auth UI. Email/password. Redirect to /dashboard after login.
 - Click event → objective detail modal (edit/delete).
 - Tier badge on each objective (Gold/Silver/Bronze).
 
+### /assessment (redirect)
+
+Legacy route — redirects to `/calendar`. Assessment is now accessed per-objective via `/assessment/[objectiveId]`.
+
 ### /assessment/[objectiveId]
 
 Assessment is per-objective and happens AFTER creating the objective. Two layers:
@@ -905,25 +934,29 @@ Assessment is per-objective and happens AFTER creating the objective. Two layers
 - Solid dots = test weeks (high confidence). Lighter dots = regular weeks.
 - Horizontal dashed lines = target scores.
 
-### /admin (validator only — single page with 5 tabs)
+### /admin/objectives (validator only — currently single tab, planned 5 tabs)
 
-Only accessible if `profiles.is_validator = true`. Redirects non-validators to /dashboard.
+Only accessible if `profiles.is_validator = true`. Auth guard in `(app)/layout.tsx` checks `is_validator` flag and passes to AppShell.
 
-**Tab 1: Objectives**
+**Currently implemented: Objectives tab only**
 
-- List view of all validated_objectives with columns: name, route, type, difficulty, status, user match count.
-- Search and filter by type, difficulty, status, tags.
-- Click any objective to expand inline editing panel showing ALL fields:
-  - Core: name, route, match_aliases (editable tag list), type (dropdown), difficulty (dropdown), description (textarea), status (active/draft/retired).
-  - Physical: summit_elevation_ft, total_gain_ft, distance_miles, duration_days, technical_grade.
-  - Tags: editable tag list.
+- List view of all validated_objectives with search/filter by type.
+- Click to expand inline editing: name, route, type (dropdown), difficulty (dropdown), description, physical stats, match_aliases, status.
+- “Add New” button.
+- Edit + Save buttons per objective.
+
+**Planned (not yet built): Full 5-tab admin portal**
+
+**Tab 1: Objectives (expand existing)**
+
+- Add columns: status, user match count.
+- Add filters: difficulty, status, tags.
+- Add inline editing for:
   - **Target Scores:** 4 number inputs (cardio, strength, climbing_technical, flexibility) with tagline text fields next to each.
   - **Relevance Profiles (inline):** For each dimension, show key components and irrelevant components as editable lists. Each component has: text (editable), vote count from component_feedback (read-only). Add component button. Delete component button.
   - **Graduation Benchmarks (inline):** For each dimension, show assigned benchmark exercises with their graduation targets. Each benchmark row: exercise name (dropdown from benchmark_exercises library), graduation target (editable text). Add benchmark button. Remove benchmark button.
   - **Recommended weeks:** number input.
   - **Metadata:** created_by, last_reviewed (auto-updates on save).
-- “Add New Objective” button at top → opens empty form.
-- “Save” button persists all changes directly to Supabase.
 - “Retire” button sets status = retired (soft delete).
 
 **Tab 2: Exercises**
@@ -982,15 +1015,22 @@ Only accessible if `profiles.is_validator = true`. Redirects non-validators to /
 
 -----
 
-## Features Not Yet Built (Priority Order)
+## Implementation Status
 
-1. **AI relevance evaluation on non-3 ratings** — Prompt 3B. Comment required, AI adjusts multiplier ±0.25. The core product differentiator.
-1. **Assessment redesign** — Two-layer assessment: standard questions + AI-generated objective-specific follow-ups (including lead/follow) + AI scoring with per-dimension reasoning + programming hints. Objective-first flow. Prompts ASSESS-Q and ASSESS-SCORE.
-1. **Max hours update** — Change cap from 10 to 20.
-1. **Weekly report** — AI-generated end-of-week report (Prompt REPORT). Background generation after week completion. 5 sections: summary, score changes with relevance explanations, trajectory status, next week focus, optional adjustment suggestions. “View Report” button on completed weeks.
-1. **Admin portal** — Single page at /admin with 5 tabs: Objectives (with inline relevance profiles and graduation benchmarks), Exercises (with cross-references), Feedback (vote aggregation + approval queue), Activity (usage stats + novel objective candidates), AI Review (audit Silver/Bronze outputs). Replaces the current basic /admin/objectives page.
+### Completed
+
+1. **AI relevance evaluation on non-3 ratings** — Prompt 3B fully implemented in `/api/complete-week`. Comment required for non-3 ratings, AI adjusts multiplier ±0.25 with clamping.
+1. **Assessment redesign** — Two-layer assessment fully implemented. Standard questions → AI-generated follow-ups (lead/follow first for climbing objectives) → AI scoring with reasoning + programming hints. Objective-first flow. Prompts ASSESS-Q and ASSESS-SCORE wired end-to-end.
+1. **Max hours update** — Cap changed from 10 to 20.
+1. **Weekly report** — Prompt REPORT and `/api/generate-weekly-report` implemented. Client-triggered (not background async, due to Vercel serverless limitations). 5 sections with markdown rendering. “View Report” button on completed weeks with polling.
+1. **Delete assessment endpoint** — `/api/delete-assessment` implemented (resets scores to 0, preserves plan).
+
+### Features Not Yet Built (Priority Order)
+
+1. **Full admin portal** — Currently only Objectives tab exists at `/admin/objectives` with basic list + inline editing. Missing: Exercises tab (with cross-references), Feedback tab (vote aggregation + approval queue), Activity tab (usage stats + novel objective candidates), AI Review tab (audit Silver/Bronze outputs). Also missing: inline relevance profile and graduation benchmark editing in Objectives tab.
+1. **Week type scheduling** — All weeks are generated as `weekType: “regular”`. Test, recovery, and taper week type assignment is not implemented in plan generation (schema supports it, UI supports badges, but plan generator doesn't schedule them).
 1. **Validator overlay UI** — Lightweight upvote/downvote on objective detail page for validators.
-1. **Route recommendations UI** — “Find Routes” on cardio sessions. Enable web_search.
+1. **Route recommendations UI** — “Find Routes” on cardio sessions. `/api/find-routes` exists but `web_search` tool not enabled.
 1. **Score chart on dashboard** — Compact line chart from score_history.
 1. **AI-powered rebalancing** — Prompt 4 exists but not called. Math-only works for now.
 
@@ -1018,15 +1058,55 @@ Only accessible if `profiles.is_validator = true`. Redirects non-validators to /
 
 15 benchmark exercises seeded (3 cardio, 5 strength, 3 climbing, 3 flexibility + 1 flexibility).
 
+Seed data is defined in `src/lib/seed-data.ts`. The `findSeedMatch(name, route?)` function looks up objectives from the hardcoded array. Seed data takes precedence over DB records (authoritative source for Gold tier objectives).
+
+-----
+
+## Key Library Files
+
+| File | Purpose |
+|------|---------|
+| `src/lib/claude.ts` | `callClaude()`, `callClaudeWithCache()`, `parseClaudeJSON<T>()`. Default model: sonnet. Timeout: 120s. Cache uses ephemeral `cache_control`. |
+| `src/lib/prompts.ts` | All AI prompt constants (PROMPT_1, 2, 2A, 2B, 3B, 4, 5, 6, ASSESS_Q, ASSESS_SCORE, RESCALE_BENCHMARKS, SEARCH, REPORT). Includes MTI reference URLs. |
+| `src/lib/scoring.ts` | `calculateScoreFromRatings()`, `calculateAllScoresFromRatings()`, `expectedScoreAtWeek()`, `shouldHighlightRebalance()`, `scoreArcColor()`, `calculateSessionMinutes()`, `scaleDifficultyTargets()`, `dimensionProgressFractions()`. |
+| `src/lib/types.ts` | All TypeScript types: `Profile`, `ValidatedObjective`, `Objective`, `Assessment`, `TrainingPlan`, `WeeklyTarget`, `PlanSession`, `WorkoutLog`, `ScoreHistory`, `ComponentFeedback`, `WeeklyReport`, `ProgrammingHints`, `DimensionScores`, `RATING_MULTIPLIERS`. |
+| `src/lib/seed-data.ts` | Hardcoded 15 validated objectives + 15 benchmark exercises. `findSeedMatch()` for authoritative Gold tier lookups. |
+| `src/lib/generate-report.ts` | `generateWeeklyReport()` — fetches all data for a completed week and calls Claude with PROMPT_REPORT. Stores result in `weekly_targets.weekly_report`. |
+| `src/lib/unsplash.ts` | `fetchHeroImageUrl()` — fetches Unsplash image URL for objective (non-blocking, used in plan generation). |
+| `src/lib/supabase.ts` | Browser-side Supabase client (SSR pattern). |
+| `src/lib/supabase-middleware.ts` | Supabase session lifecycle management for SSR. |
+| `src/middleware.ts` | Next.js middleware for session refresh on all routes (except static assets). |
+
+## Database Migrations
+
+| Migration | Description |
+|-----------|-------------|
+| `001_initial_schema.sql` | Core tables (profiles, validated_objectives, benchmark_exercises, objectives, assessments, score_history, training_plans, weekly_targets, workout_logs, component_feedback) + RLS policies |
+| `002_assessment_redesign.sql` | Added objective_id FK to assessments, standard_answers, ai_questions, ai_answers, freeform_text, ai_reasoning, raw_data fields |
+| `003_ai_relevance_and_max_hours.sql` | Added climbing_role to objectives, rating_comment to workout_logs. Max weekly hours updated to 20. |
+| `004_weekly_report.sql` | Added weekly_report JSONB column to weekly_targets |
+| `005_performance_indexes_and_rls.sql` | Performance indexes + RLS policy refinements |
+
+## Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| AppShell | `src/components/AppShell.tsx` | Layout with header, nav (Dashboard, Plan, Progress, Admin if validator), mountain bg image |
+| ScoreArc | `src/components/ScoreArc.tsx` | 4 progress arc displays (current vs target, green/yellow/red) |
+| ThisWeekSessions | `src/components/ThisWeekSessions.tsx` | Dashboard widget showing current week's sessions with "Mark Complete" |
+| DeletePlanButton | `src/components/DeletePlanButton.tsx` | Delete plan with confirmation dialog |
+| DeleteAssessmentButton | `src/components/DeleteAssessmentButton.tsx` | Delete assessment with confirmation dialog |
+| UpdateAssessmentButton | `src/components/UpdateAssessmentButton.tsx` | Re-assess objective button |
+| ObjectiveModal | `src/components/ObjectiveModal.tsx` | Create/edit objectives in calendar (with search mode) |
+| AlternativesPanel | `src/components/AlternativesPanel.tsx` | Shows 2 AI-generated alternative sessions per session |
+| WeekBadge | `src/components/WeekBadge.tsx` | Week type badge (test=blue, recovery=green, regular, taper=amber) |
+
 -----
 
 ## Build Order (remaining work)
 
-1. **Assessment redesign** — Implement two-layer assessment (Prompts ASSESS-Q and ASSESS-SCORE). Standard questions → AI-generated follow-ups (lead/follow first for climbing objectives) → AI scoring with reasoning + programming hints. Flip flow to objective-first, then assess. Wire programming hints through to plan generation and Prompt 2B.
-1. **AI relevance evaluation** — Implement Prompt 3B. Add mandatory comment field for non-3 ratings. Wire AI multiplier adjustment into /api/complete-week.
-1. **Max hours update** — Change cap from 10 to 20.
-1. **Weekly report** — Implement Prompt REPORT and /api/generate-weekly-report. Add weekly_report column to weekly_targets. Trigger background generation from /api/complete-week. Add “View Report” button on completed weeks in /plan.
-1. **Admin portal** — Replace /admin/objectives with full 5-tab admin portal at /admin. Tabs: Objectives, Exercises, Feedback, Activity, AI Review. All inline editing with direct Supabase persistence.
+1. **Admin portal expansion** — Add 4 missing tabs (Exercises, Feedback, Activity, AI Review) to `/admin/objectives`. Add inline relevance profile and graduation benchmark editing to Objectives tab. All inline editing with direct Supabase persistence.
+1. **Week type scheduling** — Implement test/recovery/taper week assignment in `/api/generate-plan`. Currently all weeks are “regular”. Need: test weeks with benchmark sessions, recovery weeks at 50% volume with no scoring, taper (final 2 weeks) with locked scores.
 1. **Validator overlay** — Build lightweight UI on objective detail page for is_validator users.
 1. **Route recommendations** — Wire /api/find-routes into cardio session cards. Enable web_search tool.
 1. **Dashboard score chart** — Add compact line chart from score_history to /dashboard.
