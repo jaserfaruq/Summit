@@ -92,6 +92,18 @@ function PlanContent() {
     }
   }, [planData]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-expand philosophy & graduation workouts on first visit to this plan
+  useEffect(() => {
+    if (!plan) return;
+    const key = `plan-visited-${plan.id}`;
+    const visited = localStorage.getItem(key);
+    if (!visited) {
+      setPhilosophyExpanded(true);
+      setGraduationExpanded(true);
+      localStorage.setItem(key, 'true');
+    }
+  }, [plan]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Re-fetch on loggedParam change (after logging a workout)
   useEffect(() => {
     if (loggedParam) mutate();
