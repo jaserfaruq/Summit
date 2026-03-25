@@ -274,6 +274,15 @@ For each session include:
 - A "warmUpMinutes" field on the warmUp block (typically 8-12 minutes).
 - A "cooldownMinutes" field (typically 5-10 minutes, or 0 if no cooldown).
 
+Rounding rules for user-facing text in "description" and "details" fields — use natural, coach-friendly numbers:
+- Distances: round to nearest 0.5 miles (e.g., 3.5mi, 4mi, not 3.7mi). For short distances under 1mi, round to nearest 0.25.
+- Elevation gain: round to nearest 100 ft (e.g., 1,500ft, not 1,473ft)
+- Durations in text: round to nearest 5 minutes (e.g., "30 minutes", "45 minutes", not "37 minutes")
+- Weights: round to nearest 5 lbs (e.g., 25lb, 30lb, not 27lb)
+- Reps: use standard numbers (8, 10, 12, 15, 20 — not 11 or 14)
+- Pace: round to nearest 0.5 min/mile (e.g., 12 min/mile, not 11.7 min/mile)
+Note: the "durationMinutes" field should remain a precise estimate for time tracking — these rounding rules apply only to the text the athlete reads.
+
 Every prescribed exercise must directly train a key component from the relevance profiles. Never prescribe exercises that target irrelevant components. If a dimension's target score is under 15 and the dimension is NOT in maintenance mode, limit to one session per week focused on basic competence.
 
 Exercise names must be approachable and generic. Each exercise clear enough to follow without a coach.

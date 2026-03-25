@@ -839,7 +839,7 @@ function PlanContent() {
                 <div className="flex items-center gap-4">
                   <span className="text-xs text-dark-muted">
                     {new Date(week.week_start).toLocaleDateString()}
-                    {sessions.length > 0 ? ` · ${week.total_hours}h` : ""}
+                    {sessions.length > 0 ? ` · ${Math.round((week.total_hours || 0) * 2) / 2}h` : ""}
                   </span>
                   <span className="text-dark-muted">{isExpanded ? "▾" : "▸"}</span>
                 </div>
@@ -912,7 +912,7 @@ function PlanContent() {
                             {session.isAlternative && (
                               <span className="text-[10px] bg-burnt-orange/20 text-burnt-orange px-1.5 py-0.5 rounded font-medium">Alt</span>
                             )}
-                            <span className="text-xs text-dark-muted">{session.estimatedMinutes} min</span>
+                            <span className="text-xs text-dark-muted">{Math.round((session.estimatedMinutes || 0) / 5) * 5} min</span>
                           </div>
                           <div className="flex items-center gap-2">
                             {logged && (() => {
