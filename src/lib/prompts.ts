@@ -256,6 +256,13 @@ Rules:
 - Increase total volume by no more than 10% per week from the prior week.
 - At least one full rest day per week.
 
+Session naming convention:
+- Format: "Dimension | Focus (key metric)" — e.g., "Cardio | Zone 2 Trail Run (4mi)", "Strength | Loaded Step-Ups & Lunges (25lb)"
+- Dimension prefix must be one of: Cardio, Strength, Climbing, Flexibility. For combined sessions use "&": "Strength & Flexibility | Core & Mobility Circuit"
+- The "Focus" part should be a short, descriptive name for the workout type (2-5 words)
+- The parenthetical "(key metric)" should reflect the primary progression variable for that session — distance, weight, reps, pitches, etc. Omit if not applicable (e.g., mobility sessions)
+- IMPORTANT: When the same workout type recurs across weeks, keep the same base name ("Cardio | Zone 2 Trail Run") and only change the parenthetical metric to show progression
+
 For each session include:
 - A short objective line (without duration — duration is calculated separately).
 - A warm-up block with specific exercises and reps.
@@ -274,7 +281,7 @@ Exercise names must be approachable and generic. Each exercise clear enough to f
 Return valid JSON matching this schema:
 {
   "sessions": [{
-    "name": "string",
+    "name": "string — format: 'Dimension | Focus (metric)'",
     "objective": "string",
     "dimension": "string (primary dimension)",
     "warmUp": {
