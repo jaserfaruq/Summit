@@ -882,7 +882,36 @@ Assessment is per-objective and happens AFTER creating the objective. Two layers
 - Longest cardio effort in last 3 months (distance, duration, elevation gain)
 - Strength training frequency and type (dropdown)
 - Climbing experience level + skill checkboxes (indoor gym, outdoor sport, trad, multi-pitch, glacier, crevasse rescue)
-- Flexibility self-assessment: hip tightness (1–5), ankle mobility (1–5), regular routine (yes/no)
+- Flexibility self-assessment:
+  - Hip mobility (1–5 scale) with info bubble (see below)
+  - Ankle mobility (1–5 scale) with info bubble (see below)
+  - Regular flexibility routine? (yes/no)
+
+**Hip Mobility Info Bubble Content:**
+Here's how to think about this. Try sitting cross-legged on the floor — can you sit comfortably with a straight back, or do your knees stay high and your back rounds? Now try a deep lunge with your back knee close to the ground — can you hold it for 30 seconds without pain?
+
+1 (Very tight): You can't sit cross-legged comfortably. Deep lunges feel restricted or painful. Getting in and out of a low car seat is awkward. You spend most of your day sitting and rarely stretch or do lower-body mobility work.
+
+2 (Tight): You can sit cross-legged but not for long. Lunges feel tight in the front of your back hip. You occasionally stretch or do yoga but your hips are noticeably stiff, especially after sitting for hours.
+
+3 (Average): You can do a deep lunge and hold it. Sitting cross-legged is fine. You don't have a dedicated flexibility routine, but you move regularly and your hips don't limit your activities. Most active people are here.
+
+4 (Pretty flexible): You can easily hold a deep lunge with your back knee an inch from the ground. Pigeon pose and similar hip stretches feel comfortable. You probably do yoga or dedicated mobility work at least once a week.
+
+5 (Very flexible): Full splits or near-splits. You can drop into a deep squat with feet flat and sit there comfortably. Hip mobility has never limited any physical activity. Dancers, martial artists, and dedicated yoga practitioners are typically here.
+
+**Ankle Mobility Info Bubble Content:**
+Here's a quick test. Stand facing a wall with one foot about 4 inches away. Try to touch your knee to the wall without lifting your heel. Can you do it easily, barely, or not at all?
+
+1 (Very stiff): You can't touch your knee to the wall from 4 inches. Deep squats force your heels off the ground. You've had ankle sprains or wear stiff shoes most of the time. Going downhill on steep trails feels jarring.
+
+2 (Stiff): Knee barely touches the wall at 4 inches. Squatting deep requires heel elevation or a wide stance. You notice ankle tightness on steep descents or uneven ground. Calves feel chronically tight.
+
+3 (Average): You pass the wall test at 4 inches without difficulty. You can squat to parallel with heels down. Steep terrain doesn't bother your ankles specifically. Most people who walk or run regularly are here.
+
+4 (Good): You pass the wall test at 5+ inches. Full deep squat with heels flat is comfortable. You can walk on uneven rocky terrain for hours without ankle fatigue. Trail runners and hikers who train on varied terrain are typically here.
+
+5 (Excellent): You can easily pass the wall test at 6+ inches. Deep pistol squats are accessible. Your ankles have never limited any athletic movement. This level is common in gymnasts, experienced barefoot runners, and dedicated mobility practitioners.
 
 **Layer 2: AI-Generated Questions (3–5 tailored to this objective)**
 

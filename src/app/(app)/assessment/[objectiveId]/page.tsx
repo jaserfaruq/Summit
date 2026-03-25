@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { AIQuestion, DimensionScores, AIReasoning, ProgrammingHints } from "@/lib/types";
+import InfoBubble from "@/components/InfoBubble";
 
 type Phase = "layer1" | "layer2" | "scoring" | "results";
 
@@ -405,12 +406,32 @@ function AssessmentContent() {
             <h3 className="text-lg font-semibold text-white mb-3">Flexibility</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-dark-muted mb-1">Hip tightness (1 = very tight, 5 = very flexible)</label>
+                <label className="flex items-center text-sm font-medium text-dark-muted mb-1">
+                  Hip mobility (1 = very tight, 5 = very flexible)
+                  <InfoBubble title="How to assess your hip mobility">
+                    <p>Here&apos;s how to think about this. Try sitting cross-legged on the floor — can you sit comfortably with a straight back, or do your knees stay high and your back rounds? Now try a deep lunge with your back knee close to the ground — can you hold it for 30 seconds without pain?</p>
+                    <p><span className="font-bold text-[#D4782F]">1</span> <span className="font-semibold">(Very tight):</span> You can&apos;t sit cross-legged comfortably. Deep lunges feel restricted or painful. Getting in and out of a low car seat is awkward. You spend most of your day sitting and rarely stretch or do lower-body mobility work.</p>
+                    <p><span className="font-bold text-[#D4782F]">2</span> <span className="font-semibold">(Tight):</span> You can sit cross-legged but not for long. Lunges feel tight in the front of your back hip. You occasionally stretch or do yoga but your hips are noticeably stiff, especially after sitting for hours.</p>
+                    <p><span className="font-bold text-[#D4782F]">3</span> <span className="font-semibold">(Average):</span> You can do a deep lunge and hold it. Sitting cross-legged is fine. You don&apos;t have a dedicated flexibility routine, but you move regularly and your hips don&apos;t limit your activities. Most active people are here.</p>
+                    <p><span className="font-bold text-[#D4782F]">4</span> <span className="font-semibold">(Pretty flexible):</span> You can easily hold a deep lunge with your back knee an inch from the ground. Pigeon pose and similar hip stretches feel comfortable. You probably do yoga or dedicated mobility work at least once a week.</p>
+                    <p><span className="font-bold text-[#D4782F]">5</span> <span className="font-semibold">(Very flexible):</span> Full splits or near-splits. You can drop into a deep squat with feet flat and sit there comfortably. Hip mobility has never limited any physical activity. Dancers, martial artists, and dedicated yoga practitioners are typically here.</p>
+                  </InfoBubble>
+                </label>
                 <input type="range" min="1" max="5" value={hipTightness} onChange={(e) => setHipTightness(parseInt(e.target.value))} className="w-full accent-gold" />
                 <div className="flex justify-between text-xs text-dark-muted"><span>1 (tight)</span><span>3</span><span>5 (flexible)</span></div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-dark-muted mb-1">Ankle mobility (1 = very limited, 5 = excellent)</label>
+                <label className="flex items-center text-sm font-medium text-dark-muted mb-1">
+                  Ankle mobility (1 = very limited, 5 = excellent)
+                  <InfoBubble title="How to assess your ankle mobility">
+                    <p>Here&apos;s a quick test. Stand facing a wall with one foot about 4 inches away. Try to touch your knee to the wall without lifting your heel. Can you do it easily, barely, or not at all?</p>
+                    <p><span className="font-bold text-[#D4782F]">1</span> <span className="font-semibold">(Very stiff):</span> You can&apos;t touch your knee to the wall from 4 inches. Deep squats force your heels off the ground. You&apos;ve had ankle sprains or wear stiff shoes most of the time. Going downhill on steep trails feels jarring.</p>
+                    <p><span className="font-bold text-[#D4782F]">2</span> <span className="font-semibold">(Stiff):</span> Knee barely touches the wall at 4 inches. Squatting deep requires heel elevation or a wide stance. You notice ankle tightness on steep descents or uneven ground. Calves feel chronically tight.</p>
+                    <p><span className="font-bold text-[#D4782F]">3</span> <span className="font-semibold">(Average):</span> You pass the wall test at 4 inches without difficulty. You can squat to parallel with heels down. Steep terrain doesn&apos;t bother your ankles specifically. Most people who walk or run regularly are here.</p>
+                    <p><span className="font-bold text-[#D4782F]">4</span> <span className="font-semibold">(Good):</span> You pass the wall test at 5+ inches. Full deep squat with heels flat is comfortable. You can walk on uneven rocky terrain for hours without ankle fatigue. Trail runners and hikers who train on varied terrain are typically here.</p>
+                    <p><span className="font-bold text-[#D4782F]">5</span> <span className="font-semibold">(Excellent):</span> You can easily pass the wall test at 6+ inches. Deep pistol squats are accessible. Your ankles have never limited any athletic movement. This level is common in gymnasts, experienced barefoot runners, and dedicated mobility practitioners.</p>
+                  </InfoBubble>
+                </label>
                 <input type="range" min="1" max="5" value={ankleMobility} onChange={(e) => setAnkleMobility(parseInt(e.target.value))} className="w-full accent-gold" />
                 <div className="flex justify-between text-xs text-dark-muted"><span>1 (limited)</span><span>3</span><span>5 (excellent)</span></div>
               </div>

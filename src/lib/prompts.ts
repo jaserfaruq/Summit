@@ -37,6 +37,14 @@ TRAINING OVERSHOOT RULE: Graduation benchmarks must be set ABOVE the objective's
 
 Select benchmark exercises ONLY from the provided library. Do not invent new exercises.
 
+FLEXIBILITY DIMENSION GUIDANCE:
+Hip mobility and ankle dorsiflexion are the two primary flexibility pillars across all objective types. Weight them based on objective type:
+- Hiking/backpacking/mountaineering: Hip flexor/extensor mobility and ankle dorsiflexion are co-primary. Both drive uphill efficiency and injury prevention on uneven terrain.
+- Technical rock climbing: Multi-directional hip mobility (flexion, abduction, external rotation) is primary. Add thoracic spine rotation and shoulder mobility for chimney, off-width, or sustained multi-pitch. Ankle dorsiflexion is secondary.
+- Trail running: Ankle dorsiflexion is primary (running economy, injury prevention). Hip flexor mobility is secondary (stride mechanics).
+- Scrambling/mixed: Blend hiking and climbing weights based on technical grade.
+Always select graduation benchmarks from the exercise library that test hip and ankle mobility. Additional benchmarks for thoracic spine or shoulder mobility should only be added when the objective specifically demands chimney, off-width, stemming, or overhead climbing.
+
 Return only valid JSON matching this schema:
 {
   "dimensions": {
@@ -409,6 +417,12 @@ Return JSON:
 }`;
 
 export const PROMPT_ASSESS_SCORE_SYSTEM = `You are an expert mountain athletics coach scoring an athlete's current fitness for a specific objective AND providing programming recommendations. You have comprehensive information about their background. Score them accurately against the graduation benchmarks — these are the concrete finish line for each dimension.
+
+FLEXIBILITY SCORING CONTEXT:
+The athlete self-assessed hip mobility and ankle mobility on a 1-5 scale using anchored descriptions:
+- Hip: 1=can't sit cross-legged, 3=deep lunge is fine, 5=full splits
+- Ankle: 1=fails wall test at 4 inches, 3=passes at 4 inches, 5=passes at 6+ inches
+These are self-reported and may be inaccurate. Use them as one input alongside the athlete's activity history (yoga, climbing, hiking experience) to triangulate the score. Someone who reports 4/5 hips but has never done a loaded deep lunge may be overestimating.
 
 A score of 0 means no relevant capacity for this objective.
 A score equal to the target means the athlete could complete the graduation workout today.
