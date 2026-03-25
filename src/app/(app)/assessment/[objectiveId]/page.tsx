@@ -293,7 +293,8 @@ function AssessmentContent() {
         <div className="space-y-6">
           {/* Training days */}
           <div>
-            <label className="block text-sm font-medium text-dark-muted mb-1">Training days per week</label>
+            <label className="block text-sm font-medium text-dark-muted mb-1">How many days per week can you train?</label>
+            <p className="text-xs text-dark-muted mb-2">We recommend 5–6 days for most major objectives.</p>
             <select value={trainingDays} onChange={(e) => setTrainingDays(parseInt(e.target.value))} className={inputClass}>
               {[2, 3, 4, 5, 6, 7].map((n) => (
                 <option key={n} value={n}>{n} days</option>
