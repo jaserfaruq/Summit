@@ -256,6 +256,13 @@ Rules:
 - Increase total volume by no more than 10% per week from the prior week.
 - At least one full rest day per week.
 
+Session naming convention:
+- Format: "Dimension | Focus (key metric)" — e.g., "Cardio | Zone 2 Trail Run (4mi)", "Strength | Loaded Step-Ups & Lunges (25lb)"
+- Dimension prefix must be one of: Cardio, Strength, Climbing, Flexibility. For combined sessions use "&": "Strength & Flexibility | Core & Mobility Circuit"
+- The "Focus" part should be a short, descriptive name for the workout type (2-5 words)
+- The parenthetical "(key metric)" should reflect the primary progression variable for that session — distance, weight, reps, pitches, etc. Omit if not applicable (e.g., mobility sessions)
+- IMPORTANT: When the same workout type recurs across weeks, keep the same base name ("Cardio | Zone 2 Trail Run") and only change the parenthetical metric to show progression
+
 For each session include:
 - A short objective line (without duration — duration is calculated separately).
 - A warm-up block with specific exercises and reps.
@@ -267,6 +274,15 @@ For each session include:
 - A "warmUpMinutes" field on the warmUp block (typically 8-12 minutes).
 - A "cooldownMinutes" field (typically 5-10 minutes, or 0 if no cooldown).
 
+Rounding rules for user-facing text in "description" and "details" fields — use natural, coach-friendly numbers:
+- Distances: round to nearest 0.5 miles (e.g., 3.5mi, 4mi, not 3.7mi). For short distances under 1mi, round to nearest 0.25.
+- Elevation gain: round to nearest 100 ft (e.g., 1,500ft, not 1,473ft)
+- Durations in text: round to nearest 5 minutes (e.g., "30 minutes", "45 minutes", not "37 minutes")
+- Weights: round to nearest 5 lbs (e.g., 25lb, 30lb, not 27lb)
+- Reps: use standard numbers (8, 10, 12, 15, 20 — not 11 or 14)
+- Pace: round to nearest 0.5 min/mile (e.g., 12 min/mile, not 11.7 min/mile)
+Note: the "durationMinutes" field should remain a precise estimate for time tracking — these rounding rules apply only to the text the athlete reads.
+
 Every prescribed exercise must directly train a key component from the relevance profiles. Never prescribe exercises that target irrelevant components. If a dimension's target score is under 15 and the dimension is NOT in maintenance mode, limit to one session per week focused on basic competence.
 
 Exercise names must be approachable and generic. Each exercise clear enough to follow without a coach.
@@ -274,7 +290,7 @@ Exercise names must be approachable and generic. Each exercise clear enough to f
 Return valid JSON matching this schema:
 {
   "sessions": [{
-    "name": "string",
+    "name": "string — format: 'Dimension | Focus (metric)'",
     "objective": "string",
     "dimension": "string (primary dimension)",
     "warmUp": {

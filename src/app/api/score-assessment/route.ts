@@ -104,6 +104,14 @@ ${freeformText || "None provided"}`;
 
     await supabase.from("objectives").update(objectiveUpdates).eq("id", objectiveId);
 
+    // Update training_days_per_week on user's profile from assessment answers
+    if (standardAnswers.training_days_per_week) {
+      await supabase
+        .from("profiles")
+        .update({ training_days_per_week: standardAnswers.training_days_per_week })
+        .eq("id", user.id);
+    }
+
     // Store the assessment with all fields
     const { data: assessment, error: assessError } = await supabase
       .from("assessments")
