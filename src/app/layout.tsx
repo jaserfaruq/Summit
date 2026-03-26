@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Barlow_Condensed, DM_Sans } from "next/font/google";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+const barlowCondensed = Barlow_Condensed({
+  weight: ["400", "600", "700"],
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "Summit Planner",
-  description: "Plan your next summit with ease",
+  description: "AI-generated training plans calibrated to your specific mountain objective.",
 };
 
 export default function RootLayout({
@@ -26,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-dark-bg text-dark-text`}
+        className={`${barlowCondensed.variable} ${dmSans.variable} antialiased bg-dark-bg text-dark-text`}
       >
         {children}
       </body>

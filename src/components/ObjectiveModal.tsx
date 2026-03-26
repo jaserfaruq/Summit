@@ -274,7 +274,7 @@ export default function ObjectiveModal({
     return (
       <span className={`px-2 py-0.5 text-xs font-bold rounded ${
         tier === "gold"
-          ? "bg-gold/20 text-gold"
+          ? "bg-medal-gold/20 text-medal-gold"
           : "bg-white/10 text-white/70"
       }`}>
         {tier.toUpperCase()}
@@ -543,7 +543,7 @@ export default function ObjectiveModal({
               <div className="flex items-center gap-2">
                 <span className={`px-2 py-1 text-sm font-bold rounded ${
                   matchResult.tier === "gold"
-                    ? "bg-gold/20 text-gold"
+                    ? "bg-medal-gold/20 text-medal-gold"
                     : matchResult.tier === "silver"
                     ? "bg-white/10 text-white/70"
                     : "bg-burnt-orange/20 text-burnt-orange"
@@ -553,7 +553,7 @@ export default function ObjectiveModal({
               </div>
 
               {matchResult.tier === "gold" && matchResult.validatedObjective && (
-                <div className="bg-gold/10 border border-gold/30 rounded-lg p-4">
+                <div className="bg-medal-gold/10 border border-medal-gold/30 rounded-lg p-4">
                   <p className="font-semibold text-white">{matchResult.validatedObjective.name}</p>
                   <p className="text-sm text-dark-muted">{matchResult.validatedObjective.route}</p>
                   <p className="text-sm text-dark-muted mt-1">{matchResult.validatedObjective.description}</p>

@@ -8,6 +8,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ["var(--font-display)", "sans-serif"],
+        body: ["var(--font-body)", "sans-serif"],
+      },
       keyframes: {
         "slide-up": {
           "0%": { transform: "translateY(100%)" },
@@ -26,13 +30,16 @@ const config: Config = {
         "hiking-green": "#2E7D32",
         "taper-amber": "#F57F17",
         // Dark theme colors
-        "dark-bg": "#111111",
-        "dark-surface": "#1a1a1a",
-        "dark-card": "#222222",
-        "dark-border": "#333333",
-        "dark-text": "#e5e5e5",
-        "dark-muted": "#888888",
-        "gold": "#D4A017",
+        "dark-bg": "#0e1210",
+        "dark-surface": "#171d1a",
+        "dark-card": "#1e2820",
+        "dark-border": "#2d3b33",
+        "dark-text": "#e8ece9",
+        "dark-muted": "#7a8f82",
+        // Primary action color (burnt orange — replaces gold for CTAs)
+        "gold": "#D4782F",
+        // Semantic medal color for Gold-tier badges only
+        "medal-gold": "#D4A017",
       },
     },
   },

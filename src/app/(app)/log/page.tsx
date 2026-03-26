@@ -57,13 +57,8 @@ function LogForm() {
     }
   }
 
-  async function handleSubmit(overrideRating?: WorkoutRating) {
-    const finalRating = overrideRating ?? rating;
-
-    // Validate comment is present for non-3 ratings
-    if (finalRating !== 3 && !ratingComment.trim()) {
-      return;
-    }
+  async function handleSubmit() {
+    if (rating !== 3 && !ratingComment.trim()) return;
 
     setLoading(true);
     const supabase = createClient();
@@ -74,13 +69,13 @@ function LogForm() {
       user_id: user.id,
       logged_date: new Date().toISOString().split("T")[0],
       dimension,
-      completed_as_prescribed: finalRating === 3,
+      completed_as_prescribed: rating === 3,
       session_name: sessionName || null,
       notes: notes || null,
-      rating_comment: finalRating !== 3 ? ratingComment : null,
+      rating_comment: rating !== 3 ? ratingComment : null,
       week_number: weekNumber ? parseInt(weekNumber) : null,
       plan_id: planId || null,
-      rating: finalRating,
+      rating: rating,
     });
 
     if (error) {
@@ -95,10 +90,6 @@ function LogForm() {
     setLoading(false);
   }
 
-  function handleMarkComplete() {
-    handleSubmit(3);
-  }
-
   const canSubmit = !requiresComment || ratingComment.trim().length > 0;
 
   return (
@@ -108,17 +99,9 @@ function LogForm() {
       </h2>
 
       {prescribedSession && (
-        <div className="bg-dark-card/80 backdrop-blur-sm border border-dark-border/50 rounded-lg p-4">
-          <p className="text-sm text-dark-muted italic mb-3">{prescribedSession.objective}</p>
-          <button
-            onClick={handleMarkComplete}
-            disabled={loading}
-            className="w-full bg-gold text-dark-bg py-2.5 rounded-lg font-medium hover:bg-gold/90 transition-colors disabled:opacity-50"
-          >
-            {loading ? "Saving..." : "Mark Complete as Prescribed"}
-          </button>
-          <p className="text-xs text-dark-muted text-center mt-2">Or rate your performance and log below</p>
-        </div>
+        <p className="text-sm text-dark-muted italic border-l-2 border-dark-border pl-3">
+          {prescribedSession.objective}
+        </p>
       )}
 
       <div className="space-y-4">
@@ -182,7 +165,7 @@ function LogForm() {
           disabled={loading || !canSubmit}
           className="w-full bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
         >
-          {loading ? "Saving..." : "Save Workout Log"}
+          {loading ? "Saving..." : rating === 3 ? "Log as Prescribed" : "Save Workout Log"}
         </button>
       </div>
     </div>

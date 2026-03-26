@@ -604,7 +604,7 @@ function PlanContent() {
   const heroImageUrl = plan.plan_data?.heroImageUrl;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
       {/* Hero header with blurred background image */}
       <div className="relative rounded-xl overflow-hidden -mx-4 sm:mx-0">
         {/* Background image layer */}
@@ -615,19 +615,19 @@ function PlanContent() {
             alt=""
             className="w-full h-full object-cover blur-[2px] scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/20" />
         </div>
 
         {/* Content over image */}
-        <div className="relative px-6 py-8 sm:py-10">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white drop-shadow-lg">{objective?.name}</h2>
-              <p className="text-white/70 text-sm mt-1 drop-shadow">
+        <div className="relative px-6 pt-8 pb-6 sm:pt-10 sm:pb-8">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="font-display text-3xl sm:text-4xl font-bold text-white drop-shadow-lg leading-tight">{objective?.name}</h2>
+              <p className="text-white/60 text-sm mt-2 drop-shadow tracking-wide">
                 {weeks.length} weeks · Target: {objective?.target_date ? new Date(objective.target_date).toLocaleDateString() : ""}
               </p>
               {objective && (
-                <div className="flex gap-3 sm:gap-4 mt-3">
+                <div className="flex gap-4 sm:gap-5 mt-4">
                   <ScoreArc label="Cardio" current={objective.current_cardio_score} target={objective.target_cardio_score} size="mini" />
                   <ScoreArc label="Strength" current={objective.current_strength_score} target={objective.target_strength_score} size="mini" />
                   <ScoreArc label="Climbing" current={objective.current_climbing_score} target={objective.target_climbing_score} size="mini" />
@@ -635,7 +635,7 @@ function PlanContent() {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0 pt-1">
               <DeletePlanButton planId={plan.id} onDeleted={() => {
               setPlan(null);
               setWeeks([]);
@@ -650,52 +650,52 @@ function PlanContent() {
 
       {/* Objective details */}
       {objective && (
-        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-5">
+        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 px-5 py-4">
           {validatedObj?.description ? (
-            <p className="text-sm text-dark-muted mb-3">{validatedObj.description}</p>
+            <p className="text-sm text-dark-muted mb-4 leading-relaxed">{validatedObj.description}</p>
           ) : objective.relevance_profiles && typeof objective.relevance_profiles === "object" && "cardio" in objective.relevance_profiles && (
-            <p className="text-sm text-dark-muted mb-3">
+            <p className="text-sm text-dark-muted mb-4 leading-relaxed">
               {(objective.relevance_profiles as { cardio: { summary: string } }).cardio.summary}
             </p>
           )}
-          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
             <div>
-              <span className="text-dark-muted">Type </span>
+              <span className="text-dark-muted text-xs uppercase tracking-wider">Type </span>
               <span className="text-dark-text capitalize">{objective.type.replace("_", " ")}</span>
             </div>
             {validatedObj?.route && (
               <div>
-                <span className="text-dark-muted">Route </span>
+                <span className="text-dark-muted text-xs uppercase tracking-wider">Route </span>
                 <span className="text-dark-text">{validatedObj.route}</span>
               </div>
             )}
             {(objective.distance_miles || validatedObj?.distance_miles) && (
               <div>
-                <span className="text-dark-muted">Distance </span>
+                <span className="text-dark-muted text-xs uppercase tracking-wider">Distance </span>
                 <span className="text-dark-text">{objective.distance_miles || validatedObj?.distance_miles} mi</span>
               </div>
             )}
             {(objective.elevation_gain_ft || validatedObj?.total_gain_ft) && (
               <div>
-                <span className="text-dark-muted">Gain </span>
+                <span className="text-dark-muted text-xs uppercase tracking-wider">Gain </span>
                 <span className="text-dark-text">{(objective.elevation_gain_ft || validatedObj?.total_gain_ft)?.toLocaleString()} ft</span>
               </div>
             )}
             {validatedObj?.summit_elevation_ft && (
               <div>
-                <span className="text-dark-muted">Summit </span>
+                <span className="text-dark-muted text-xs uppercase tracking-wider">Summit </span>
                 <span className="text-dark-text">{validatedObj.summit_elevation_ft.toLocaleString()} ft</span>
               </div>
             )}
             {(objective.technical_grade || validatedObj?.technical_grade) && (
               <div>
-                <span className="text-dark-muted">Grade </span>
+                <span className="text-dark-muted text-xs uppercase tracking-wider">Grade </span>
                 <span className="text-dark-text">{objective.technical_grade || validatedObj?.technical_grade}</span>
               </div>
             )}
             {validatedObj?.difficulty && (
               <div>
-                <span className="text-dark-muted">Difficulty </span>
+                <span className="text-dark-muted text-xs uppercase tracking-wider">Difficulty </span>
                 <span className="text-dark-text capitalize">{validatedObj.difficulty}</span>
               </div>
             )}
@@ -708,28 +708,28 @@ function PlanContent() {
         <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50">
           <button
             onClick={() => setPhilosophyExpanded(!philosophyExpanded)}
-            className="w-full flex items-center justify-between p-5 text-left"
+            className="w-full flex items-center justify-between px-5 py-4 text-left"
           >
-            <h3 className="font-semibold text-white">Plan Philosophy</h3>
+            <h3 className="text-sm font-semibold text-dark-text uppercase tracking-wider">Plan Philosophy</h3>
             <svg
-              className={`w-5 h-5 text-dark-muted transition-transform ${philosophyExpanded ? "rotate-180" : ""}`}
+              className={`w-4 h-4 text-dark-muted transition-transform flex-shrink-0 ${philosophyExpanded ? "rotate-180" : ""}`}
               fill="none" viewBox="0 0 24 24" stroke="currentColor"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
           {philosophyExpanded && (
-            <div className="px-5 pb-5 space-y-4">
+            <div className="px-5 pb-5 pt-1 space-y-3 border-t border-dark-border/40">
               {planSummary.philosophy.split(/\n\n+/).map((paragraph: string, i: number) => (
-                <p key={i} className="text-sm text-dark-muted">{paragraph.trim()}</p>
+                <p key={i} className="text-sm text-dark-muted leading-relaxed">{paragraph.trim()}</p>
               ))}
-              <p className="text-sm text-dark-muted">{planSummary.weeklyStructure}</p>
+              <p className="text-sm text-dark-muted leading-relaxed">{planSummary.weeklyStructure}</p>
 
               {/* Initial Assessment link */}
               {objective && (
                 <Link
                   href={`/assessment/${objective.id}?view=results`}
-                  className="inline-block text-sm text-gold hover:text-gold/80 transition-colors mt-2"
+                  className="inline-block text-sm text-gold hover:text-gold/80 transition-colors mt-1"
                 >
                   View initial assessment →
                 </Link>
@@ -741,33 +741,42 @@ function PlanContent() {
 
       {/* Graduation workouts — collapsible, prefer objective benchmarks (synced from seed), then validated, then plan snapshot */}
       {(objective?.graduation_benchmarks || plan.graduation_workouts || validatedObj?.graduation_benchmarks) && (
-        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-gold/20">
+        <div className="rounded-xl border border-gold/30 overflow-hidden" style={{ background: "linear-gradient(135deg, #1e2820 0%, #1a2018 100%)" }}>
           <button
             onClick={() => setGraduationExpanded(!graduationExpanded)}
-            className="w-full flex items-center justify-between p-5 text-left"
+            className="w-full flex items-center justify-between px-5 py-4 text-left"
           >
-            <h3 className="font-semibold text-gold">Graduation Workouts (Finish Line)</h3>
+            <div className="flex items-center gap-3">
+              <svg className="w-4 h-4 text-gold flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
+              </svg>
+              <div>
+                <h3 className="text-sm font-semibold text-gold uppercase tracking-wider">Graduation Workouts</h3>
+                <p className="text-xs text-dark-muted mt-0.5">If you can hit these, you&apos;re more than ready</p>
+              </div>
+            </div>
             <svg
-              className={`w-5 h-5 text-gold/60 transition-transform ${graduationExpanded ? "rotate-180" : ""}`}
+              className={`w-4 h-4 text-gold/50 transition-transform flex-shrink-0 ${graduationExpanded ? "rotate-180" : ""}`}
               fill="none" viewBox="0 0 24 24" stroke="currentColor"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
           {graduationExpanded && (
-            <div className="px-5 pb-5">
-              <div className="grid md:grid-cols-2 gap-3">
+            <div className="px-5 pb-5 border-t border-gold/15">
+              <div className="grid md:grid-cols-2 gap-4 pt-4">
                 {(["cardio", "strength", "climbing_technical", "flexibility"] as const).map((dim) => {
                   const source = objective?.graduation_benchmarks || validatedObj?.graduation_benchmarks || plan.graduation_workouts;
                   const benchmarks = (source as unknown as Record<string, Array<{ exerciseName: string; graduationTarget: string }>>)?.[dim];
                   if (!benchmarks || benchmarks.length === 0) return null;
                   return (
-                    <div key={dim}>
-                      <h4 className="text-xs font-semibold text-gold uppercase mb-1">{dim.replace("_", " / ")}</h4>
+                    <div key={dim} className="space-y-1.5">
+                      <h4 className="text-xs font-semibold text-gold/70 uppercase tracking-wider mb-2">{dim.replace("_", " / ")}</h4>
                       {benchmarks.map((b, i) => (
-                        <p key={i} className="text-sm text-dark-muted">
-                          {b.exerciseName}: <strong className="text-dark-text">{b.graduationTarget}</strong>
-                        </p>
+                        <div key={i} className="flex items-baseline gap-2">
+                          <span className="text-sm text-dark-muted flex-1 leading-snug">{b.exerciseName}</span>
+                          <strong className="text-sm text-dark-text font-semibold whitespace-nowrap">{b.graduationTarget}</strong>
+                        </div>
                       ))}
                     </div>
                   );
@@ -804,7 +813,7 @@ function PlanContent() {
       )}
 
       {/* Week list */}
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {weeks.map((week) => {
           const isExpanded = expandedWeek === week.week_number;
           const isCurrent = plan.current_week_number === week.week_number;
@@ -830,59 +839,57 @@ function PlanContent() {
               {/* Week header */}
               <button
                 onClick={() => handleWeekToggle(week.week_number)}
-                className="w-full px-5 py-4 flex items-center justify-between text-left"
+                className="w-full px-5 py-3.5 flex items-center justify-between text-left"
               >
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-white">Week {week.week_number}</span>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-sm font-semibold text-white tabular-nums">Week {week.week_number}</span>
                   {isCurrent && (
-                    <span className="text-xs bg-gold text-dark-bg px-2 py-0.5 rounded font-medium">Current</span>
+                    <span className="text-[10px] bg-gold text-dark-bg px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide flex-shrink-0">Now</span>
                   )}
-                  {hasLogs && (
-                    <span className="text-xs text-green-400 font-medium">
-                      {weekLogs.length} logged
-                    </span>
+                  {(alreadyScored || completeResult) && (
+                    <span className="text-[10px] text-green-400 font-medium flex-shrink-0">✓ Done</span>
                   )}
-                  {completeResult && (
-                    <span className="text-xs bg-green-900/30 text-green-400 px-2 py-0.5 rounded font-medium">
-                      Scores Updated
-                    </span>
+                  {hasLogs && !alreadyScored && !completeResult && (
+                    <span className="text-[10px] text-dark-muted flex-shrink-0">{weekLogs.length} logged</span>
                   )}
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-xs text-dark-muted">
-                    {new Date(week.week_start).toLocaleDateString()}
-                    {sessions.length > 0 ? ` · ${Math.round((week.total_hours || 0) * 2) / 2}h` : ""}
-                  </span>
-                  <span className="text-dark-muted">{isExpanded ? "▾" : "▸"}</span>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="text-right hidden sm:block">
+                    <div className="text-xs text-dark-muted">
+                      {new Date(week.week_start).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      {sessions.length > 0 ? ` · ${Math.round((week.total_hours || 0) * 2) / 2}h` : ""}
+                    </div>
+                    {week.expected_scores && (
+                      <div className="flex gap-2 text-[10px] text-dark-muted/60 justify-end mt-0.5">
+                        <span>C{(week.expected_scores as unknown as Record<string, number>).cardio}</span>
+                        <span>S{(week.expected_scores as unknown as Record<string, number>).strength}</span>
+                        <span>CT{(week.expected_scores as unknown as Record<string, number>).climbing_technical}</span>
+                        <span>F{(week.expected_scores as unknown as Record<string, number>).flexibility}</span>
+                      </div>
+                    )}
+                  </div>
+                  <svg className={`w-4 h-4 text-dark-muted/60 transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
                 </div>
               </button>
 
-              {/* Expected scores bar */}
-              {week.expected_scores && (
-                <div className="px-5 pb-2 flex gap-4 text-xs text-dark-muted">
-                  <span>C: {(week.expected_scores as unknown as Record<string, number>).cardio}</span>
-                  <span>S: {(week.expected_scores as unknown as Record<string, number>).strength}</span>
-                  <span>CT: {(week.expected_scores as unknown as Record<string, number>).climbing_technical}</span>
-                  <span>F: {(week.expected_scores as unknown as Record<string, number>).flexibility}</span>
-                </div>
-              )}
-
               {/* Sessions */}
               {isExpanded && (
-                <div className="px-5 pb-5 space-y-2">
+                <div className="border-t border-dark-border/40 px-4 pb-4 pt-3 space-y-2">
                   {isLoadingSessions && (
-                    <div className="py-6 text-center">
-                      <div className="w-8 h-8 border-3 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                      <p className="text-sm text-dark-muted">Generating sessions for Week {week.week_number}...</p>
+                    <div className="py-8 text-center">
+                      <div className="w-7 h-7 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                      <p className="text-sm text-dark-muted">Generating sessions for Week {week.week_number}…</p>
                     </div>
                   )}
 
                   {sessionError && !isLoadingSessions && (
-                    <div className="py-4 text-center bg-red-900/20 rounded-lg border border-red-800">
+                    <div className="py-4 text-center bg-red-900/20 rounded-lg border border-red-800/40">
                       <p className="text-sm text-red-400 mb-3">{sessionError}</p>
                       <button
                         onClick={() => loadWeekSessions(week.week_number)}
-                        className="text-sm bg-gold text-dark-bg px-4 py-2 rounded hover:bg-gold/90 transition-colors"
+                        className="text-sm bg-gold text-dark-bg px-4 py-2 rounded-lg hover:bg-gold/90 transition-colors font-medium"
                       >
                         Retry
                       </button>
@@ -890,8 +897,8 @@ function PlanContent() {
                   )}
 
                   {!isLoadingSessions && !sessionError && sessions.length === 0 && (
-                    <div className="py-4 text-center text-dark-muted text-sm">
-                      No sessions generated yet. They should appear shortly.
+                    <div className="py-5 text-center text-dark-muted/60 text-sm">
+                      Sessions should appear shortly.
                     </div>
                   )}
 
@@ -905,8 +912,8 @@ function PlanContent() {
                         key={i}
                         className={`rounded-lg border ${
                           logged
-                            ? "border-green-800/40 bg-green-900/10"
-                            : "border-dark-border bg-dark-surface"
+                            ? "border-green-800/30 bg-green-900/10"
+                            : "border-dark-border/60 bg-dark-surface/60"
                         }`}
                       >
                         <button
@@ -914,29 +921,31 @@ function PlanContent() {
                             e.stopPropagation();
                             setExpandedSession(isSessionExpanded ? null : sessionKey);
                           }}
-                          className="w-full px-4 py-3 flex items-center justify-between text-left"
+                          className="w-full px-4 py-3 flex items-start justify-between text-left gap-3"
                         >
-                          <div className="flex items-center gap-2">
-                            {logged && <span className="text-green-400 text-sm">✓</span>}
-                            <span className={`font-medium text-sm ${logged ? "line-through opacity-60" : "text-white"}`}>
-                              {session.name}
-                            </span>
-                            {session.isAlternative && (
-                              <span className="text-[10px] bg-burnt-orange/20 text-burnt-orange px-1.5 py-0.5 rounded font-medium">Alt</span>
-                            )}
-                            <span className="text-xs text-dark-muted">{Math.round((session.estimatedMinutes || 0) / 5) * 5} min</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {logged && <span className="text-green-400 text-xs">✓</span>}
+                              <span className={`font-medium text-sm leading-snug ${logged ? "line-through opacity-50 text-dark-muted" : "text-dark-text"}`}>
+                                {session.name}
+                              </span>
+                              {session.isAlternative && (
+                                <span className="text-[10px] bg-burnt-orange/20 text-burnt-orange px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide flex-shrink-0">Alt</span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-dark-muted/70 mt-0.5">{Math.round((session.estimatedMinutes || 0) / 5) * 5} min</div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 flex-shrink-0 pt-0.5">
                             {logged && (() => {
                               const log = getLogForSession(session.name, week);
                               return log ? (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleDeleteLog(log.id); }}
                                   disabled={deletingLog === log.id}
-                                  className="text-xs text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                                  className="text-xs text-red-400/70 hover:text-red-300 px-1.5 py-1 rounded hover:bg-red-900/20 transition-colors disabled:opacity-50"
                                   title="Delete this workout log"
                                 >
-                                  {deletingLog === log.id ? "..." : "✕"}
+                                  {deletingLog === log.id ? "…" : "✕"}
                                 </button>
                               ) : null;
                             })()}
@@ -947,35 +956,40 @@ function PlanContent() {
                                     e.stopPropagation();
                                     setAlternativesPanel({ weekNumber: week.week_number, sessionIndex: i, session });
                                   }}
-                                  className="text-xs text-dark-muted hover:text-white px-2 py-1 rounded hover:bg-dark-border/50 transition-colors"
+                                  className="text-[11px] text-dark-muted/70 hover:text-dark-text px-2 py-1 rounded hover:bg-dark-border/40 transition-colors"
                                 >
-                                  Alternatives
+                                  Alt
                                 </button>
                                 <Link
                                   href={`/log?session=${encodeURIComponent(session.name)}&planId=${plan.id}&week=${week.week_number}`}
-                                  className="text-xs bg-gold/90 text-dark-bg px-2.5 py-1 rounded hover:bg-gold transition-colors font-medium"
+                                  className="text-xs bg-gold text-dark-bg px-3 py-1.5 rounded-md hover:bg-gold/90 transition-colors font-semibold"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   Log
                                 </Link>
                               </>
                             )}
-                            <span className="text-dark-muted text-xs">{isSessionExpanded ? "▾" : "▸"}</span>
+                            <svg className={`w-3.5 h-3.5 text-dark-muted/50 transition-transform flex-shrink-0 ${isSessionExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
                           </div>
                         </button>
 
                         {isSessionExpanded && (
-                          <div className="px-4 pb-4 space-y-3">
-                            <p className="text-sm text-dark-muted italic">{session.objective}</p>
+                          <div className="px-4 pb-4 pt-1 border-t border-dark-border/30 space-y-4">
+                            <p className="text-sm text-dark-muted/80 italic leading-relaxed pt-1">{session.objective}</p>
 
                             {session.warmUp && (
                               <div>
-                                <h5 className="text-xs font-semibold text-gold uppercase mb-1">
-                                  Warm-Up ({session.warmUp.rounds} round{session.warmUp.rounds > 1 ? "s" : ""})
+                                <h5 className="text-[10px] font-semibold text-gold/70 uppercase tracking-widest mb-2">
+                                  Warm-Up · {session.warmUp.rounds} round{session.warmUp.rounds > 1 ? "s" : ""}
                                 </h5>
-                                <ul className="text-sm text-dark-muted space-y-0.5">
+                                <ul className="text-sm text-dark-muted space-y-1">
                                   {session.warmUp.exercises.map((ex, j) => (
-                                    <li key={j}>• {ex.name} — {ex.reps}</li>
+                                    <li key={j} className="flex gap-2">
+                                      <span className="text-dark-muted/40 select-none">—</span>
+                                      <span>{ex.name} <span className="text-dark-muted/60">{ex.reps}</span></span>
+                                    </li>
                                   ))}
                                 </ul>
                               </div>
@@ -983,20 +997,24 @@ function PlanContent() {
 
                             {session.training && (
                               <div>
-                                <h5 className="text-xs font-semibold text-gold uppercase mb-1">Training</h5>
-                                <ol className="text-sm text-dark-muted space-y-1.5">
+                                <h5 className="text-[10px] font-semibold text-gold/70 uppercase tracking-widest mb-2">Training</h5>
+                                <ol className="text-sm text-dark-muted space-y-3">
                                   {session.training.map((ex) => (
                                     <li key={ex.exerciseNumber}>
-                                      <span className="font-medium text-dark-text">
-                                        {ex.exerciseNumber}. {ex.description}
-                                        {ex.durationMinutes ? (
-                                          <span className="text-dark-muted font-normal text-xs ml-2">{ex.durationMinutes} min</span>
-                                        ) : null}
-                                      </span>
-                                      <br />
-                                      <span className="text-dark-muted">{ex.details}</span>
+                                      <div className="flex items-baseline gap-2">
+                                        <span className="text-dark-muted/40 text-[11px] tabular-nums select-none">{ex.exerciseNumber}.</span>
+                                        <span className="font-medium text-dark-text leading-snug">
+                                          {ex.description}
+                                          {ex.durationMinutes ? (
+                                            <span className="text-dark-muted/60 font-normal text-[11px] ml-2">{ex.durationMinutes} min</span>
+                                          ) : null}
+                                        </span>
+                                      </div>
+                                      {ex.details && (
+                                        <p className="text-dark-muted/80 ml-4 mt-0.5 leading-snug">{ex.details}</p>
+                                      )}
                                       {ex.intensityNote && (
-                                        <span className="block text-dark-muted text-xs italic">{ex.intensityNote}</span>
+                                        <p className="text-dark-muted/60 text-xs ml-4 mt-0.5 italic">{ex.intensityNote}</p>
                                       )}
                                     </li>
                                   ))}
@@ -1006,8 +1024,8 @@ function PlanContent() {
 
                             {session.cooldown && (
                               <div>
-                                <h5 className="text-xs font-semibold text-gold uppercase mb-1">Cooldown</h5>
-                                <p className="text-sm text-dark-muted">{session.cooldown}</p>
+                                <h5 className="text-[10px] font-semibold text-gold/70 uppercase tracking-widest mb-2">Cooldown</h5>
+                                <p className="text-sm text-dark-muted leading-relaxed">{session.cooldown}</p>
                               </div>
                             )}
                           </div>
@@ -1018,38 +1036,52 @@ function PlanContent() {
 
                   {/* Complete Week button */}
                   {canComplete && (
-                    <button
-                      onClick={() => handleCompleteWeek(week)}
-                      disabled={isCompleting}
-                      className="w-full mt-3 py-3 rounded-lg font-medium text-sm transition-colors bg-gold text-dark-bg hover:bg-gold/90 disabled:opacity-50"
-                    >
-                      {isCompleting
-                        ? "Updating Scores..."
-                        : `Complete Week ${week.week_number} & Update Scores`
-                      }
-                    </button>
+                    <div className="pt-2">
+                      <button
+                        onClick={() => handleCompleteWeek(week)}
+                        disabled={isCompleting}
+                        className="w-full py-3 rounded-lg font-semibold text-sm transition-colors bg-gold text-dark-bg hover:bg-gold/90 disabled:opacity-50"
+                      >
+                        {isCompleting
+                          ? "Updating Scores…"
+                          : `Complete Week ${week.week_number} & Update Scores`
+                        }
+                      </button>
+                    </div>
                   )}
 
                   {/* Score update result with trajectory feedback */}
                   {completeResult && (
-                    <div className={`mt-3 rounded-lg p-4 border ${
+                    <div className={`mt-1 rounded-lg p-4 border ${
                       completeResult.rebalanceRecommended
                         ? "bg-burnt-orange/10 border-burnt-orange/30"
                         : "bg-green-900/20 border-green-800/40"
                     }`}>
-                      <h4 className="text-sm font-semibold text-white mb-2">Scores Updated</h4>
-                      <div className="flex gap-4 text-xs text-dark-text mb-2">
-                        <span>C: {completeResult.updatedScores.cardio}</span>
-                        <span>S: {completeResult.updatedScores.strength}</span>
-                        <span>CT: {completeResult.updatedScores.climbing_technical}</span>
-                        <span>F: {completeResult.updatedScores.flexibility}</span>
+                      <h4 className="text-xs font-semibold text-white uppercase tracking-wide mb-3">Scores Updated</h4>
+                      <div className="grid grid-cols-4 gap-2 text-xs mb-3">
+                        <div className="text-center">
+                          <div className="text-dark-muted mb-0.5">Cardio</div>
+                          <div className="text-dark-text font-semibold">{completeResult.updatedScores.cardio}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-dark-muted mb-0.5">Strength</div>
+                          <div className="text-dark-text font-semibold">{completeResult.updatedScores.strength}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-dark-muted mb-0.5">Climbing</div>
+                          <div className="text-dark-text font-semibold">{completeResult.updatedScores.climbing_technical}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-dark-muted mb-0.5">Flex</div>
+                          <div className="text-dark-text font-semibold">{completeResult.updatedScores.flexibility}</div>
+                        </div>
                       </div>
                       {completeResult.summary && (
-                        <p className="text-xs text-dark-muted">{completeResult.summary}</p>
+                        <p className="text-xs text-dark-muted leading-relaxed">{completeResult.summary}</p>
                       )}
                       {completeResult.rebalanceRecommended && (
-                        <p className="text-xs text-burnt-orange mt-1">
-                          Consider rebalancing your plan — some dimensions are significantly off track.
+                        <p className="text-xs text-burnt-orange mt-2">
+                          Consider rebalancing — some dimensions are significantly off track.
                         </p>
                       )}
                     </div>
@@ -1057,7 +1089,7 @@ function PlanContent() {
 
                   {/* Weekly Report button */}
                   {(alreadyScored || completeResult) && (
-                    <div className="mt-3">
+                    <div className="pt-1">
                       {week.weekly_report && !week.weekly_report.error ? (
                         <button
                           onClick={() => setReportModal({ weekNumber: week.week_number, report: week.weekly_report! })}
@@ -1109,11 +1141,11 @@ function PlanContent() {
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                           </svg>
-                          {retryingReport === week.week_number ? "Retrying..." : "Report failed — Retry"}
+                          {retryingReport === week.week_number ? "Retrying…" : "Report failed — Retry"}
                         </button>
                       ) : (
-                        <div className="flex items-center gap-2 px-4 py-2.5 text-sm text-dark-muted">
-                          <div className="w-3.5 h-3.5 border-2 border-dark-muted border-t-transparent rounded-full animate-spin" />
+                        <div className="flex items-center gap-2 px-4 py-2.5 text-sm text-dark-muted/70">
+                          <div className="w-3 h-3 border-[1.5px] border-dark-muted border-t-transparent rounded-full animate-spin" />
                           Report generating…
                         </div>
                       )}
@@ -1147,23 +1179,26 @@ function PlanContent() {
 
       {/* Weekly Report Modal */}
       {reportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setReportModal(null)}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm" onClick={() => setReportModal(null)}>
           <div
-            className="bg-dark-card border border-dark-border rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl"
+            className="bg-dark-card border border-dark-border rounded-t-2xl sm:rounded-xl max-w-2xl w-full max-h-[92vh] sm:max-h-[85vh] overflow-y-auto shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-dark-card border-b border-dark-border px-6 py-4 flex items-center justify-between z-10">
-              <h3 className="text-lg font-bold text-white">Week {reportModal.weekNumber} Report</h3>
+            <div className="sticky top-0 bg-dark-card/95 backdrop-blur-sm border-b border-dark-border/60 px-6 py-4 flex items-center justify-between z-10">
+              <div>
+                <p className="text-[10px] text-dark-muted uppercase tracking-widest">Weekly Report</p>
+                <h3 className="text-base font-semibold text-white mt-0.5">Week {reportModal.weekNumber}</h3>
+              </div>
               <button
                 onClick={() => setReportModal(null)}
-                className="text-dark-muted hover:text-white transition-colors p-1"
+                className="text-dark-muted hover:text-white transition-colors p-1.5 rounded-lg hover:bg-dark-border/40"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <div className="px-6 py-5 space-y-5">
+            <div className="px-6 py-5 space-y-6">
               <ReportSection title="Week Summary" content={reportModal.report.summary} />
               <ReportSection title="Score Changes & Why" content={reportModal.report.scoreChanges} />
               <ReportSection title="Where You Stand" content={reportModal.report.whereYouStand} />
@@ -1171,7 +1206,7 @@ function PlanContent() {
               {reportModal.report.considerAdjusting && (
                 <ReportSection title="Consider Adjusting?" content={reportModal.report.considerAdjusting} accent />
               )}
-              <p className="text-xs text-dark-muted text-right">
+              <p className="text-[11px] text-dark-muted/50 text-right pb-1">
                 Generated {new Date(reportModal.report.generatedAt).toLocaleString()}
               </p>
             </div>
@@ -1184,8 +1219,8 @@ function PlanContent() {
 
 function ReportSection({ title, content, accent }: { title: string; content: string; accent?: boolean }) {
   return (
-    <div>
-      <h4 className={`text-sm font-semibold mb-2 ${accent ? "text-burnt-orange" : "text-gold"}`}>
+    <div className={accent ? "rounded-lg border border-burnt-orange/20 bg-burnt-orange/5 px-4 py-3" : ""}>
+      <h4 className={`text-[10px] font-semibold uppercase tracking-widest mb-2 ${accent ? "text-burnt-orange" : "text-gold/70"}`}>
         {title}
       </h4>
       <div className="text-sm text-dark-text leading-relaxed whitespace-pre-wrap">

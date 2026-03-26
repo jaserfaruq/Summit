@@ -378,7 +378,7 @@ export default function CalendarPage() {
 
 function TierBadgeSmall({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
-    gold: "bg-gold/20 text-gold",
+    gold: "bg-medal-gold/20 text-medal-gold",
     silver: "bg-white/10 text-white/70",
     bronze: "bg-burnt-orange/20 text-burnt-orange",
   };
