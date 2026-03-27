@@ -8,6 +8,7 @@ import { usePlanData } from "@/lib/use-plan-data";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import ScoreArc from "@/components/ScoreArc";
 import AlternativesPanel from "@/components/AlternativesPanel";
+import AILoadingIndicator from "@/components/AILoadingIndicator";
 import Link from "next/link";
 
 /** Inline SVG mountain silhouette used when no hero image URL is stored */
@@ -556,13 +557,20 @@ function PlanContent() {
             </button>
           </div>
         ) : (
-          <div className="animate-pulse">
+          <div>
             <div className="text-4xl mb-4">⛰️</div>
             <h2 className="text-2xl font-bold text-white mb-2">Generating Your Training Plan</h2>
-            <p className="text-white/70">
-              Our AI coach is designing a periodized plan tailored to your objective and current fitness...
-            </p>
-            <div className="mt-8 w-12 h-12 border-4 border-gold border-t-transparent rounded-full animate-spin mx-auto" />
+            <AILoadingIndicator
+              size="lg"
+              message="Our AI coach is designing a periodized plan tailored to your objective and current fitness..."
+              rotatingMessages={[
+                "Calculating weekly volume progression...",
+                "Building session structure across dimensions...",
+                "Mapping graduation benchmarks to weekly targets...",
+                "Calibrating difficulty to your assessment results...",
+                "Setting up score trajectory...",
+              ]}
+            />
           </div>
         )}
       </div>
@@ -878,10 +886,15 @@ function PlanContent() {
               {isExpanded && (
                 <div className="border-t border-dark-border/40 px-4 pb-4 pt-3 space-y-2">
                   {isLoadingSessions && (
-                    <div className="py-8 text-center">
-                      <div className="w-7 h-7 border-2 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                      <p className="text-sm text-dark-muted">Generating sessions for Week {week.week_number}…</p>
-                    </div>
+                    <AILoadingIndicator
+                      size="sm"
+                      message={`Generating sessions for Week ${week.week_number}…`}
+                      rotatingMessages={[
+                        "Designing exercises matched to your progress...",
+                        "Balancing volume across training dimensions...",
+                        "Adapting intensity to your current level...",
+                      ]}
+                    />
                   )}
 
                   {sessionError && !isLoadingSessions && (
@@ -1047,6 +1060,17 @@ function PlanContent() {
                           : `Complete Week ${week.week_number} & Update Scores`
                         }
                       </button>
+                      {isCompleting && (
+                        <AILoadingIndicator
+                          size="sm"
+                          message="Evaluating your training against the plan..."
+                          rotatingMessages={[
+                            "Reviewing your ratings and comments...",
+                            "Assessing relevance to your objective...",
+                            "Calculating score adjustments...",
+                          ]}
+                        />
+                      )}
                     </div>
                   )}
 

@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { AIQuestion, DimensionScores, AIReasoning, ProgrammingHints } from "@/lib/types";
 import InfoBubble from "@/components/InfoBubble";
+import AILoadingIndicator from "@/components/AILoadingIndicator";
 
 type Phase = "layer1" | "layer2" | "scoring" | "results";
 
@@ -619,11 +620,17 @@ function AssessmentContent() {
 
       {/* Scoring phase */}
       {phase === "scoring" && (
-        <div className="text-center py-16 space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold mx-auto" />
-          <p className="text-dark-muted">Analyzing your responses against {objectiveName || "objective"} demands...</p>
-          <p className="text-xs text-dark-muted">This may take 15-30 seconds</p>
-        </div>
+        <AILoadingIndicator
+          size="lg"
+          message={`Analyzing your responses against ${objectiveName || "objective"} demands...`}
+          rotatingMessages={[
+            "Evaluating cardio capacity against graduation benchmarks...",
+            "Assessing strength readiness for the objective...",
+            "Reviewing climbing and technical skills...",
+            "Calibrating scores based on your experience...",
+            "Building programming recommendations...",
+          ]}
+        />
       )}
 
       {/* Results */}

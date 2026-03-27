@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { PlanSession, AlternativeSession } from "@/lib/types";
+import AILoadingIndicator from "@/components/AILoadingIndicator";
 
 interface AlternativesPanelProps {
   isOpen: boolean;
@@ -173,11 +174,15 @@ export default function AlternativesPanel({
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           {loading && (
-            <div className="py-12 text-center">
-              <div className="w-8 h-8 border-3 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-sm text-dark-muted">Generating alternatives...</p>
-              <p className="text-xs text-dark-muted mt-1">This may take a few seconds</p>
-            </div>
+            <AILoadingIndicator
+              size="md"
+              message="Generating alternatives..."
+              rotatingMessages={[
+                "Finding outdoor and gym options...",
+                "Matching difficulty to your current level...",
+                "Building varied session formats...",
+              ]}
+            />
           )}
 
           {error && !loading && (

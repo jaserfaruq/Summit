@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import AILoadingIndicator from "@/components/AILoadingIndicator";
 import { Objective, ObjectiveType, MatchObjectiveResponse, EstimateScoresResponse, DimensionGraduationBenchmarks, DimensionScores, DimensionTaglines, DimensionRelevanceProfiles, SearchMatch } from "@/lib/types";
 
 const OBJECTIVE_TYPES: { value: ObjectiveType; label: string }[] = [
@@ -352,11 +353,23 @@ export default function ObjectiveModal({
                 </button>
                 <button
                   onClick={() => setStep("choose-mode")}
-                  className="px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface transition-colors"
+                  disabled={loading}
+                  className="px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface transition-colors disabled:opacity-50"
                 >
                   Back
                 </button>
               </div>
+              {loading && (
+                <AILoadingIndicator
+                  size="sm"
+                  message="Searching for matching objectives..."
+                  rotatingMessages={[
+                    "Checking the validated objectives library...",
+                    "Finding geographically relevant matches...",
+                    "Evaluating difficulty and type...",
+                  ]}
+                />
+              )}
             </div>
           )}
 
@@ -520,7 +533,8 @@ export default function ObjectiveModal({
                 {!objective && (
                   <button
                     onClick={() => setStep("choose-mode")}
-                    className="px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface transition-colors"
+                    disabled={loading}
+                    className="px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface transition-colors disabled:opacity-50"
                   >
                     Back
                   </button>
@@ -528,12 +542,24 @@ export default function ObjectiveModal({
                 {objective && (
                   <button
                     onClick={handleDelete}
-                    className="px-4 py-2.5 text-red-400 border border-red-800 rounded-lg hover:bg-red-900/30 transition-colors"
+                    disabled={loading}
+                    className="px-4 py-2.5 text-red-400 border border-red-800 rounded-lg hover:bg-red-900/30 transition-colors disabled:opacity-50"
                   >
                     Delete
                   </button>
                 )}
               </div>
+              {loading && (
+                <AILoadingIndicator
+                  size="sm"
+                  message="Matching your objective..."
+                  rotatingMessages={[
+                    "Checking the validated objectives library...",
+                    "Estimating target scores...",
+                    "Building relevance profiles...",
+                  ]}
+                />
+              )}
             </div>
           )}
 
@@ -619,11 +645,23 @@ export default function ObjectiveModal({
                       setStep("manual-form");
                     }
                   }}
-                  className="px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface transition-colors"
+                  disabled={loading}
+                  className="px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-surface transition-colors disabled:opacity-50"
                 >
                   Back
                 </button>
               </div>
+              {loading && (
+                <AILoadingIndicator
+                  size="sm"
+                  message="Setting up your objective..."
+                  rotatingMessages={[
+                    "Estimating target scores for each dimension...",
+                    "Generating graduation benchmarks...",
+                    "Building relevance profiles...",
+                  ]}
+                />
+              )}
             </div>
           )}
         </div>
