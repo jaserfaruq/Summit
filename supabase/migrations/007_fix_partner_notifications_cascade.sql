@@ -16,5 +16,14 @@ ALTER TABLE partner_notifications
     FOREIGN KEY (partner_plan_id) REFERENCES training_plans(id) ON DELETE CASCADE;
 
 -- Add DELETE policy so users can clean up their own notifications
-CREATE POLICY "Users can delete own notifications" ON partner_notifications
-  FOR DELETE USING (auth.uid() = user_id);
+-- Only create if not already present
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'partner_notifications'
+      AND policyname = 'Users can delete own notifications'
+  ) THEN
+    CREATE POLICY "Users can delete own notifications" ON partner_notifications
+      FOR DELETE USING (auth.uid() = user_id);
+  END IF;
+END $$;
