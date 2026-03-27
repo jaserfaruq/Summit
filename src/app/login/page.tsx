@@ -28,8 +28,14 @@ function LoginForm() {
         <img src="/IMG_0232.jpeg" alt="" className="w-full h-full object-cover scale-105" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-black/75" />
       </div>
-      <header className="bg-dark-surface/80 backdrop-blur-md border-b border-dark-border/50 px-6 py-4">
-        <h1 className="text-white text-xl font-bold">Summit Planner</h1>
+      <header className="bg-dark-surface/80 backdrop-blur-md border-b border-dark-border/50 px-4 md:px-6 h-14 flex items-center">
+        <div className="flex items-center gap-2">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-burnt-orange shrink-0">
+            <path d="M12 2L2 20h20L12 2z" fill="currentColor" opacity="0.9" />
+            <path d="M12 8l-5 10h10L12 8z" fill="#1B4D3E" opacity="0.6" />
+          </svg>
+          <span className="font-display text-xl font-bold tracking-tight text-white uppercase">Summit</span>
+        </div>
       </header>
 
       <div className="flex-1 flex items-center justify-center px-4">

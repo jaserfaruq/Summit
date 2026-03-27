@@ -540,6 +540,7 @@ function PlanContent() {
   if (generating) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+        <div className="bg-black/60 backdrop-blur-sm rounded-2xl p-10 shadow-xl">
         {generateError ? (
           <div>
             <div className="text-4xl mb-4">⚠️</div>
@@ -573,6 +574,7 @@ function PlanContent() {
             />
           </div>
         )}
+        </div>
       </div>
     );
   }
