@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import { scoreArcColor } from "@/lib/scoring";
 
 export default function ScoreArc({
@@ -8,12 +9,14 @@ export default function ScoreArc({
   current,
   target,
   size = "default",
+  animationDelay = 0,
 }: {
   label: string;
   tagline?: string;
   current: number;
   target: number;
   size?: "mini" | "default";
+  animationDelay?: number;
 }) {
   const percentage = target > 0 ? Math.min((current / target) * 100, 100) : 0;
   const color = scoreArcColor(current, target);
@@ -57,12 +60,89 @@ export default function ScoreArc({
     );
   }
 
+  return (
+    <DefaultArc
+      label={label}
+      tagline={tagline}
+      current={current}
+      target={target}
+      percentage={percentage}
+      stroke={stroke}
+      text={text}
+      animationDelay={animationDelay}
+    />
+  );
+}
+
+function DefaultArc({
+  label,
+  tagline,
+  current,
+  target,
+  percentage,
+  stroke,
+  text,
+  animationDelay,
+}: {
+  label: string;
+  tagline?: string;
+  current: number;
+  target: number;
+  percentage: number;
+  stroke: string;
+  text: string;
+  animationDelay: number;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [displayNumber, setDisplayNumber] = useState(0);
+  const frameRef = useRef<number>();
+
   const radius = 45;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setMounted(true), animationDelay);
+    return () => clearTimeout(timer);
+  }, [animationDelay]);
+
+  // Count-up animation for the number
+  useEffect(() => {
+    if (!mounted || current === 0) return;
+
+    const duration = 600; // ms
+    const startTime = performance.now();
+
+    function animate(time: number) {
+      const elapsed = time - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // ease-out-quart
+      const eased = 1 - Math.pow(1 - progress, 4);
+      setDisplayNumber(Math.round(eased * current));
+
+      if (progress < 1) {
+        frameRef.current = requestAnimationFrame(animate);
+      }
+    }
+
+    frameRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    };
+  }, [mounted, current]);
+
+  const strokeDashoffset = mounted
+    ? circumference - (percentage / 100) * circumference
+    : circumference;
 
   return (
-    <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl p-4 text-center border border-dark-border/50">
+    <div
+      className="bg-dark-card/80 backdrop-blur-sm rounded-xl p-4 text-center border border-dark-border/50"
+      style={{
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? "scale(1)" : "scale(0.8)",
+        transition: `opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1), transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)`,
+      }}
+    >
       <div className="relative inline-block">
         <svg width="100" height="100" className="-rotate-90">
           <circle
@@ -83,12 +163,14 @@ export default function ScoreArc({
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
-            className="transition-all duration-700"
+            style={{
+              transition: "stroke-dashoffset 0.8s cubic-bezier(0.25, 1, 0.5, 1) 0.15s",
+            }}
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
           <div>
-            <div className={`text-lg font-bold ${text}`}>{current}</div>
+            <div className={`text-lg font-bold ${text}`}>{mounted ? displayNumber : 0}</div>
             <div className="text-xs text-dark-muted">/ {target}</div>
           </div>
         </div>

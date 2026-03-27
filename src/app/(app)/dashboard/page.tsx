@@ -89,14 +89,14 @@ export default async function DashboardPage() {
   // No objective — first CTA
   if (!activeObjective) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center animate-fade-in-up">
         <h2 className="text-3xl font-bold text-white mb-3">Welcome to Summit Planner</h2>
-        <p className="text-dark-muted mb-8 leading-relaxed">
+        <p className="text-white/80 mb-8 leading-relaxed drop-shadow-md">
           Start by adding your first summit objective, then we&apos;ll assess your fitness for it.
         </p>
         <Link
           href="/calendar"
-          className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors"
+          className="btn-press inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors"
         >
           Add Your First Objective
         </Link>
@@ -111,14 +111,14 @@ export default async function DashboardPage() {
 
   if (!objectiveAssessment) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center animate-fade-in-up">
         <h2 className="text-3xl font-bold text-white mb-3">{activeObjective.name}</h2>
-        <p className="text-dark-muted mb-8 leading-relaxed">
+        <p className="text-white/70 mb-8 leading-relaxed drop-shadow-md">
           Assess your current fitness so we can build a plan calibrated to this objective.
         </p>
         <Link
           href={`/assessment/${activeObjective.id}`}
-          className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors"
+          className="btn-press inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors"
         >
           Assess Your Fitness
         </Link>
@@ -135,21 +135,21 @@ export default async function DashboardPage() {
       { label: "Flexibility", value: objectiveAssessment.flexibility_score },
     ];
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center animate-fade-in-up">
         <h2 className="text-3xl font-bold text-white mb-3">{activeObjective.name}</h2>
         <div className="flex justify-center gap-6 mb-2">
           {scores.map(({ label, value }) => (
             <div key={label} className="text-center">
               <div className="text-xl font-bold text-gold tabular-nums">{value}</div>
-              <div className="text-xs text-dark-muted mt-0.5">{label}</div>
+              <div className="text-xs text-white/60 mt-0.5">{label}</div>
             </div>
           ))}
         </div>
-        <p className="text-dark-muted mb-8 text-sm">Assessment complete. Ready to generate your plan.</p>
+        <p className="text-white/60 mb-8 text-sm drop-shadow-md">Assessment complete. Ready to generate your plan.</p>
         <div className="flex flex-col items-center gap-3">
           <Link
             href={`/plan?generate=true&objectiveId=${activeObjective.id}&assessmentId=${objectiveAssessment.id}`}
-            className="inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors"
+            className="btn-press inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors"
           >
             Generate Training Plan
           </Link>
@@ -168,22 +168,31 @@ export default async function DashboardPage() {
       (7 * 24 * 60 * 60 * 1000)
   );
 
+  const isEstimated = activePlan.current_week_number === 1;
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
 
+      {/* Estimated scores banner */}
+      {isEstimated && (
+        <div className="animate-fade-in bg-burnt-orange/10 border border-burnt-orange/20 rounded-lg px-4 py-3 text-sm text-burnt-orange animate-gentle-pulse">
+          Estimated scores — take your first benchmark test to calibrate.
+        </div>
+      )}
+
       {/* Objective header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 animate-fade-in">
         <div className="min-w-0">
           <h2 className="text-2xl font-bold text-white leading-tight">{activeObjective.name}</h2>
           <div className="flex items-center gap-3 mt-1.5">
             <TierBadge tier={activeObjective.tier} />
-            <span className="text-dark-muted text-sm">{formatDate(activeObjective.target_date)}</span>
+            <span className="text-white/60 text-sm">{formatDate(activeObjective.target_date)}</span>
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <div className="text-right">
             <div className="text-3xl font-bold text-gold tabular-nums leading-none">{weeksRemaining}</div>
-            <div className="text-[11px] text-dark-muted uppercase tracking-widest mt-1">weeks out</div>
+            <div className="text-[11px] text-white/60 uppercase tracking-widest mt-1">weeks out</div>
           </div>
           <div className="flex items-center gap-1 border-l border-dark-border pl-3">
             <UpdateAssessmentButton planId={activePlan.id} objectiveId={activeObjective.id} />
@@ -193,7 +202,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Objective details */}
-      <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-5">
+      <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-5 animate-fade-in-up stagger-2">
         {validatedObjective?.description ? (
           <p className="text-sm text-dark-text/70 mb-3 leading-relaxed">{validatedObjective.description}</p>
         ) : activeObjective.relevance_profiles && typeof activeObjective.relevance_profiles === "object" && "cardio" in activeObjective.relevance_profiles && (
@@ -246,47 +255,53 @@ export default async function DashboardPage() {
       </div>
 
       {/* Readiness */}
-      <div>
-        <h3 className="text-xs font-semibold text-dark-muted uppercase tracking-widest mb-3">Readiness</h3>
+      <div className="animate-fade-in-up stagger-3">
+        <h3 className="text-xs font-semibold text-white/60 uppercase tracking-widest mb-3">Readiness</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <ScoreArc
             label="Cardio"
             tagline={activeObjective.taglines?.cardio || ""}
             current={activeObjective.current_cardio_score}
             target={activeObjective.target_cardio_score}
+            animationDelay={0}
           />
           <ScoreArc
             label="Strength"
             tagline={activeObjective.taglines?.strength || ""}
             current={activeObjective.current_strength_score}
             target={activeObjective.target_strength_score}
+            animationDelay={100}
           />
           <ScoreArc
             label="Climbing"
             tagline={activeObjective.taglines?.climbing_technical || ""}
             current={activeObjective.current_climbing_score}
             target={activeObjective.target_climbing_score}
+            animationDelay={200}
           />
           <ScoreArc
             label="Flexibility"
             tagline={activeObjective.taglines?.flexibility || ""}
             current={activeObjective.current_flexibility_score}
             target={activeObjective.target_flexibility_score}
+            animationDelay={300}
           />
         </div>
       </div>
 
       {/* This week */}
       {currentWeekTarget && (
-        <ThisWeekSessions
-          weekTarget={currentWeekTarget}
-          planId={activePlan.id}
-        />
+        <div className="animate-fade-in-up stagger-4">
+          <ThisWeekSessions
+            weekTarget={currentWeekTarget}
+            planId={activePlan.id}
+          />
+        </div>
       )}
 
       {/* Graduation benchmarks */}
       {activeObjective.graduation_benchmarks && (
-        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-6">
+        <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-6 animate-fade-in-up stagger-5">
           <h3 className="text-lg font-semibold text-white mb-4">Graduation Benchmarks</h3>
           <div className="grid md:grid-cols-2 gap-6">
             {(["cardio", "strength", "climbing_technical", "flexibility"] as const).map((dim) => {
@@ -311,16 +326,16 @@ export default async function DashboardPage() {
       )}
 
       {/* Quick links */}
-      <div className="flex gap-3 pb-2">
+      <div className="flex gap-3 pb-2 animate-fade-in-up stagger-6">
         <Link
           href="/plan"
-          className="flex-1 text-center py-3 bg-gold text-dark-bg rounded-lg font-semibold hover:bg-gold/90 transition-colors text-sm"
+          className="btn-press flex-1 text-center py-3 bg-gold text-dark-bg rounded-lg font-semibold hover:bg-gold/90 transition-colors text-sm"
         >
           View Full Plan
         </Link>
         <Link
           href="/progress"
-          className="flex-1 text-center py-3 border border-dark-border text-dark-text rounded-lg font-semibold hover:bg-dark-card transition-colors text-sm"
+          className="btn-press flex-1 text-center py-3 border border-dark-border text-dark-text rounded-lg font-semibold hover:bg-dark-card transition-colors text-sm"
         >
           View Progress
         </Link>
@@ -335,13 +350,15 @@ function TierBadge({ tier }: { tier: string }) {
     silver: "bg-white/10 text-white/70 border-white/20",
     bronze: "bg-burnt-orange/20 text-burnt-orange border-burnt-orange/30",
   };
+  const isGold = tier === "gold";
   return (
     <span
-      className={`inline-block px-2 py-0.5 text-xs font-semibold rounded border ${
+      className={`relative inline-block px-2 py-0.5 text-xs font-semibold rounded border overflow-hidden ${
         colors[tier as keyof typeof colors] || colors.bronze
       }`}
     >
-      {tier.charAt(0).toUpperCase() + tier.slice(1)}
+      {isGold && <span className="absolute inset-0 tier-gold-shimmer" />}
+      <span className="relative">{tier.charAt(0).toUpperCase() + tier.slice(1)}</span>
     </span>
   );
 }

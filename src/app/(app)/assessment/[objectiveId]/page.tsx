@@ -249,6 +249,7 @@ function AssessmentContent() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-8">
+      <div className="bg-dark-bg/85 backdrop-blur-md rounded-2xl p-6 border border-dark-border/50">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">
@@ -642,6 +643,7 @@ function AssessmentContent() {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -33,7 +33,7 @@ function LoginForm() {
       </header>
 
       <div className="flex-1 flex items-center justify-center px-4">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md bg-dark-bg/85 backdrop-blur-md rounded-2xl p-8 border border-dark-border/50">
           <h2 className="text-3xl font-bold text-white text-center mb-8">
             Log In
           </h2>
@@ -52,7 +52,7 @@ function LoginForm() {
 
           <form action={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-dark-muted mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-dark-text/70 mb-1">
                 Email
               </label>
               <input
@@ -66,7 +66,7 @@ function LoginForm() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-dark-muted mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-dark-text/70 mb-1">
                 Password
               </label>
               <input
@@ -88,7 +88,7 @@ function LoginForm() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-dark-muted">
+          <p className="mt-6 text-center text-sm text-dark-text/60">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="text-gold hover:underline font-medium">
               Sign Up

@@ -559,7 +559,7 @@ function PlanContent() {
           <div className="animate-pulse">
             <div className="text-4xl mb-4">⛰️</div>
             <h2 className="text-2xl font-bold text-white mb-2">Generating Your Training Plan</h2>
-            <p className="text-dark-muted">
+            <p className="text-white/70">
               Our AI coach is designing a periodized plan tailored to your objective and current fitness...
             </p>
             <div className="mt-8 w-12 h-12 border-4 border-gold border-t-transparent rounded-full animate-spin mx-auto" />
@@ -589,7 +589,7 @@ function PlanContent() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <h2 className="text-2xl font-bold text-white mb-4">No Active Plan</h2>
-        <p className="text-dark-muted mb-8">Add an objective and complete your assessment to generate a training plan.</p>
+        <p className="text-white/70 mb-8 drop-shadow-md">Add an objective and complete your assessment to generate a training plan.</p>
         <Link
           href="/dashboard"
           className="inline-block bg-gold text-dark-bg px-6 py-3 rounded-lg font-medium hover:bg-gold/90 transition-colors"

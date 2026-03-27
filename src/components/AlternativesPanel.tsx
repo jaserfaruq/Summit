@@ -148,12 +148,12 @@ export default function AlternativesPanel({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 z-40"
+        className="fixed inset-0 bg-black/60 z-40 animate-fade-in"
         onClick={onClose}
       />
 
       {/* Panel */}
-      <div className="fixed right-0 top-0 h-full w-full sm:w-[480px] max-w-full bg-dark-card border-l border-dark-border z-50 flex flex-col shadow-2xl">
+      <div className="fixed right-0 top-0 h-full w-full sm:w-[480px] max-w-full bg-dark-card border-l border-dark-border z-50 flex flex-col shadow-2xl animate-slide-in-right">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-dark-border">
           <div>
@@ -297,7 +297,7 @@ export default function AlternativesPanel({
                         <button
                           onClick={handleRestore}
                           disabled={replacing}
-                          className="w-full text-sm bg-dark-border text-white px-4 py-2.5 rounded-lg hover:bg-dark-border/80 transition-colors font-medium disabled:opacity-50"
+                          className="btn-press w-full text-sm bg-dark-border text-white px-4 py-2.5 rounded-lg hover:bg-dark-border/80 transition-colors font-medium disabled:opacity-50"
                         >
                           {replacing ? "Restoring..." : "Restore Original"}
                         </button>
@@ -307,7 +307,7 @@ export default function AlternativesPanel({
                         <button
                           onClick={() => handleReplace(option.session)}
                           disabled={replacing}
-                          className="w-full text-sm bg-gold text-dark-bg px-4 py-2.5 rounded-lg hover:bg-gold/90 transition-colors font-medium disabled:opacity-50"
+                          className="btn-press w-full text-sm bg-gold text-dark-bg px-4 py-2.5 rounded-lg hover:bg-gold/90 transition-colors font-medium disabled:opacity-50"
                         >
                           {replacing ? "Replacing..." : "Use This Workout"}
                         </button>

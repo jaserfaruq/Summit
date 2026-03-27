@@ -93,13 +93,14 @@ function LogForm() {
   const canSubmit = !requiresComment || ratingComment.trim().length > 0;
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-xl mx-auto px-4 py-6">
+      <div className="bg-dark-bg/85 backdrop-blur-md rounded-2xl p-6 border border-dark-border/50 space-y-6">
       <h2 className="text-2xl font-bold text-white">
         {sessionName ? `Log: ${sessionName}` : "Log Workout"}
       </h2>
 
       {prescribedSession && (
-        <p className="text-sm text-dark-muted italic border-l-2 border-dark-border pl-3">
+        <p className="text-sm text-dark-text/70 italic border-l-2 border-gold/40 pl-3">
           {prescribedSession.objective}
         </p>
       )}
@@ -107,7 +108,7 @@ function LogForm() {
       <div className="space-y-4">
         {/* Rating selector */}
         <div>
-          <label className="block text-sm font-medium text-dark-muted mb-2">How did it go?</label>
+          <label className="block text-sm font-medium text-dark-text/70 mb-2">How did it go?</label>
           <div className="grid grid-cols-5 gap-2">
             {RATING_OPTIONS.map((opt) => (
               <button
@@ -116,14 +117,14 @@ function LogForm() {
                 className={`flex flex-col items-center p-2 rounded-lg border transition-all ${
                   rating === opt.value
                     ? "border-gold bg-gold/20 text-gold"
-                    : "border-dark-border bg-dark-surface text-dark-muted hover:border-dark-muted"
+                    : "border-dark-border bg-dark-surface text-dark-text/60 hover:border-dark-muted"
                 }`}
               >
                 <span className="text-lg font-bold">{opt.label}</span>
               </button>
             ))}
           </div>
-          <p className="text-xs text-dark-muted mt-1.5 text-center">
+          <p className="text-xs text-dark-text/60 mt-1.5 text-center">
             {RATING_OPTIONS.find(o => o.value === rating)?.description}
           </p>
         </div>
@@ -131,10 +132,10 @@ function LogForm() {
         {/* Required comment for non-3 ratings */}
         {requiresComment && (
           <div>
-            <label className="block text-sm font-medium text-dark-muted mb-1">
+            <label className="block text-sm font-medium text-dark-text/70 mb-1">
               Tell us what happened <span className="text-burnt-orange">*</span>
             </label>
-            <p className="text-xs text-dark-muted mb-1">
+            <p className="text-xs text-dark-text/60 mb-1">
               This helps the AI evaluate how relevant your training was to your objective.
             </p>
             <textarea
@@ -156,7 +157,7 @@ function LogForm() {
 
         {/* Optional notes */}
         <div>
-          <label className="block text-sm font-medium text-dark-muted mb-1">Additional notes (optional)</label>
+          <label className="block text-sm font-medium text-dark-text/70 mb-1">Additional notes (optional)</label>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50" placeholder="Any other details?" />
         </div>
 
@@ -167,6 +168,7 @@ function LogForm() {
         >
           {loading ? "Saving..." : rating === 3 ? "Log as Prescribed" : "Save Workout Log"}
         </button>
+      </div>
       </div>
     </div>
   );

@@ -45,7 +45,7 @@ export default function ThisWeekSessions({
                   className="flex items-center gap-2 text-left flex-1 min-w-0"
                 >
                   <svg
-                    className={`w-4 h-4 text-dark-muted shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                    className={`w-4 h-4 text-dark-muted shrink-0 chevron-smooth ${isExpanded ? "rotate-90" : ""}`}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -60,25 +60,27 @@ export default function ThisWeekSessions({
                 </button>
                 <Link
                   href={`/log?session=${encodeURIComponent(session.name)}&planId=${planId}&week=${weekTarget.week_number}`}
-                  className="text-sm bg-gold/90 text-dark-bg px-3 py-1 rounded hover:bg-gold transition-colors font-medium shrink-0 ml-3"
+                  className="btn-press text-sm bg-gold/90 text-dark-bg px-3 py-1 rounded hover:bg-gold transition-colors font-medium shrink-0 ml-3"
                 >
                   Log
                 </Link>
               </div>
 
               {isExpanded && (
-                <div className="px-4 pb-2 flex items-center gap-3 border-t border-dark-border/50 pt-3">
+                <div className="session-content-enter px-4 pb-2 flex items-center gap-3 border-t border-dark-border/50 pt-3">
                   <span className="text-dark-muted text-xs">{session.estimatedMinutes} min</span>
                   <button
                     onClick={() => setAlternativesPanel({ sessionIndex: i, session })}
-                    className="text-xs text-dark-muted hover:text-white px-2 py-1 rounded hover:bg-dark-border/50 transition-colors"
+                    className="btn-press text-xs text-dark-muted hover:text-white px-2 py-1 rounded hover:bg-dark-border/50 transition-colors"
                   >
                     Alternatives
                   </button>
                 </div>
               )}
               {isExpanded && (
-                <SessionDetails session={session} />
+                <div className="session-content-enter">
+                  <SessionDetails session={session} />
+                </div>
               )}
             </div>
           );

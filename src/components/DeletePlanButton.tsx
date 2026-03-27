@@ -47,8 +47,8 @@ export default function DeletePlanButton({ planId, onDeleted }: { planId: string
       </button>
 
       {showConfirm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
-          <div className="bg-dark-card border border-dark-border rounded-xl p-6 max-w-sm w-full">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4 animate-fade-in">
+          <div className="bg-dark-card border border-dark-border rounded-xl p-6 max-w-sm w-full animate-scale-in">
             <h3 className="text-lg font-bold text-white mb-2">Delete Training Plan?</h3>
             <p className="text-sm text-dark-muted mb-6">
               This will permanently delete your current plan, objective, and all weekly targets. Your workout logs will be kept.

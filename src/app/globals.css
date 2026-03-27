@@ -32,3 +32,58 @@ input, select, textarea {
 ::-webkit-scrollbar-thumb:hover {
   background: #444;
 }
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Stagger delay utilities for choreographed entrances */
+.stagger-1 { animation-delay: 0ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 200ms; }
+.stagger-4 { animation-delay: 300ms; }
+.stagger-5 { animation-delay: 400ms; }
+.stagger-6 { animation-delay: 500ms; }
+
+/* Score arc stroke animation */
+.arc-stroke-animate {
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.25, 1, 0.5, 1) 0.3s;
+}
+
+/* Gold tier badge shimmer */
+.tier-gold-shimmer {
+  background: linear-gradient(
+    110deg,
+    transparent 20%,
+    rgba(212, 160, 23, 0.15) 40%,
+    rgba(212, 160, 23, 0.3) 50%,
+    rgba(212, 160, 23, 0.15) 60%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  animation: gold-shimmer 2s ease-in-out 0.5s 1;
+}
+
+/* Button press micro-interaction */
+.btn-press:active {
+  transform: scale(0.95);
+  transition: transform 0.1s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.btn-press {
+  transition: transform 0.15s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+/* Session expand/collapse */
+.session-content-enter {
+  animation: fade-in-up 0.2s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+/* Smooth expand chevron */
+.chevron-smooth {
+  transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}

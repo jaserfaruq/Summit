@@ -178,9 +178,9 @@ export default function CalendarPage() {
       <div className="px-4 py-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-1 hover:bg-dark-card rounded text-dark-muted">←</button>
+            <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-1 hover:bg-dark-card rounded text-white/60">←</button>
             <h2 className="text-xl font-bold text-white">{MONTHS[month]} {year}</h2>
-            <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-1 hover:bg-dark-card rounded text-dark-muted">→</button>
+            <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-1 hover:bg-dark-card rounded text-white/60">→</button>
           </div>
           <button
             onClick={() => { setSelectedDate(new Date().toISOString().split("T")[0]); setShowModal(true); }}
@@ -191,7 +191,7 @@ export default function CalendarPage() {
         </div>
 
         {monthDays.length === 0 && (
-          <p className="text-dark-muted text-center py-8">No workouts or objectives this month.</p>
+          <p className="text-white/60 text-center py-8">No workouts or objectives this month.</p>
         )}
 
         <div className="space-y-2">
@@ -251,9 +251,9 @@ export default function CalendarPage() {
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-2 hover:bg-dark-card rounded text-dark-muted">←</button>
+          <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-2 hover:bg-dark-card rounded text-white/60">←</button>
           <h2 className="text-2xl font-bold text-white">{MONTHS[month]} {year}</h2>
-          <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-2 hover:bg-dark-card rounded text-dark-muted">→</button>
+          <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-2 hover:bg-dark-card rounded text-white/60">→</button>
         </div>
         <button
           onClick={() => { setSelectedDate(new Date().toISOString().split("T")[0]); setShowModal(true); }}
