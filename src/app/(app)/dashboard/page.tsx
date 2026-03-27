@@ -169,23 +169,25 @@ export default async function DashboardPage() {
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
 
       {/* Objective header */}
-      <div className="flex items-start justify-between gap-4 animate-fade-in">
-        <div className="min-w-0">
-          <h2 className="text-2xl font-bold text-white leading-tight">{activeObjective.name}</h2>
-          <div className="flex items-center gap-3 mt-1.5">
-            <TierBadge tier={activeObjective.tier} />
-            <span className="text-white/60 text-sm">{formatDate(activeObjective.target_date)}</span>
+      <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-5 animate-fade-in">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="text-2xl font-bold text-white leading-tight">{activeObjective.name}</h2>
+            <div className="flex items-center gap-3 mt-1.5">
+              <TierBadge tier={activeObjective.tier} />
+              <span className="text-white/60 text-sm">{formatDate(activeObjective.target_date)}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-right">
+              <div className="text-3xl font-bold text-gold tabular-nums leading-none">{weeksRemaining}</div>
+              <div className="text-[11px] text-white/60 uppercase tracking-widest mt-1">weeks out</div>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="text-right">
-            <div className="text-3xl font-bold text-gold tabular-nums leading-none">{weeksRemaining}</div>
-            <div className="text-[11px] text-white/60 uppercase tracking-widest mt-1">weeks out</div>
-          </div>
-          <div className="flex items-center gap-1 border-l border-dark-border pl-3">
-            <UpdateAssessmentButton planId={activePlan.id} objectiveId={activeObjective.id} />
-            <DeletePlanButton planId={activePlan.id} />
-          </div>
+        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-dark-border/50">
+          <UpdateAssessmentButton planId={activePlan.id} objectiveId={activeObjective.id} />
+          <DeletePlanButton planId={activePlan.id} />
         </div>
       </div>
 
@@ -328,7 +330,7 @@ export default async function DashboardPage() {
         </Link>
         <Link
           href="/progress"
-          className="btn-press flex-1 text-center py-3 border border-dark-border text-dark-text rounded-lg font-semibold hover:bg-dark-card transition-colors text-sm"
+          className="btn-press flex-1 text-center py-3 bg-dark-card/80 backdrop-blur-sm border border-dark-border/50 text-dark-text rounded-lg font-semibold hover:bg-dark-card transition-colors text-sm"
         >
           View Progress
         </Link>

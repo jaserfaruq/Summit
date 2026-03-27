@@ -42,7 +42,7 @@ export default function DeletePlanButton({ planId, onDeleted }: { planId: string
     <>
       <button
         onClick={() => setShowConfirm(true)}
-        className="text-sm text-red-400 hover:text-red-300 border border-red-800/50 hover:border-red-700 px-3 py-1.5 rounded-lg transition-colors"
+        className="text-sm text-red-400 hover:text-red-300 bg-dark-surface/60 border border-red-800/50 hover:border-red-700 px-3 py-1.5 rounded-lg transition-colors"
       >
         Delete Plan
       </button>

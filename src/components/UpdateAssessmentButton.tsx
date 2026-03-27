@@ -31,7 +31,7 @@ export default function UpdateAssessmentButton({
     <>
       <button
         onClick={handleClick}
-        className="text-sm text-dark-muted hover:text-white border border-dark-border hover:border-sage px-3 py-1.5 rounded-lg transition-colors"
+        className="text-sm text-dark-muted hover:text-white bg-dark-surface/60 border border-dark-border/50 hover:border-sage px-3 py-1.5 rounded-lg transition-colors"
       >
         Retake Assessment
       </button>
