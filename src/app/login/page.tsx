@@ -2,6 +2,7 @@
 
 import { login } from "@/app/auth/actions";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useState, Suspense } from "react";
 
@@ -25,7 +26,7 @@ function LoginForm() {
     <div className="min-h-screen flex flex-col relative">
       {/* Fixed blurred background */}
       <div className="fixed inset-0 -z-10">
-        <img src="/IMG_0232.jpeg" alt="" className="w-full h-full object-cover scale-105" />
+        <Image src="/IMG_0232.jpeg" alt="" fill className="object-cover scale-105" priority />
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-black/75" />
       </div>
       <header className="bg-dark-surface/80 backdrop-blur-md border-b border-dark-border/50 px-4 md:px-6 h-14 flex items-center">

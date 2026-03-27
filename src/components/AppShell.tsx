@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { signout } from "@/app/auth/actions";
@@ -97,7 +98,7 @@ export default function AppShell({
     <div className="min-h-screen flex flex-col relative">
       {/* Fixed blurred background */}
       <div className="fixed inset-0 -z-10">
-        <img src="/IMG_0232.jpeg" alt="" className="w-full h-full object-cover scale-105" />
+        <Image src="/IMG_0232.jpeg" alt="" fill className="object-cover scale-105" priority />
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-black/70" />
       </div>
 

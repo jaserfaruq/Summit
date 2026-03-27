@@ -38,7 +38,7 @@ export default function InfoBubble({ title, children }: InfoBubbleProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-bold text-[#1B4D3E]">{title}</h3>
+          <h3 className="text-base font-bold text-burnt-orange">{title}</h3>
           <button
             type="button"
             onClick={(e) => {
@@ -66,7 +66,7 @@ export default function InfoBubble({ title, children }: InfoBubbleProps) {
           e.stopPropagation();
           setOpen(true);
         }}
-        className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-[#8B9D83] text-[#8B9D83] text-xs font-semibold ml-1.5 hover:bg-[#8B9D83]/20 transition-colors cursor-pointer"
+        className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-sage text-sage text-xs font-semibold ml-1.5 hover:bg-sage/20 transition-colors cursor-pointer"
         aria-label={`Info: ${title}`}
       >
         i

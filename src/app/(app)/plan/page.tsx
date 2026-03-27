@@ -751,7 +751,7 @@ function PlanContent() {
 
       {/* Graduation workouts — collapsible, prefer objective benchmarks (synced from seed), then validated, then plan snapshot */}
       {(objective?.graduation_benchmarks || plan.graduation_workouts || validatedObj?.graduation_benchmarks) && (
-        <div className="rounded-xl border border-gold/30 overflow-hidden" style={{ background: "linear-gradient(135deg, #1e2820 0%, #1a2018 100%)" }}>
+        <div className="rounded-xl border border-gold/30 overflow-hidden bg-dark-card">
           <button
             onClick={() => setGraduationExpanded(!graduationExpanded)}
             className="w-full flex items-center justify-between px-5 py-4 text-left"

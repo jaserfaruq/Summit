@@ -43,14 +43,6 @@ export default function CalendarPage() {
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    setIsMobile(window.innerWidth < 768);
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   useEffect(() => {
     fetchData();
@@ -162,98 +154,88 @@ export default function CalendarPage() {
     fetchData();
   }
 
-  // Mobile: list view
-  if (isMobile) {
-    const monthDays: { day: number; objectives: Objective[]; sessions: CalendarSession[]; logs: WorkoutLog[] }[] = [];
-    for (let d = 1; d <= daysInMonth; d++) {
-      const objs = getObjectivesForDate(d);
-      const sess = getSessionsForDate(d);
-      const logs = getLogsForDate(d);
-      if (objs.length > 0 || sess.length > 0 || logs.length > 0) {
-        monthDays.push({ day: d, objectives: objs, sessions: sess, logs: logs });
-      }
+  // Build mobile list data
+  const monthDays: { day: number; objectives: Objective[]; sessions: CalendarSession[]; logs: WorkoutLog[] }[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const objs = getObjectivesForDate(d);
+    const sess = getSessionsForDate(d);
+    const logs = getLogsForDate(d);
+    if (objs.length > 0 || sess.length > 0 || logs.length > 0) {
+      monthDays.push({ day: d, objectives: objs, sessions: sess, logs: logs });
     }
-
-    return (
-      <div className="px-4 py-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-1 hover:bg-dark-card rounded text-white/60">←</button>
-            <h2 className="text-xl font-bold text-white">{MONTHS[month]} {year}</h2>
-            <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-1 hover:bg-dark-card rounded text-white/60">→</button>
-          </div>
-          <button
-            onClick={() => { setSelectedDate(new Date().toISOString().split("T")[0]); setShowModal(true); }}
-            className="bg-gold text-dark-bg px-3 py-1.5 rounded-lg text-sm font-medium"
-          >
-            + Add
-          </button>
-        </div>
-
-        {monthDays.length === 0 && (
-          <p className="text-white/60 text-center py-8">No workouts or objectives this month.</p>
-        )}
-
-        <div className="space-y-2">
-          {monthDays.map(({ day, objectives: dayObjs, sessions: daySessions, logs: dayLogs }) => {
-            const dateStr = formatDateStr(day);
-            const dayDate = new Date(dateStr + "T00:00:00");
-            const dayName = DAYS[dayDate.getDay()];
-            const loggedSessionNames = dayLogs.map(l => l.session_name);
-
-            return (
-              <div key={day} className="bg-dark-card/80 backdrop-blur-sm rounded-lg border border-dark-border/50 p-3">
-                <div className="text-xs text-dark-muted font-semibold mb-1.5">{dayName}, {MONTHS[month]} {day}</div>
-
-                {dayObjs.map((obj) => (
-                  <button
-                    key={obj.id}
-                    onClick={() => { setSelectedObjective(obj); setShowModal(true); }}
-                    className={`w-full text-left text-xs px-2 py-1 rounded mb-1 ${TYPE_COLORS[obj.type] || "bg-dark-border"}`}
-                  >
-                    {obj.name}
-                  </button>
-                ))}
-
-                {daySessions.map((cs, i) => {
-                  const isLogged = loggedSessionNames.includes(cs.session.name);
-                  return (
-                    <div key={i} className={`flex items-center justify-between text-xs px-2 py-1.5 rounded mb-1 border ${
-                      isLogged ? "bg-green-900/20 border-green-800/40 line-through opacity-60" : DIMENSION_COLORS[cs.session.dimension] || "bg-dark-surface border-dark-border"
-                    }`}>
-                      <div className="flex items-center gap-1.5">
-                        {cs.session.isBenchmarkSession && <span className="text-blue-300">★</span>}
-                        <span>{cs.session.name}</span>
-                        {isLogged && <span className="text-green-400 no-underline">✓</span>}
-                      </div>
-                      <span className="text-[10px] opacity-70">{cs.session.estimatedMinutes}m</span>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
-
-        {showModal && (
-          <ObjectiveModal
-            date={selectedDate} objective={selectedObjective}
-            onClose={() => { setShowModal(false); setSelectedObjective(null); setSelectedDate(null); }}
-            onSaved={handleSaved}
-          />
-        )}
-      </div>
-    );
   }
 
-  // Desktop: calendar view
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
+    <>
+    {/* Mobile: list view */}
+    <div className="md:hidden px-4 py-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-2.5 hover:bg-dark-card rounded text-white/60">←</button>
+          <h2 className="text-xl font-bold text-white">{MONTHS[month]} {year}</h2>
+          <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-2.5 hover:bg-dark-card rounded text-white/60">→</button>
+        </div>
+        <button
+          onClick={() => { setSelectedDate(new Date().toISOString().split("T")[0]); setShowModal(true); }}
+          className="bg-gold text-dark-bg px-3 py-1.5 rounded-lg text-sm font-medium"
+        >
+          + Add
+        </button>
+      </div>
+
+      {monthDays.length === 0 && (
+        <p className="text-white/60 text-center py-8">No workouts or objectives this month.</p>
+      )}
+
+      <div className="space-y-2">
+        {monthDays.map(({ day, objectives: dayObjs, sessions: daySessions, logs: dayLogs }) => {
+          const dateStr = formatDateStr(day);
+          const dayDate = new Date(dateStr + "T00:00:00");
+          const dayName = DAYS[dayDate.getDay()];
+          const loggedSessionNames = dayLogs.map(l => l.session_name);
+
+          return (
+            <div key={day} className="bg-dark-card/80 backdrop-blur-sm rounded-lg border border-dark-border/50 p-3">
+              <div className="text-xs text-dark-muted font-semibold mb-1.5">{dayName}, {MONTHS[month]} {day}</div>
+
+              {dayObjs.map((obj) => (
+                <button
+                  key={obj.id}
+                  onClick={() => { setSelectedObjective(obj); setShowModal(true); }}
+                  className={`w-full text-left text-xs px-2 py-1 rounded mb-1 ${TYPE_COLORS[obj.type] || "bg-dark-border"}`}
+                >
+                  {obj.name}
+                </button>
+              ))}
+
+              {daySessions.map((cs, i) => {
+                const isLogged = loggedSessionNames.includes(cs.session.name);
+                return (
+                  <div key={i} className={`flex items-center justify-between text-xs px-2 py-1.5 rounded mb-1 border ${
+                    isLogged ? "bg-green-900/20 border-green-800/40 line-through opacity-60" : DIMENSION_COLORS[cs.session.dimension] || "bg-dark-surface border-dark-border"
+                  }`}>
+                    <div className="flex items-center gap-1.5">
+                      {cs.session.isBenchmarkSession && <span className="text-blue-300">★</span>}
+                      <span>{cs.session.name}</span>
+                      {isLogged && <span className="text-green-400 no-underline">✓</span>}
+                    </div>
+                    <span className="text-[10px] opacity-70">{cs.session.estimatedMinutes}m</span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
+    {/* Desktop: calendar view */}
+    <div className="hidden md:block max-w-5xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-2 hover:bg-dark-card rounded text-white/60">←</button>
+          <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="p-2.5 hover:bg-dark-card rounded text-white/60">←</button>
           <h2 className="text-2xl font-bold text-white">{MONTHS[month]} {year}</h2>
-          <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-2 hover:bg-dark-card rounded text-white/60">→</button>
+          <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="p-2.5 hover:bg-dark-card rounded text-white/60">→</button>
         </div>
         <button
           onClick={() => { setSelectedDate(new Date().toISOString().split("T")[0]); setShowModal(true); }}
@@ -365,14 +347,16 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {showModal && (
-        <ObjectiveModal
-          date={selectedDate} objective={selectedObjective}
-          onClose={() => { setShowModal(false); setSelectedObjective(null); setSelectedDate(null); }}
-          onSaved={handleSaved}
-        />
-      )}
     </div>
+
+    {showModal && (
+      <ObjectiveModal
+        date={selectedDate} objective={selectedObjective}
+        onClose={() => { setShowModal(false); setSelectedObjective(null); setSelectedDate(null); }}
+        onSaved={handleSaved}
+      />
+    )}
+    </>
   );
 }
 

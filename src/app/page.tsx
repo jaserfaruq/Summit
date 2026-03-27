@@ -1,14 +1,17 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden">
       {/* Background — gradient lets mountain show at top, darkens at bottom for text readability */}
       <div className="fixed inset-0 -z-10">
-        <img
+        <Image
           src="/IMG_0232.jpeg"
           alt=""
-          className="w-full h-full object-cover scale-105"
+          fill
+          className="object-cover scale-105"
+          priority
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
       </div>

@@ -142,7 +142,7 @@ function DimensionChart({
           {/* Y-axis labels & grid */}
           {gridLines.map((v) => (
             <g key={v}>
-              <text x={PADDING.left - 10} y={yScale(v) + 5} textAnchor="end" fontSize="20" fill="#9aada2">
+              <text x={PADDING.left - 10} y={yScale(v) + 5} textAnchor="end" fontSize="20" fill="#7a8f82">
                 {v}
               </text>
               <line
@@ -272,7 +272,7 @@ function DimensionChart({
                   y={CHART_HEIGHT - 12}
                   textAnchor="middle"
                   fontSize="20"
-                  fill="#9aada2"
+                  fill="#7a8f82"
                 >
                   {new Date(point.week_ending).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </text>

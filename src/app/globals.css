@@ -23,14 +23,14 @@ input, select, textarea {
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #1a1a1a;
+  background: theme('colors.dark-bg');
 }
 ::-webkit-scrollbar-thumb {
-  background: #333;
+  background: theme('colors.dark-border');
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #444;
+  background: theme('colors.dark-muted');
 }
 
 /* Respect reduced motion preference */
