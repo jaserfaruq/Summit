@@ -103,7 +103,7 @@ export default function AppShell({
       </div>
 
       {/* Desktop header */}
-      <header className="bg-dark-surface/80 backdrop-blur-md border-b border-dark-border/50 px-4 md:px-6 h-14 flex items-center justify-between">
+      <header className="bg-dark-surface/80 backdrop-blur-md border-b border-dark-border/50 px-4 md:px-6 h-14 flex items-center justify-between relative z-50">
         {/* Left: brand */}
         <Link href="/dashboard" className="flex items-center gap-2 group">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-burnt-orange shrink-0">
