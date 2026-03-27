@@ -417,6 +417,12 @@ This answer reshapes the entire climbing dimension:
 
 After the lead/follow question (if applicable), generate 3-4 additional questions that probe the specific capabilities this objective demands. Each question should help you assess one or more dimensions more accurately. Focus on the key components from the relevance profiles.
 
+CARDIO BASELINE DATA FORMAT:
+The athlete's standard answers include cardio data in one of two modes (indicated by cardio_mode):
+- "uphill" mode: The athlete reported a sustained uphill push with elevation gain, uphill-only time (hours), and optional pack weight. This is PURE CLIMB RATE data — do NOT dilute it by assuming flat or downhill time is included. Compute climb rate directly: elevation / time.
+- "hike_run" mode: The athlete reported a full hike or trail run with total distance, total time (hours), and optional elevation gain. This includes all terrain (flat, uphill, downhill). Do NOT compute a climb rate from this data — it would underestimate their uphill ability. Instead, use it to assess endurance, time-on-feet, and pace.
+Use the mode to choose the right assessment lens. Do not ask redundant questions about data the athlete already provided.
+
 Your questions should also gather information that will help PROGRAM the training plan — not just score the athlete. For example:
 - Asking about loaded pack experience tells you both the score AND whether to start step-ups at 25lb or 35lb.
 - Asking about climbing gym frequency tells you both the score AND how many climbing sessions per week to prescribe.
@@ -448,6 +454,12 @@ For each dimension, provide:
    - Time allocation priority (e.g., "needs 3 cardio sessions/week, not 2")
    - Specific adaptations (e.g., "include pull-up progression from zero", "focus trad sessions on gear placement speed, not harder grades")
    - Maintenance vs build (e.g., "cardio is strong — maintain with 2 sessions, invest time elsewhere")
+
+CARDIO SCORING CONTEXT:
+The athlete's standard answers include cardio data in one of two modes (indicated by cardio_mode):
+- "uphill" mode: Elevation gain (ft), uphill-only time (hours), and optional pack weight (lbs). This is PURE CLIMB RATE — the time only covers the uphill portion, not descent or flat sections. Compute climb rate directly: elevation / time. If pack weight is provided, factor it in — a loaded uphill push is significantly harder than unloaded.
+- "hike_run" mode: Total distance (miles), total time (hours), and optional elevation gain (ft). This covers ALL terrain including flat and downhill. Do NOT compute a climb rate from total time — it would drastically underestimate their uphill ability. Use this to assess endurance capacity, time-on-feet tolerance, and general aerobic fitness. If elevation gain is provided, it adds context but the time includes all terrain.
+Use the mode to choose the right scoring lens. Map the athlete's performance against the graduation benchmarks for this specific objective.
 
 FLEXIBILITY SCORING CONTEXT:
 The athlete self-assessed hip mobility and ankle mobility on a 1-5 scale using anchored descriptions:

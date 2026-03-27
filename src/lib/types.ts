@@ -94,9 +94,15 @@ export interface Assessment {
 
 export interface StandardAnswers {
   training_days_per_week: number;
-  longest_cardio_distance_miles: number;
-  longest_cardio_duration_min: number;
-  longest_cardio_elevation_gain_ft: number;
+  cardio_mode: 'uphill' | 'hike_run';
+  // Uphill Push mode
+  cardio_uphill_elevation_ft: number;
+  cardio_uphill_duration_hours: number;
+  cardio_uphill_pack_weight_lbs: number;  // 0 = no pack
+  // Hike/Trail Run mode
+  cardio_hike_distance_miles: number;
+  cardio_hike_duration_hours: number;
+  cardio_hike_elevation_ft: number;       // optional elevation context
   strength_training_frequency: string;
   strength_training_type: string;
   climbing_experience_level: string;
@@ -543,4 +549,96 @@ export interface ReplaceSessionRequest {
   weekNumber: number;
   sessionIndex: number;
   replacementSession: PlanSession;
+}
+
+// ============================================
+// Training Partners types
+// ============================================
+
+export type PartnershipStatus = 'pending' | 'accepted' | 'declined';
+
+export type SessionEnvironment = 'gym' | 'outdoor' | 'climbing_gym' | 'crag' | 'home';
+
+export type MatchType = 'environment' | 'dimension' | 'both';
+
+export interface Partnership {
+  id: string;
+  requester_id: string;
+  recipient_id: string;
+  status: PartnershipStatus;
+  requester_shares_scores: boolean;
+  recipient_shares_scores: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PartnerNotification {
+  id: string;
+  user_id: string;
+  partner_id: string;
+  partner_name: string;
+  partnership_id: string;
+  week_number: number;
+  plan_id: string;
+  partner_plan_id: string;
+  match_type: MatchType;
+  match_summary: string;
+  matched_sessions: MatchResult[];
+  is_read: boolean;
+  is_dismissed: boolean;
+  created_at: string;
+}
+
+export interface MatchResult {
+  yourSessionIndex: number;
+  yourSessionName: string;
+  partnerSessionIndex: number;
+  partnerSessionName: string;
+  matchType: MatchType;
+  matchReason: string;
+}
+
+export interface PartnerSession {
+  name: string;
+  dimension: Dimension;
+  environment: SessionEnvironment;
+  completed: boolean;
+  sessionIndex: number;
+  fullSession?: PlanSession;
+}
+
+export interface AcceptedPartner {
+  partnershipId: string;
+  partnerId: string;
+  partnerName: string;
+  objectiveName: string | null;
+  weekLabel: string | null;
+  scoresVisible: boolean;
+  scores: DimensionScores | null;
+  currentWeekSessions: PartnerSession[];
+}
+
+export interface PendingPartner {
+  partnershipId: string;
+  partnerName: string;
+  direction: 'sent' | 'received';
+}
+
+export interface PartnerListResponse {
+  accepted: AcceptedPartner[];
+  pending: PendingPartner[];
+}
+
+export interface PartnerWeekResponse {
+  partnerId: string;
+  partnerName: string;
+  objectiveName: string;
+  weekNumber: number;
+  totalWeeks: number;
+  weekType: WeekType;
+  sessions: PartnerSession[];
+  scoresVisible: boolean;
+  scores: DimensionScores | null;
+  targetScores: DimensionScores | null;
+  matches: MatchResult[];
 }

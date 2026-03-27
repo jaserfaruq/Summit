@@ -7,6 +7,8 @@ import DeletePlanButton from "@/components/DeletePlanButton";
 import DeleteAssessmentButton from "@/components/DeleteAssessmentButton";
 import UpdateAssessmentButton from "@/components/UpdateAssessmentButton";
 import ThisWeekSessions from "@/components/ThisWeekSessions";
+import PartnerNotificationBanner from "@/components/PartnerNotificationBanner";
+import AddObjectiveButton from "@/components/AddObjectiveButton";
 
 function formatDimLabel(dim: string) {
   return dim.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" / ");
@@ -94,12 +96,7 @@ export default async function DashboardPage() {
         <p className="text-white/80 mb-8 leading-relaxed drop-shadow-md">
           Start by adding your first summit objective, then we&apos;ll assess your fitness for it.
         </p>
-        <Link
-          href="/calendar"
-          className="btn-press inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors"
-        >
-          Add Your First Objective
-        </Link>
+        <AddObjectiveButton />
       </div>
     );
   }
@@ -168,17 +165,8 @@ export default async function DashboardPage() {
       (7 * 24 * 60 * 60 * 1000)
   );
 
-  const isEstimated = activePlan.current_week_number === 1;
-
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
-
-      {/* Estimated scores banner */}
-      {isEstimated && (
-        <div className="animate-fade-in bg-burnt-orange/10 border border-burnt-orange/20 rounded-lg px-4 py-3 text-sm text-burnt-orange animate-gentle-pulse">
-          Estimated scores — take your first benchmark test to calibrate.
-        </div>
-      )}
 
       {/* Objective header */}
       <div className="flex items-start justify-between gap-4 animate-fade-in">
@@ -298,6 +286,11 @@ export default async function DashboardPage() {
           />
         </div>
       )}
+
+      {/* Partner notification */}
+      <div className="animate-fade-in-up stagger-4">
+        <PartnerNotificationBanner />
+      </div>
 
       {/* Graduation benchmarks */}
       {activeObjective.graduation_benchmarks && (

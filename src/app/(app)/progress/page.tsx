@@ -11,8 +11,8 @@ const CHANGE_REASON_LABELS: Record<string, string> = {
 };
 
 const CHART_WIDTH = 800;
-const CHART_HEIGHT = 340;
-const PADDING = { top: 35, right: 20, bottom: 65, left: 65 };
+const CHART_HEIGHT = 360;
+const PADDING = { top: 40, right: 25, bottom: 70, left: 70 };
 const PLOT_WIDTH = CHART_WIDTH - PADDING.left - PADDING.right;
 const PLOT_HEIGHT = CHART_HEIGHT - PADDING.top - PADDING.bottom;
 
@@ -43,17 +43,31 @@ function DimensionChart({
 
   const handlePointLeave = useCallback(() => setTooltip(null), []);
   // Build time-based X scale from both data sources
+  // Use a visible window: from first data point to a reasonable horizon
+  // so early data isn't squished when the trajectory extends months out
   const scoreDates = scoreHistory.map((p) => new Date(p.week_ending).getTime());
   const trajectoryDates = weeklyTargets.map((w) => new Date(w.week_start).getTime());
   const allTimestamps = [...scoreDates, ...trajectoryDates];
   const minTime = allTimestamps.length > 0 ? Math.min(...allTimestamps) : 0;
   const maxTime = allTimestamps.length > 0 ? Math.max(...allTimestamps) : 0;
-  const timeRange = maxTime - minTime;
+
+  // If actual data covers a small fraction of the trajectory, extend the visible
+  // window to ~3x the actual data range or 6 weeks minimum, so points aren't squished
+  const latestActual = scoreDates.length > 0 ? Math.max(...scoreDates) : minTime;
+  const actualRange = latestActual - minTime;
+  const sixWeeks = 6 * 7 * 24 * 60 * 60 * 1000;
+  const visibleMax = Math.min(
+    maxTime,
+    Math.max(latestActual + Math.max(actualRange * 2, sixWeeks), minTime + sixWeeks)
+  );
+  const timeRange = visibleMax - minTime;
 
   function dateToX(dateStr: string): number {
     if (timeRange === 0) return PADDING.left + PLOT_WIDTH / 2;
     const t = new Date(dateStr).getTime();
-    return PADDING.left + ((t - minTime) / timeRange) * PLOT_WIDTH;
+    // Clamp to visible area
+    const clamped = Math.min(Math.max(t, minTime), visibleMax);
+    return PADDING.left + ((clamped - minTime) / timeRange) * PLOT_WIDTH;
   }
 
   // Compute dynamic Y-axis range from data + trajectory + target
@@ -119,7 +133,7 @@ function DimensionChart({
           </div>
           <div className="flex items-center gap-1.5">
             <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke={color} strokeWidth="1.5" strokeDasharray="3 3" opacity="0.4" /></svg>
-            <span className="text-xs text-dark-muted">Expected</span>
+            <span className="text-xs text-dark-muted">Target Trajectory</span>
           </div>
         </div>
       )}
@@ -128,7 +142,7 @@ function DimensionChart({
           {/* Y-axis labels & grid */}
           {gridLines.map((v) => (
             <g key={v}>
-              <text x={PADDING.left - 10} y={yScale(v) + 6} textAnchor="end" fontSize="20" fill="#7a8f82">
+              <text x={PADDING.left - 10} y={yScale(v) + 5} textAnchor="end" fontSize="20" fill="#9aada2">
                 {v}
               </text>
               <line
@@ -142,17 +156,27 @@ function DimensionChart({
             </g>
           ))}
 
-          {/* Target line (dashed) */}
+          {/* Target line (solid) */}
           <line
             x1={PADDING.left}
             x2={CHART_WIDTH - PADDING.right}
             y1={yScale(target)}
             y2={yScale(target)}
             stroke={color}
-            strokeWidth={1}
-            strokeDasharray="6 3"
-            opacity={0.4}
+            strokeWidth={2}
+            opacity={0.6}
           />
+          <text
+            x={CHART_WIDTH - PADDING.right - 4}
+            y={yScale(target) - 8}
+            textAnchor="end"
+            fontSize="16"
+            fill={color}
+            opacity={0.8}
+            fontWeight="600"
+          >
+            Target: {target}
+          </text>
 
           {/* Expected trajectory line */}
           {trajectoryPath && (
@@ -160,15 +184,15 @@ function DimensionChart({
               d={trajectoryPath}
               fill="none"
               stroke={color}
-              strokeWidth={1.5}
-              strokeDasharray="4 4"
-              opacity={0.35}
+              strokeWidth={2}
+              strokeDasharray="6 4"
+              opacity={0.45}
             />
           )}
 
           {/* Data line */}
           {pathData && (
-            <path d={pathData} fill="none" stroke={color} strokeWidth={2} />
+            <path d={pathData} fill="none" stroke={color} strokeWidth={2.5} />
           )}
 
           {/* Data points — interactive with expanded touch targets */}
@@ -206,42 +230,55 @@ function DimensionChart({
             </g>
           ))}
 
-          {/* Data labels — thin out when dense */}
-          {scoreHistory.map((point, i) => {
-            const step = scoreHistory.length > 10 ? 3 : scoreHistory.length > 6 ? 2 : 1;
-            if (i % step !== 0 && i !== scoreHistory.length - 1) return null;
-            return (
-              <text
-                key={`label-${i}`}
-                x={dateToX(point.week_ending)}
-                y={yScale(point[dimensionKey]) - 16}
-                textAnchor="middle"
-                fontSize="18"
-                fill={color}
-                fontWeight="600"
-              >
-                {point[dimensionKey]}
-              </text>
-            );
-          })}
+          {/* Data labels — avoid overlaps by checking pixel distance */}
+          {(() => {
+            let lastLabelX = -Infinity;
+            const minLabelGap = 40;
+            return scoreHistory.map((point, i) => {
+              const x = dateToX(point.week_ending);
+              const isLast = i === scoreHistory.length - 1;
+              // Always show last point, skip if too close to previous label
+              if (!isLast && x - lastLabelX < minLabelGap) return null;
+              lastLabelX = x;
+              return (
+                <text
+                  key={`label-${i}`}
+                  x={x}
+                  y={yScale(point[dimensionKey]) - 14}
+                  textAnchor="middle"
+                  fontSize="20"
+                  fill={color}
+                  fontWeight="700"
+                >
+                  {point[dimensionKey]}
+                </text>
+              );
+            });
+          })()}
 
-          {/* X-axis labels — show every Nth label to avoid crowding */}
-          {scoreHistory.map((point, i) => {
-            const step = scoreHistory.length > 8 ? 3 : scoreHistory.length > 5 ? 2 : 1;
-            if (i % step !== 0 && i !== scoreHistory.length - 1) return null;
-            return (
-              <text
-                key={i}
-                x={dateToX(point.week_ending)}
-                y={CHART_HEIGHT - 8}
-                textAnchor="middle"
-                fontSize="22"
-                fill="#7a8f82"
-              >
-                {new Date(point.week_ending).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-              </text>
-            );
-          })}
+          {/* X-axis labels — avoid overlaps by checking pixel distance */}
+          {(() => {
+            let lastLabelX = -Infinity;
+            const minGap = 80;
+            return scoreHistory.map((point, i) => {
+              const x = dateToX(point.week_ending);
+              const isLast = i === scoreHistory.length - 1;
+              if (!isLast && x - lastLabelX < minGap) return null;
+              lastLabelX = x;
+              return (
+                <text
+                  key={i}
+                  x={x}
+                  y={CHART_HEIGHT - 12}
+                  textAnchor="middle"
+                  fontSize="20"
+                  fill="#9aada2"
+                >
+                  {new Date(point.week_ending).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </text>
+              );
+            });
+          })()}
         </svg>
         {/* Tooltip */}
         {tooltip !== null && (() => {
@@ -355,9 +392,9 @@ export default function ProgressPage() {
 
   const dimensions = [
     { key: "cardio_score" as const, expectedKey: "cardio" as const, label: "Cardio", color: "#D4782F", target: targets.cardio },
-    { key: "strength_score" as const, expectedKey: "strength" as const, label: "Strength", color: "#1A5276", target: targets.strength },
-    { key: "climbing_score" as const, expectedKey: "climbing_technical" as const, label: "Climbing", color: "#8B9D83", target: targets.climbing },
-    { key: "flexibility_score" as const, expectedKey: "flexibility" as const, label: "Flexibility", color: "#1B4D3E", target: targets.flexibility },
+    { key: "strength_score" as const, expectedKey: "strength" as const, label: "Strength", color: "#5BA3D9", target: targets.strength },
+    { key: "climbing_score" as const, expectedKey: "climbing_technical" as const, label: "Climbing", color: "#B0C4A8", target: targets.climbing },
+    { key: "flexibility_score" as const, expectedKey: "flexibility" as const, label: "Flexibility", color: "#C49BD4", target: targets.flexibility },
   ];
 
   return (
@@ -385,9 +422,9 @@ export default function ProgressPage() {
 
         const summaryDims = [
           { label: "Cardio", actual: latest.cardio_score, expected: lastWeekTarget?.expected_scores?.cardio, target: targets.cardio, color: "#D4782F" },
-          { label: "Strength", actual: latest.strength_score, expected: lastWeekTarget?.expected_scores?.strength, target: targets.strength, color: "#1A5276" },
-          { label: "Climbing", actual: latest.climbing_score, expected: lastWeekTarget?.expected_scores?.climbing_technical, target: targets.climbing, color: "#8B9D83" },
-          { label: "Flexibility", actual: latest.flexibility_score, expected: lastWeekTarget?.expected_scores?.flexibility, target: targets.flexibility, color: "#1B4D3E" },
+          { label: "Strength", actual: latest.strength_score, expected: lastWeekTarget?.expected_scores?.strength, target: targets.strength, color: "#5BA3D9" },
+          { label: "Climbing", actual: latest.climbing_score, expected: lastWeekTarget?.expected_scores?.climbing_technical, target: targets.climbing, color: "#B0C4A8" },
+          { label: "Flexibility", actual: latest.flexibility_score, expected: lastWeekTarget?.expected_scores?.flexibility, target: targets.flexibility, color: "#C49BD4" },
         ];
 
         return (

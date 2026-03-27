@@ -9,9 +9,13 @@ type Phase = "layer1" | "layer2" | "scoring" | "results";
 
 interface StandardAnswers {
   training_days_per_week: number;
-  longest_cardio_distance_miles: number;
-  longest_cardio_duration_min: number;
-  longest_cardio_elevation_gain_ft: number;
+  cardio_mode: 'uphill' | 'hike_run';
+  cardio_uphill_elevation_ft: number;
+  cardio_uphill_duration_hours: number;
+  cardio_uphill_pack_weight_lbs: number;
+  cardio_hike_distance_miles: number;
+  cardio_hike_duration_hours: number;
+  cardio_hike_elevation_ft: number;
   strength_training_frequency: string;
   strength_training_type: string;
   climbing_experience_level: string;
@@ -53,9 +57,15 @@ function AssessmentContent() {
 
   // Layer 1: Standard answers
   const [trainingDays, setTrainingDays] = useState(5);
-  const [cardioDistance, setCardioDistance] = useState("");
-  const [cardioDuration, setCardioDuration] = useState("");
-  const [cardioElevation, setCardioElevation] = useState("");
+  const [cardioMode, setCardioMode] = useState<'uphill' | 'hike_run'>('uphill');
+  // Uphill Push fields
+  const [uphillElevation, setUphillElevation] = useState("");
+  const [uphillDuration, setUphillDuration] = useState("");
+  const [uphillPackWeight, setUphillPackWeight] = useState("");
+  // Hike/Trail Run fields
+  const [hikeDistance, setHikeDistance] = useState("");
+  const [hikeDuration, setHikeDuration] = useState("");
+  const [hikeElevation, setHikeElevation] = useState("");
   const [strengthFrequency, setStrengthFrequency] = useState("1-2x/week");
   const [strengthType, setStrengthType] = useState("general");
   const [climbingLevel, setClimbingLevel] = useState("none");
@@ -138,9 +148,13 @@ function AssessmentContent() {
   function buildStandardAnswers(): StandardAnswers {
     return {
       training_days_per_week: trainingDays,
-      longest_cardio_distance_miles: parseFloat(cardioDistance) || 0,
-      longest_cardio_duration_min: parseFloat(cardioDuration) || 0,
-      longest_cardio_elevation_gain_ft: parseFloat(cardioElevation) || 0,
+      cardio_mode: cardioMode,
+      cardio_uphill_elevation_ft: parseFloat(uphillElevation) || 0,
+      cardio_uphill_duration_hours: parseFloat(uphillDuration) || 0,
+      cardio_uphill_pack_weight_lbs: parseFloat(uphillPackWeight) || 0,
+      cardio_hike_distance_miles: parseFloat(hikeDistance) || 0,
+      cardio_hike_duration_hours: parseFloat(hikeDuration) || 0,
+      cardio_hike_elevation_ft: parseFloat(hikeElevation) || 0,
       strength_training_frequency: strengthFrequency,
       strength_training_type: strengthType,
       climbing_experience_level: climbingLevel,
@@ -307,21 +321,67 @@ function AssessmentContent() {
           {/* Cardio section */}
           <div className="border-t border-dark-border pt-4">
             <h3 className="text-lg font-semibold text-white mb-3">Cardio</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-dark-muted mb-1">Longest cardio effort in last 3 months (miles)</label>
-                <p className="text-xs text-dark-muted mb-1">Run, hike, or ruck — any sustained cardio effort</p>
-                <input type="number" step="0.1" value={cardioDistance} onChange={(e) => setCardioDistance(e.target.value)} className={inputClass} placeholder="e.g., 8.5" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-dark-muted mb-1">Duration of that effort (minutes)</label>
-                <input type="number" value={cardioDuration} onChange={(e) => setCardioDuration(e.target.value)} className={inputClass} placeholder="e.g., 120" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-dark-muted mb-1">Elevation gain during that effort (ft)</label>
-                <input type="number" value={cardioElevation} onChange={(e) => setCardioElevation(e.target.value)} className={inputClass} placeholder="e.g., 2000" />
-              </div>
+            <p className="text-xs text-dark-muted mb-3">Best effort in the last 3 months. Pick whichever best represents your fitness.</p>
+
+            {/* Mode toggle */}
+            <div className="flex rounded-lg overflow-hidden border border-dark-border mb-4">
+              <button
+                type="button"
+                onClick={() => setCardioMode('uphill')}
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                  cardioMode === 'uphill'
+                    ? 'bg-gold text-dark-bg'
+                    : 'bg-dark-surface text-dark-muted hover:text-white'
+                }`}
+              >
+                Uphill Push
+              </button>
+              <button
+                type="button"
+                onClick={() => setCardioMode('hike_run')}
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                  cardioMode === 'hike_run'
+                    ? 'bg-gold text-dark-bg'
+                    : 'bg-dark-surface text-dark-muted hover:text-white'
+                }`}
+              >
+                Hike / Trail Run
+              </button>
             </div>
+
+            {cardioMode === 'uphill' ? (
+              <div className="space-y-3">
+                <p className="text-xs text-dark-muted">Sustained uphill effort — just the uphill portion, not the descent or flat sections.</p>
+                <div>
+                  <label className="block text-sm font-medium text-dark-muted mb-1">Elevation gain (ft)</label>
+                  <input type="number" value={uphillElevation} onChange={(e) => setUphillElevation(e.target.value)} className={inputClass} placeholder="e.g., 3000" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-dark-muted mb-1">Time for the uphill (hours)</label>
+                  <input type="number" step="0.1" value={uphillDuration} onChange={(e) => setUphillDuration(e.target.value)} className={inputClass} placeholder="e.g., 2.5" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-dark-muted mb-1">Pack weight (lbs) — optional</label>
+                  <input type="number" value={uphillPackWeight} onChange={(e) => setUphillPackWeight(e.target.value)} className={inputClass} placeholder="e.g., 30" />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-dark-muted">A full hike or trail run — total distance and time including all terrain.</p>
+                <div>
+                  <label className="block text-sm font-medium text-dark-muted mb-1">Distance (miles)</label>
+                  <input type="number" step="0.1" value={hikeDistance} onChange={(e) => setHikeDistance(e.target.value)} className={inputClass} placeholder="e.g., 12" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-dark-muted mb-1">Time (hours)</label>
+                  <input type="number" step="0.1" value={hikeDuration} onChange={(e) => setHikeDuration(e.target.value)} className={inputClass} placeholder="e.g., 4.5" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-dark-muted mb-1">Elevation gain (ft) — optional</label>
+                  <input type="number" value={hikeElevation} onChange={(e) => setHikeElevation(e.target.value)} className={inputClass} placeholder="e.g., 2000" />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Strength section */}

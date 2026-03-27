@@ -1,9 +1,11 @@
 import { createClient } from "@/lib/supabase-server";
+import { createServiceClient } from "@/lib/supabase-service";
 import { NextRequest, NextResponse } from "next/server";
 import { callClaudeWithCache, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_2B_SYSTEM } from "@/lib/prompts";
 import { PlanSession } from "@/lib/types";
 import { calculateAllSessionMinutes, calculateWeekTotalHours, dimensionProgressFractions } from "@/lib/scoring";
+import { checkAndCreateNotifications } from "@/lib/partner-notifications";
 
 export const maxDuration = 120;
 
@@ -117,6 +119,11 @@ ${buildProgressFractionBlock(objective, weekNumber, totalWeeks || weekNumber)}`;
     if (updateError) {
       console.error("Error saving week sessions:", updateError);
     }
+
+    // Fire-and-forget: check for partner matches and create notifications
+    const serviceClient = createServiceClient();
+    checkAndCreateNotifications(user.id, planId, weekNumber, result.sessions, serviceClient)
+      .catch((err) => console.error("Error creating partner notifications:", err));
 
     return NextResponse.json({ sessions: result.sessions });
   } catch (error: unknown) {

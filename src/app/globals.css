@@ -87,3 +87,8 @@ input, select, textarea {
 .chevron-smooth {
   transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
 }
+
+/* iOS safe area for bottom tab bar */
+.h-safe-bottom {
+  height: env(safe-area-inset-bottom, 0px);
+}
