@@ -22,11 +22,7 @@ export async function POST(request: NextRequest) {
 
     // Use service role to look up user by email in auth.users
     const serviceClient = createServiceClient();
-    const { data: { users }, error: lookupError } = await serviceClient.auth.admin.listUsers({
-      page: 1,
-      perPage: 1,
-      filter: recipientEmail.toLowerCase(),
-    });
+    const { data: { users }, error: lookupError } = await serviceClient.auth.admin.listUsers();
 
     if (lookupError) {
       console.error("Error looking up users:", lookupError);
