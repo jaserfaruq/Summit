@@ -243,6 +243,51 @@ CREATE TABLE component_feedback (
 -- RLS: validators can read/write; regular users cannot access
 ```
 
+### partnerships
+
+```sql
+CREATE TABLE partnerships (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  requester_id UUID NOT NULL REFERENCES profiles(id),
+  recipient_id UUID NOT NULL REFERENCES profiles(id),
+  status TEXT NOT NULL DEFAULT 'pending',          -- pending | accepted | declined
+  requester_shares_scores BOOLEAN DEFAULT FALSE,   -- requester opts in to show scores
+  recipient_shares_scores BOOLEAN DEFAULT FALSE,   -- recipient opts in to show scores
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+
+  CONSTRAINT unique_partnership UNIQUE (requester_id, recipient_id),
+  CONSTRAINT no_self_partner CHECK (requester_id != recipient_id)
+);
+-- Indexes on requester_id+status and recipient_id+status
+-- RLS: users can only see/modify partnerships they are part of
+```
+
+### partner_notifications
+
+```sql
+CREATE TABLE partner_notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id),          -- who receives the notification
+  partner_id UUID NOT NULL REFERENCES profiles(id),        -- the matched partner
+  partner_name TEXT NOT NULL,                               -- denormalized for display
+  partnership_id UUID NOT NULL REFERENCES partnerships(id), -- link to the partnership
+  week_number INT NOT NULL,                                 -- which week the match is for
+  plan_id UUID NOT NULL REFERENCES training_plans(id) ON DELETE CASCADE,
+  partner_plan_id UUID NOT NULL REFERENCES training_plans(id) ON DELETE CASCADE,
+  match_type TEXT NOT NULL,                                 -- environment | dimension | both
+  match_summary TEXT NOT NULL,                              -- "Alex also has climbing this week"
+  matched_sessions JSONB NOT NULL,                          -- array of matched session details
+  is_read BOOLEAN DEFAULT FALSE,
+  is_dismissed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+
+  CONSTRAINT unique_notification UNIQUE (user_id, partner_id, plan_id, week_number)
+);
+-- Indexes on user_id+is_read and user_id+plan_id+week_number
+-- RLS: users can only see/update/delete their own notifications; system can insert
+```
+
 -----
 
 ## API Routes
@@ -259,7 +304,7 @@ CREATE TABLE component_feedback (
 ### POST /api/estimate-scores
 
 **Input:** `{ objectiveDetails, benchmarkExercises[], anchors[], validatorFeedback[] }`
-**Logic:** Call Claude API with Prompt 1. Parse JSON response. Model: sonnet. Max tokens: 8192. Timeout: 60s.
+**Logic:** Call Claude API with Prompt 1. Parse JSON response. Model: opus. Max tokens: 8192. Timeout: 60s.
 **Output:** `{ dimensions, relevanceProfiles, graduationBenchmarks }`
 
 ### POST /api/generate-assessment-questions
@@ -284,7 +329,7 @@ CREATE TABLE component_feedback (
 **Logic:**
 
 1. Fetch objective (target scores, graduation benchmarks, relevance profiles).
-1. Call Claude with Prompt ASSESS-SCORE with all data including climbing role from AI answers. Model: sonnet. Max tokens: 8192.
+1. Call Claude with Prompt ASSESS-SCORE with all data including climbing role from AI answers. Model: opus. Max tokens: 8192.
 1. **Lead/follow detection:** Scans AI questions for “lead or follow” keyword to extract climbing role from answers.
 1. If climbing role = “follow”, update objective’s target scores and graduation benchmarks with the adjusted values from the AI response.
 1. Store climbing_role on the objective.
@@ -317,13 +362,13 @@ CREATE TABLE component_feedback (
 ### POST /api/generate-week-sessions
 
 **Input:** `{ planId, weekNumber }`
-**Logic:** Call Claude with Prompt 2B to generate sessions for a single week. Passes the programmingHints from the assessment so the AI adapts starting intensity, session content, and coaching voice to the athlete’s specific profile. Uses `claude-sonnet-4-20250514` with prompt caching (`callClaudeWithCache`). Max tokens: 8192. Timeout: 120s. Stores sessions in `weekly_targets.sessions`. Calculates per-dimension progress fractions (including maintenance mode detection at 1.25× target).
+**Logic:** Call Claude with Prompt 2B to generate sessions for a single week. Passes the programmingHints from the assessment so the AI adapts starting intensity, session content, and coaching voice to the athlete’s specific profile. Uses `claude-opus-4-20250514` with prompt caching (`callClaudeWithCache`). Max tokens: 8192. Timeout: 120s. Stores sessions in `weekly_targets.sessions`. Calculates per-dimension progress fractions (including maintenance mode detection at 1.25× target).
 **Output:** `{ sessions[] }`
 
 ### POST /api/generate-all-sessions
 
 **Input:** `{ planId }`
-**Logic:** Batch-generates all remaining weeks using `Promise.allSettled()`, up to 3 concurrent calls. Uses `claude-sonnet-4-20250514` with prompt caching. Max tokens: 8192. Timeout: 300s (5 minutes). Tracks and reports errors per-week.
+**Logic:** Batch-generates all remaining weeks using `Promise.allSettled()`, up to 3 concurrent calls. Uses `claude-opus-4-20250514` with prompt caching. Max tokens: 8192. Timeout: 300s (5 minutes). Tracks and reports errors per-week.
 **Output:** `{ generated, total, errors? }`
 
 ### POST /api/complete-week
@@ -379,7 +424,7 @@ CREATE TABLE component_feedback (
 ### POST /api/generate-alternatives
 
 **Input:** `{ planId, weekNumber, sessionIndex }`
-**Logic:** Call Claude with Prompt 6 (with prompt caching) to generate 2 alternative sessions. Provides outdoor/gym cardio options, bodyweight/equipment strength options, bouldering/outdoor climbing options, different modality flexibility options. Model: sonnet. Max tokens: 4096. Timeout: 120s.
+**Logic:** Call Claude with Prompt 6 (with prompt caching) to generate 2 alternative sessions. Provides outdoor/gym cardio options, bodyweight/equipment strength options, bouldering/outdoor climbing options, different modality flexibility options. Model: opus. Max tokens: 4096. Timeout: 120s.
 **Output:** `{ original, alternatives: [session, session] }`
 
 ### POST /api/replace-session
@@ -422,6 +467,51 @@ CREATE TABLE component_feedback (
 ### GET /api/debug-claude
 
 Diagnostic endpoint for Claude API connectivity testing. Sends a simple 5-word prompt to sonnet and returns response time, token counts.
+
+### POST /api/partners/invite
+
+**Input:** `{ recipientEmail }`
+**Logic:** Looks up user by email via service role. Validates no self-invite, no existing partnership. Creates `partnerships` row with status `pending`.
+**Output:** `{ partnershipId, recipientName, status }`
+
+### POST /api/partners/respond
+
+**Input:** `{ partnershipId, action: "accept" | "decline" }`
+**Logic:** Verifies user is the recipient and partnership is pending. Updates status.
+**Output:** `{ partnership }`
+
+### GET /api/partners/list
+
+**Logic:** Fetches all partnerships for current user. For accepted partners, fetches their active plan, current week sessions (with completion status), objective name, week label. Determines score visibility (both users must opt in). Returns accepted and pending lists.
+**Output:** `{ accepted: AcceptedPartner[], pending: PendingPartner[] }`
+
+### POST /api/partners/toggle-scores
+
+**Input:** `{ partnershipId, shareScores: boolean }`
+**Logic:** Updates the caller's score sharing flag (`requester_shares_scores` or `recipient_shares_scores`). Scores are only visible when BOTH partners opt in.
+**Output:** `{ partnership }`
+
+### POST /api/partners/remove
+
+**Input:** `{ partnershipId }`
+**Logic:** Verifies user is part of partnership. Deletes related notifications, then deletes partnership.
+**Output:** `{ success }`
+
+### GET /api/partners/week/[partnerId]
+
+**Logic:** Fetches partner's active plan, current week sessions with completion status, objective details. Runs session matching against user's current week to find overlapping sessions. Returns score data only if both partners share scores.
+**Output:** `{ partnerId, partnerName, objectiveName, weekNumber, totalWeeks, weekType, sessions, scoresVisible, scores, targetScores, matches }`
+
+### GET /api/partners/notifications
+
+**Logic:** Fetches unread/undismissed partner notifications for user's current plan and week.
+**Output:** `{ notifications[] }`
+
+### POST /api/partners/notifications/dismiss
+
+**Input:** `{ notificationId }`
+**Logic:** Sets `is_dismissed = true` on the notification.
+**Output:** `{ success }`
 
 -----
 
@@ -962,6 +1052,17 @@ Here's a quick test. Stand facing a wall with one foot about 4 inches away. Try 
 - Solid dots = test weeks (high confidence). Lighter dots = regular weeks.
 - Horizontal dashed lines = target scores.
 
+### /partners
+
+- **Partner list:** Shows accepted partners with their objective name, current week label, and session overview.
+- **Invite form:** Email-based invite to connect with another Summit user.
+- **Pending invites:** Shows sent/received invites with accept/decline actions.
+- **Partner week view:** Click a partner to see their current week's sessions with completion status, environment tags, and session matching against your own week.
+- **Score sharing toggle:** Opt-in per partnership. Both partners must opt in for scores to be visible. Toggle via PartnerScoreToggle component.
+- **Session matching:** Highlights overlapping sessions (same dimension, same environment, or both) between you and a partner. Matches shown inline with badges.
+- **Partner notifications:** Banner on dashboard when a partner has overlapping sessions this week. Notifications are auto-generated when sessions are generated (fire-and-forget via `checkAndCreateNotifications()`). Dismissable.
+- **Remove partner:** Deletes partnership and all related notifications.
+
 ### /admin/objectives (validator only — currently single tab, planned 5 tabs)
 
 Only accessible if `profiles.is_validator = true`. Auth guard in `(app)/layout.tsx` checks `is_validator` flag and passes to AppShell.
@@ -1052,6 +1153,13 @@ Only accessible if `profiles.is_validator = true`. Auth guard in `(app)/layout.t
 1. **Max hours update** — Cap changed from 10 to 20.
 1. **Weekly report** — Prompt REPORT and `/api/generate-weekly-report` implemented. Client-triggered (not background async, due to Vercel serverless limitations). 5 sections with markdown rendering. “View Report” button on completed weeks with polling.
 1. **Delete assessment endpoint** — `/api/delete-assessment` implemented (resets scores to 0, preserves plan).
+1. **Switched all Claude API calls to Opus** — Default model in `callClaude()` and `callClaudeWithCache()` changed from sonnet to opus (`claude-opus-4-20250514`).
+1. **Training partners** — Full partner system implemented. Email-based invites, accept/decline, bi-directional score sharing (opt-in), session matching (by dimension and environment), partner notifications on session generation, partner week view. 8 API routes, 7 components, `/partners` page in main nav. Database: `partnerships` and `partner_notifications` tables with RLS.
+1. **AI loading indicators** — `AILoadingIndicator` component with rotating messages, elapsed timer, and size variants. Used across assessment, plan generation, and session generation flows.
+1. **Design system overhaul** — New typography, alpine color palette refinements, improved contrast on mountain background with backdrop cards, fixed text visibility across app.
+1. **Flexibility info bubbles** — Hip mobility and ankle mobility assessment questions include expandable `InfoBubble` components with detailed self-assessment guidance (1–5 scale descriptions).
+1. **Session naming convention** — Consistent naming pattern added to Prompt 2B for generated sessions.
+1. **Auto-expand plan sections** — Philosophy and graduation sections auto-expand on first plan visit.
 
 ### Features Not Yet Built (Priority Order)
 
@@ -1094,15 +1202,20 @@ Seed data is defined in `src/lib/seed-data.ts`. The `findSeedMatch(name, route?)
 
 | File | Purpose |
 |------|---------|
-| `src/lib/claude.ts` | `callClaude()`, `callClaudeWithCache()`, `parseClaudeJSON<T>()`. Default model: sonnet. Timeout: 120s. Cache uses ephemeral `cache_control`. |
+| `src/lib/claude.ts` | `callClaude()`, `callClaudeWithCache()`, `parseClaudeJSON<T>()`. Default model: opus. Timeout: 120s. Cache uses ephemeral `cache_control`. |
 | `src/lib/prompts.ts` | All AI prompt constants (PROMPT_1, 2, 2A, 2B, 3B, 4, 5, 6, ASSESS_Q, ASSESS_SCORE, RESCALE_BENCHMARKS, SEARCH, REPORT). Includes MTI reference URLs. |
 | `src/lib/scoring.ts` | `calculateScoreFromRatings()`, `calculateAllScoresFromRatings()`, `expectedScoreAtWeek()`, `shouldHighlightRebalance()`, `scoreArcColor()`, `calculateSessionMinutes()`, `scaleDifficultyTargets()`, `dimensionProgressFractions()`. |
-| `src/lib/types.ts` | All TypeScript types: `Profile`, `ValidatedObjective`, `Objective`, `Assessment`, `TrainingPlan`, `WeeklyTarget`, `PlanSession`, `WorkoutLog`, `ScoreHistory`, `ComponentFeedback`, `WeeklyReport`, `ProgrammingHints`, `DimensionScores`, `RATING_MULTIPLIERS`. |
+| `src/lib/types.ts` | All TypeScript types: `Profile`, `ValidatedObjective`, `Objective`, `Assessment`, `TrainingPlan`, `WeeklyTarget`, `PlanSession`, `WorkoutLog`, `ScoreHistory`, `ComponentFeedback`, `WeeklyReport`, `ProgrammingHints`, `DimensionScores`, `RATING_MULTIPLIERS`, `Partnership`, `PartnerNotification`, `MatchResult`, `PartnerSession`, `AcceptedPartner`, `PendingPartner`, `PartnerListResponse`, `PartnerWeekResponse`. |
 | `src/lib/seed-data.ts` | Hardcoded 15 validated objectives + 15 benchmark exercises. `findSeedMatch()` for authoritative Gold tier lookups. |
 | `src/lib/generate-report.ts` | `generateWeeklyReport()` — fetches all data for a completed week and calls Claude with PROMPT_REPORT. Stores result in `weekly_targets.weekly_report`. |
+| `src/lib/session-matching.ts` | `inferSessionEnvironment()`, `findPartnerMatches()`, `generateMatchSummary()`, `strongestMatchType()`. Keyword-based environment inference for sessions (gym/outdoor/climbing_gym/crag/home). Greedy best-match pairing between two users' weekly sessions by dimension and environment. |
+| `src/lib/partner-notifications.ts` | `checkAndCreateNotifications()` — fire-and-forget function called after session generation. Checks all accepted partnerships, runs session matching, creates bidirectional notifications via service client. |
 | `src/lib/unsplash.ts` | `fetchHeroImageUrl()` — fetches Unsplash image URL for objective (non-blocking, used in plan generation). |
 | `src/lib/supabase.ts` | Browser-side Supabase client (SSR pattern). |
+| `src/lib/supabase-server.ts` | Server-side Supabase client using cookies (for API routes). |
+| `src/lib/supabase-service.ts` | Service role Supabase client (bypasses RLS, used for cross-user queries in partner features). |
 | `src/lib/supabase-middleware.ts` | Supabase session lifecycle management for SSR. |
+| `src/lib/use-plan-data.ts` | `usePlanData()` — SWR-based hook for fetching and caching plan data (plan, weeks, objective, assessment, workout logs) on the client. |
 | `src/middleware.ts` | Next.js middleware for session refresh on all routes (except static assets). |
 
 ## Database Migrations
@@ -1114,12 +1227,14 @@ Seed data is defined in `src/lib/seed-data.ts`. The `findSeedMatch(name, route?)
 | `003_ai_relevance_and_max_hours.sql` | Added climbing_role to objectives, rating_comment to workout_logs. Max weekly hours updated to 20. |
 | `004_weekly_report.sql` | Added weekly_report JSONB column to weekly_targets |
 | `005_performance_indexes_and_rls.sql` | Performance indexes + RLS policy refinements |
+| `006_training_partners.sql` | Added `partnerships` and `partner_notifications` tables with RLS policies and indexes |
+| `007_fix_partner_notifications_cascade.sql` | Added ON DELETE CASCADE to plan_id and partner_plan_id FKs on partner_notifications, added DELETE RLS policy |
 
 ## Components
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| AppShell | `src/components/AppShell.tsx` | Layout with header, nav (Dashboard, Plan, Progress, Admin if validator), mountain bg image |
+| AppShell | `src/components/AppShell.tsx` | Layout with header, nav (Dashboard, Plan, Progress, Partners, Admin if validator), mountain bg image |
 | ScoreArc | `src/components/ScoreArc.tsx` | 4 progress arc displays (current vs target, green/yellow/red) |
 | ThisWeekSessions | `src/components/ThisWeekSessions.tsx` | Dashboard widget showing current week's sessions with "Mark Complete" |
 | DeletePlanButton | `src/components/DeletePlanButton.tsx` | Delete plan with confirmation dialog |
@@ -1128,6 +1243,17 @@ Seed data is defined in `src/lib/seed-data.ts`. The `findSeedMatch(name, route?)
 | ObjectiveModal | `src/components/ObjectiveModal.tsx` | Create/edit objectives in calendar (with search mode) |
 | AlternativesPanel | `src/components/AlternativesPanel.tsx` | Shows 2 AI-generated alternative sessions per session |
 | WeekBadge | `src/components/WeekBadge.tsx` | Week type badge (test=blue, recovery=green, regular, taper=amber) |
+| AILoadingIndicator | `src/components/AILoadingIndicator.tsx` | Animated loading indicator with rotating messages, elapsed timer, and sm/md/lg size variants |
+| InfoBubble | `src/components/InfoBubble.tsx` | Expandable info tooltip rendered via portal, used for assessment guidance text |
+| AddObjectiveButton | `src/components/AddObjectiveButton.tsx` | Dashboard CTA that opens ObjectiveModal for first objective creation |
+| SyncUpButton | `src/components/SyncUpButton.tsx` | "Try Different" button on sessions — fetches and displays alternative sessions |
+| PartnerList | `src/components/PartnerList.tsx` | Renders accepted partners (with session overview) and pending invites with accept/decline |
+| PartnerCard | `src/components/PartnerCard.tsx` | Individual partner card showing objective, week, and session summary |
+| PartnerInviteForm | `src/components/PartnerInviteForm.tsx` | Email input form for sending partner invitations |
+| PartnerWeekView | `src/components/PartnerWeekView.tsx` | Expanded view of a partner's current week with sessions, matches, and optional scores |
+| PartnerSessionCard | `src/components/PartnerSessionCard.tsx` | Individual session card in partner week view with environment badge and completion status |
+| PartnerScoreToggle | `src/components/PartnerScoreToggle.tsx` | Toggle switch for opting in/out of score sharing per partnership |
+| PartnerNotificationBanner | `src/components/PartnerNotificationBanner.tsx` | Dashboard banner showing partner session overlap notifications with dismiss action |
 
 -----
 
