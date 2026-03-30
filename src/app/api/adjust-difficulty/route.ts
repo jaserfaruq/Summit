@@ -8,7 +8,7 @@ import {
   DIFFICULTY_SCALE_FACTORS,
   PlanData,
 } from "@/lib/types";
-import { expectedScoresAtWeek, scaleDifficultyTargets } from "@/lib/scoring";
+import { expectedScoresAtWeek, scaleDifficultyTargets, classifyGaps } from "@/lib/scoring";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_RESCALE_BENCHMARKS_SYSTEM } from "@/lib/prompts";
 
@@ -91,7 +91,8 @@ ${JSON.stringify(currentBenchmarks, null, 2)}`;
     const benchmarkResponse = await callClaude(
       PROMPT_RESCALE_BENCHMARKS_SYSTEM,
       userMessage,
-      4096
+      4096,
+      "sonnet"
     );
 
     const parsed = parseClaudeJSON<{
@@ -132,18 +133,6 @@ ${JSON.stringify(currentBenchmarks, null, 2)}`;
       adjustment,
     ];
 
-    const { error: planUpdateError } = await supabase
-      .from("training_plans")
-      .update({
-        plan_data: { ...planData, difficultyAdjustments: adjustments },
-        graduation_workouts: newBenchmarks,
-      })
-      .eq("id", planId);
-
-    if (planUpdateError) {
-      console.error("Error updating plan:", planUpdateError);
-    }
-
     // Recalculate expected scores and clear sessions for remaining weeks
     const currentWeek = plan.current_week_number as number;
 
@@ -167,6 +156,22 @@ ${JSON.stringify(currentBenchmarks, null, 2)}`;
       Math.max(
         ...weeksToUpdate.map((w: Record<string, number>) => w.week_number)
       );
+
+    // Recompute gap analysis with new targets
+    const remainingWeeksForGap = Math.max(1, totalWeeks - currentWeek + 1);
+    const newGapAnalysis = classifyGaps(currentScores, newTargets, remainingWeeksForGap);
+
+    const { error: planUpdateError } = await supabase
+      .from("training_plans")
+      .update({
+        plan_data: { ...planData, difficultyAdjustments: adjustments, gapAnalysis: newGapAnalysis },
+        graduation_workouts: newBenchmarks,
+      })
+      .eq("id", planId);
+
+    if (planUpdateError) {
+      console.error("Error updating plan:", planUpdateError);
+    }
 
     // Fetch profile for hours calculation
     const { data: profile } = await supabase

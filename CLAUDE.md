@@ -477,7 +477,7 @@ When a dimension’s current score ≥ 1.25 × target score, that dimension ente
 
 ### Overshoot Rule
 
-Graduation benchmarks are set at approximately 150% of actual objective requirements. If Mont Blanc needs 10 miles of cardio capacity, the graduation target might be 15 miles. This means if you can hit the graduation workout, you’re more than ready — not barely ready.
+Graduation benchmarks are set above actual objective requirements to build a comfort buffer. Cardio distance (Sustained Zone 2 Run): ~130% of objective distance (e.g., 10-mile objective → 13-mile graduation target). Cardio climb rate (Uphill Hike with Pack): this measures hourly climb rate, NOT total route elevation — overshoot the objective’s required sustained climb rate by 20-30%, targeting 2,000-3,000 ft/hr depending on pack weight. Do NOT apply 130% to total route elevation gain. Climbing: +1 sub-grade outdoor, +2 indoor. Strength, flexibility, and pack weight: no overshoot. If you can hit the graduation workout, you’re more than ready — not barely ready.
 
 ### No-session regression
 
@@ -524,7 +524,7 @@ The four training dimensions are fixed: Cardio, Strength, Climbing/Technical, an
 
 4. Graduation benchmarks: 2–4 per dimension from the provided library. Cardio: 1–2. Strength: 2–4. Climbing/Technical: 1–3. Flexibility: 1–3.
 
-TRAINING OVERSHOOT RULE: Set graduation benchmarks above actual requirements (~150% for cardio distance/elevation, +1/+2 climbing sub-grades). If the athlete can hit the graduation workout, they should be MORE than ready.
+TRAINING OVERSHOOT RULE: Set graduation benchmarks above actual requirements. Cardio distance (Sustained Zone 2 Run): ~130% of objective distance. Cardio climb rate (Uphill Hike with Pack): overshoot the objective's required sustained climb rate by 20-30%, targeting 2,000-3,000 ft/hr depending on pack weight — do NOT apply 130% to total route elevation gain. Climbing: +1/+2 sub-grades. Strength, flexibility, and pack weight have no overshoot. If the athlete can hit the graduation workout, they should be MORE than ready.
 
 Select benchmark exercises ONLY from the provided library.
 
@@ -880,7 +880,9 @@ Assessment is per-objective and happens AFTER creating the objective. Two layers
 
 - Training days per week
 - Longest cardio effort in last 3 months (distance, duration, elevation gain)
-- Strength training frequency and type (dropdown)
+- Strength training frequency (dropdown)
+- Pull-up capacity (1–5 scale) with info bubble (see below)
+- Loaded leg capacity (1–5 scale) with info bubble (see below)
 - Climbing experience level + skill checkboxes (indoor gym, outdoor sport, trad, multi-pitch, glacier, crevasse rescue)
 - Flexibility self-assessment:
   - Hip mobility (1–5 scale) with info bubble (see below)
@@ -912,6 +914,32 @@ Here's a quick test. Stand facing a wall with one foot about 4 inches away. Try 
 4 (Good): You pass the wall test at 5+ inches. Full deep squat with heels flat is comfortable. You can walk on uneven rocky terrain for hours without ankle fatigue. Trail runners and hikers who train on varied terrain are typically here.
 
 5 (Excellent): You can easily pass the wall test at 6+ inches. Deep pistol squats are accessible. Your ankles have never limited any athletic movement. This level is common in gymnasts, experienced barefoot runners, and dedicated mobility practitioners.
+
+**Pull-up Capacity Info Bubble Content:**
+Think about strict pull-ups — full dead hang at the bottom, chin over the bar at the top. No kipping or swinging.
+
+1 (None): Can't do a single pull-up or chin-up from a dead hang. Flexed-arm hang is under 5 seconds. This is common if you've never trained upper body pulling — many strong hikers and runners are here.
+
+2 (Working on it): Can do 1–3 strict pull-ups, or can do assisted pull-ups with a band or machine. You can hang from a bar for 15+ seconds. You've started training them but they're still hard.
+
+3 (Solid base): Can do 5–8 strict pull-ups in one set. Could hang from a bar for 30+ seconds. Most regularly active people who include some upper body work are here.
+
+4 (Strong): Can do 10–15 strict pull-ups, or 3–5 with 10–25 lb added. Could do a set of 5 after a hard hike without much trouble. Climbers and people who train pull-ups regularly are typically here.
+
+5 (Very strong): 15+ strict pull-ups or 5+ reps at +25 lb. Pull-up strength has never limited any activity. Serious climbers, CrossFitters, and calisthenics athletes are typically here.
+
+**Loaded Leg Capacity Info Bubble Content:**
+This covers squats, step-ups, lunges, and carrying heavy packs uphill — anything that loads your legs beyond bodyweight. You don't need gym experience to rate this; hiking with a heavy pack counts.
+
+1 (Untested): You've never done weighted squats, step-ups, or lunges with a pack. Walking uphill with a 20 lb daypack for an hour would leave your legs wrecked the next day. Most people who are new to hiking or don't train legs are here.
+
+2 (Light): You can hike with a 15–25 lb pack for a few hours but your quads burn on steep downhills. You've done some squats or lunges but not with significant weight. Loaded step-ups with a pack would be unfamiliar.
+
+3 (Moderate): You can carry a 25–35 lb pack all day on moderate terrain. You've done weighted squats (bodyweight on the bar or equivalent) and can do lunges without balance issues. Most weekend hikers who do some gym work are here.
+
+4 (Strong): You regularly carry 35–50 lb packs on steep terrain. You can squat 1.25x bodyweight or do 20+ loaded step-ups without stopping. Multi-day backpackers and people who train legs seriously are typically here.
+
+5 (Very strong): 50+ lb packs feel manageable on steep terrain for hours. You can squat 1.5x+ bodyweight and crank out loaded step-ups all day. Mountaineers, military athletes, and dedicated strength trainers are typically here.
 
 **Layer 2: AI-Generated Questions (3–5 tailored to this objective)**
 

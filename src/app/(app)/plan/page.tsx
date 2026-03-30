@@ -3,9 +3,11 @@
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData, WeeklyReport } from "@/lib/types";
+import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData, WeeklyReport, DimensionScores, SkillPracticeItem, GapAnalysis } from "@/lib/types";
 import { usePlanData } from "@/lib/use-plan-data";
+import { calculateAllScoresFromRatings, shouldHighlightRebalance, generateCompletionSummary } from "@/lib/scoring";
 import DeletePlanButton from "@/components/DeletePlanButton";
+import GapInfoBubble from "@/components/GapInfoBubble";
 import ScoreArc from "@/components/ScoreArc";
 import AlternativesPanel from "@/components/AlternativesPanel";
 import AILoadingIndicator from "@/components/AILoadingIndicator";
@@ -37,8 +39,10 @@ function PlanContent() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [skillPracticeExpanded, setSkillPracticeExpanded] = useState<Record<number, boolean>>({});
 
   const [loadingSessions, setLoadingSessions] = useState<Record<number, boolean>>({});
+  const [streamingSessionCount, setStreamingSessionCount] = useState<Record<number, number>>({});
   const [sessionErrors, setSessionErrors] = useState<Record<number, string>>({});
   const [weekSessions, setWeekSessions] = useState<Record<number, PlanSession[]>>({});
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
@@ -61,6 +65,8 @@ function PlanContent() {
   const [reportErrors, setReportErrors] = useState<Set<number>>(new Set());
   const [retryingReport, setRetryingReport] = useState<number | null>(null);
   const pollAttemptsRef = useRef<Map<number, number>>(new Map());
+  // Track in-flight session generation to prevent duplicate API calls
+  const inFlightWeeksRef = useRef<Set<number>>(new Set());
 
   const shouldGenerate = searchParams.get("generate") === "true";
   const objectiveId = searchParams.get("objectiveId");
@@ -92,6 +98,28 @@ function PlanContent() {
       setExpandedWeek(planData.activeWeek);
     }
   }, [planData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-load current week + next 2 weeks sequentially on page open
+  const autoLoadTriggeredRef = useRef(false);
+  useEffect(() => {
+    // Skip auto-load when navigating here to generate a new plan —
+    // generatePlan() will call mutate() which re-triggers this effect with the new plan
+    if (!plan || weeks.length === 0 || autoLoadTriggeredRef.current || shouldGenerate) return;
+    autoLoadTriggeredRef.current = true;
+
+    const currentWeek = plan.current_week_number || 1;
+    const weeksToLoad = [currentWeek, currentWeek + 1, currentWeek + 2].filter(
+      (wn) => weeks.some((w) => w.week_number === wn)
+    );
+
+    // Load sequentially: week 1 finishes, then week 2 starts, then week 3
+    (async () => {
+      for (const wn of weeksToLoad) {
+        if (weekSessions[wn]?.length > 0) continue; // already loaded from DB
+        await loadWeekSessions(wn);
+      }
+    })();
+  }, [plan, weeks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-expand philosophy & graduation workouts on first visit to this plan
   useEffect(() => {
@@ -137,17 +165,12 @@ function PlanContent() {
       }
 
       const planResult = await res.json();
+
+      // Reset auto-load so it triggers with the new plan data
+      autoLoadTriggeredRef.current = false;
       router.replace("/plan");
       await mutate();
-
-      // Fire batch session generation in the background (don't await)
-      if (planResult.planId) {
-        fetch("/api/generate-all-sessions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ planId: planResult.planId }),
-        }).catch((err) => console.error("Background session generation failed:", err));
-      }
+      // Sessions are generated on-demand when weeks are expanded (auto-load handles first 3)
     } catch (error) {
       console.error("Plan generation error:", error);
       setGenerateError(
@@ -157,9 +180,12 @@ function PlanContent() {
     setGenerating(false);
   }
 
-  async function loadWeekSessions(weekNumber: number) {
+  async function loadWeekSessions(weekNumber: number, retryCount = 0) {
     if (!plan) return;
     if (weekSessions[weekNumber] && weekSessions[weekNumber].length > 0) return;
+    // Prevent duplicate in-flight requests for the same week (skip check on retries)
+    if (retryCount === 0 && inFlightWeeksRef.current.has(weekNumber)) return;
+    inFlightWeeksRef.current.add(weekNumber);
 
     setLoadingSessions((prev) => ({ ...prev, [weekNumber]: true }));
     setSessionErrors((prev) => {
@@ -169,21 +195,83 @@ function PlanContent() {
     });
 
     try {
-      const res = await fetch("/api/generate-week-sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id, weekNumber }),
-      });
+      let res: Response;
+      try {
+        res = await fetch("/api/generate-week-sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId: plan.id, weekNumber, stream: true }),
+        });
+      } catch (networkError) {
+        // Network error (Failed to fetch) — retry with backoff
+        if (retryCount < 2) {
+          setLoadingSessions((prev) => ({ ...prev, [weekNumber]: false }));
+          await new Promise((r) => setTimeout(r, 2000 * (retryCount + 1)));
+          return loadWeekSessions(weekNumber, retryCount + 1);
+        }
+        throw networkError;
+      }
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        // Retry on 404/401 — handles race condition where plan was just created
+        // or auth session hasn't propagated to cookies yet
+        if ((res.status === 404 || res.status === 401) && retryCount < 2) {
+          setLoadingSessions((prev) => ({ ...prev, [weekNumber]: false }));
+          await new Promise((r) => setTimeout(r, 1500 * (retryCount + 1)));
+          return loadWeekSessions(weekNumber, retryCount + 1);
+        }
         throw new Error(data.error || "Failed to load sessions");
       }
 
-      const { sessions } = await res.json();
+      // Check if response is streaming (text/plain) or JSON (cached sessions)
+      const contentType = res.headers.get("content-type") || "";
+      let sessions: PlanSession[];
+      let suggestedSkillPractice: SkillPracticeItem[] | null = null;
+
+      if (contentType.includes("text/plain") && res.body) {
+        // Streaming response — read chunks, track progress, extract final JSON
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          accumulated += decoder.decode(value, { stream: true });
+          // Count how many sessions have appeared so far (rough heuristic)
+          const sessionMatches = accumulated.match(/"sessionName"/g);
+          if (sessionMatches) {
+            setStreamingSessionCount((prev) => ({ ...prev, [weekNumber]: sessionMatches.length }));
+          }
+        }
+        setStreamingSessionCount((prev) => { const next = { ...prev }; delete next[weekNumber]; return next; });
+
+        // Extract the final parsed sessions from the delimiter
+        const jsonDelimiter = "\n__SESSIONS_JSON__\n";
+        const errorDelimiter = "\n__SESSIONS_ERROR__\n";
+        if (accumulated.includes(errorDelimiter)) {
+          const errMsg = accumulated.split(errorDelimiter)[1];
+          throw new Error(errMsg || "Failed to parse sessions");
+        }
+        if (accumulated.includes(jsonDelimiter)) {
+          const jsonStr = accumulated.split(jsonDelimiter)[1];
+          const parsed = JSON.parse(jsonStr);
+          sessions = parsed.sessions;
+          suggestedSkillPractice = parsed.suggestedSkillPractice || null;
+        } else {
+          throw new Error("Stream completed without session data");
+        }
+      } else {
+        // Non-streaming JSON response (sessions were already cached)
+        const data = await res.json();
+        sessions = data.sessions;
+        suggestedSkillPractice = data.suggestedSkillPractice || null;
+      }
+
       setWeekSessions((prev) => ({ ...prev, [weekNumber]: sessions }));
 
-      // Update the week's total_hours from actual session durations
+      // Update the week's total_hours and suggested_skill_practice from response
       const totalMinutes = (sessions as PlanSession[]).reduce(
         (sum: number, s: PlanSession) => sum + (s.estimatedMinutes || 0),
         0
@@ -191,9 +279,14 @@ function PlanContent() {
       const computedHours = Math.round((totalMinutes / 60) * 10) / 10;
       setWeeks((prev) =>
         prev.map((w) =>
-          w.week_number === weekNumber ? { ...w, total_hours: computedHours } : w
+          w.week_number === weekNumber
+            ? { ...w, total_hours: computedHours, ...(suggestedSkillPractice ? { suggested_skill_practice: suggestedSkillPractice } : {}) }
+            : w
         )
       );
+
+      // Pre-generate next week in the background (non-blocking)
+      preGenerateNextWeek(weekNumber);
     } catch (error) {
       console.error(`Error loading sessions for week ${weekNumber}:`, error);
       setSessionErrors((prev) => ({
@@ -202,7 +295,42 @@ function PlanContent() {
       }));
     }
 
+    inFlightWeeksRef.current.delete(weekNumber);
     setLoadingSessions((prev) => ({ ...prev, [weekNumber]: false }));
+  }
+
+  function preGenerateNextWeek(currentWeekNumber: number) {
+    if (!plan) return;
+    // Pre-generate next 2 weeks sequentially so 3 weeks are always ready
+    const nextWeeks = [currentWeekNumber + 1, currentWeekNumber + 2].filter(
+      (wn) => weeks.some((w) => w.week_number === wn)
+        && !(weekSessions[wn]?.length > 0)
+        && !inFlightWeeksRef.current.has(wn)
+    );
+    if (nextWeeks.length === 0) return;
+
+    (async () => {
+      for (const nextWeek of nextWeeks) {
+        if (inFlightWeeksRef.current.has(nextWeek)) continue;
+        inFlightWeeksRef.current.add(nextWeek);
+        try {
+          const res = await fetch("/api/generate-week-sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ planId: plan.id, weekNumber: nextWeek }),
+          });
+          if (!res.ok) { inFlightWeeksRef.current.delete(nextWeek); continue; }
+          const data = await res.json();
+          if (data?.sessions) {
+            setWeekSessions((prev) => {
+              if (prev[nextWeek]?.length > 0) return prev;
+              return { ...prev, [nextWeek]: data.sessions };
+            });
+          }
+        } catch { /* Silent — pre-generation is best-effort */ }
+        inFlightWeeksRef.current.delete(nextWeek);
+      }
+    })();
   }
 
   function handleWeekToggle(weekNumber: number) {
@@ -213,7 +341,7 @@ function PlanContent() {
   }
 
   async function handleCompleteWeek(week: WeeklyTarget) {
-    if (!plan) return;
+    if (!plan || !objective) return;
     setCompletingWeek(week.week_number);
 
     // Get logs for this week — extract ratings per session
@@ -230,6 +358,47 @@ function PlanContent() {
         comment: log.rating_comment || log.notes || "",
       }));
 
+    const currentScores: DimensionScores = {
+      cardio: objective.current_cardio_score,
+      strength: objective.current_strength_score,
+      climbing_technical: objective.current_climbing_score,
+      flexibility: objective.current_flexibility_score,
+    };
+    const targetScores: DimensionScores = {
+      cardio: objective.target_cardio_score,
+      strength: objective.target_strength_score,
+      climbing_technical: objective.target_climbing_score,
+      flexibility: objective.target_flexibility_score,
+    };
+    const expectedScores = week.expected_scores as DimensionScores;
+
+    // Optimistic update: compute scores client-side with base multipliers (no AI adjustment)
+    const ratingData = ratings.map((r) => ({ dimension: r.dimension, rating: r.rating }));
+    const hasNonThreeRatings = ratings.some((r) => r.rating !== 3);
+    const optimisticScores = calculateAllScoresFromRatings(ratingData, currentScores, expectedScores);
+
+    const dims: Dimension[] = ["cardio", "strength", "climbing_technical", "flexibility"];
+    const optimisticGaps: Record<Dimension, number> = {} as Record<Dimension, number>;
+    for (const dim of dims) { optimisticGaps[dim] = optimisticScores[dim] - expectedScores[dim]; }
+
+    const optimisticResult: WeekCompletionFeedback = {
+      updatedScores: optimisticScores,
+      expectedScores,
+      gaps: optimisticGaps,
+      summary: generateCompletionSummary(optimisticScores, expectedScores, targetScores),
+      rebalanceRecommended: shouldHighlightRebalance(optimisticScores, expectedScores).recommended,
+      aiExplanations: hasNonThreeRatings ? { _pending: "Refining scores with AI evaluation..." } as unknown as Record<string, string> : {},
+    };
+
+    // Apply optimistic update immediately
+    setWeekCompleteResult((prev) => ({ ...prev, [week.week_number]: optimisticResult }));
+    setScoredWeekNumbers((prev) => { const next = new Set(Array.from(prev)); next.add(week.week_number); return next; });
+    if (plan.current_week_number === week.week_number) {
+      setPlan((prev) => prev ? { ...prev, current_week_number: week.week_number + 1 } : null);
+    }
+    setCompletingWeek(null); // UI unblocks immediately
+
+    // Fire API call in background to persist and get AI-refined scores
     try {
       const res = await fetch("/api/complete-week", {
         method: "POST",
@@ -247,31 +416,19 @@ function PlanContent() {
       }
 
       const result: WeekCompletionFeedback = await res.json();
-      setWeekCompleteResult((prev) => ({
-        ...prev,
-        [week.week_number]: result,
-      }));
+      // Replace optimistic result with final AI-refined result
+      setWeekCompleteResult((prev) => ({ ...prev, [week.week_number]: result }));
 
-      // Mark this week as scored locally
-      setScoredWeekNumbers((prev) => { const next = new Set(Array.from(prev)); next.add(week.week_number); return next; });
+      // Refresh objective with persisted scores
+      const supabase = createClient();
+      const { data: updatedObj } = await supabase
+        .from("objectives")
+        .select("*")
+        .eq("id", objective.id)
+        .single();
+      if (updatedObj) setObjective(updatedObj as Objective);
 
-      // Only advance current week if this was the current week
-      if (plan.current_week_number === week.week_number) {
-        setPlan((prev) => prev ? { ...prev, current_week_number: week.week_number + 1 } : null);
-      }
-
-      if (objective) {
-        const supabase = createClient();
-        const { data: updatedObj } = await supabase
-          .from("objectives")
-          .select("*")
-          .eq("id", objective.id)
-          .single();
-        if (updatedObj) setObjective(updatedObj as Objective);
-      }
-
-      // Trigger report generation directly (not fire-and-forget — handle errors)
-      // This replaces the unreliable background generation from complete-week route
+      // Trigger report generation
       setPollingReportWeeks((prev) => new Set(Array.from(prev)).add(week.week_number));
       triggeredReportsRef.current.add(week.week_number);
       fetch("/api/generate-weekly-report", {
@@ -299,10 +456,9 @@ function PlanContent() {
       });
     } catch (error) {
       console.error("Error completing week:", error);
-      alert(error instanceof Error ? error.message : "Failed to complete week");
+      // Optimistic update stays in place — scores are approximate but visible.
+      // The user can retry via rebalance or re-completing if needed.
     }
-
-    setCompletingWeek(null);
   }
 
   async function handleRebalance() {
@@ -326,15 +482,12 @@ function PlanContent() {
         throw new Error(data.error || "Failed to rebalance plan");
       }
 
-      // Refresh plan data to pick up rebalanced sessions
+      // Clear local session cache so weeks regenerate on-demand
+      setWeekSessions({});
+      inFlightWeeksRef.current.clear();
+      autoLoadTriggeredRef.current = false;
+      // Refresh plan data — auto-load will regenerate current + next 2 weeks
       await mutate();
-
-      // Fire batch session generation in the background (don't await)
-      fetch("/api/generate-all-sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: plan.id }),
-      }).catch((err) => console.error("Background session generation after rebalance failed:", err));
     } catch (error) {
       console.error("Error rebalancing:", error);
       alert(error instanceof Error ? error.message : "Failed to rebalance plan");
@@ -779,13 +932,23 @@ function PlanContent() {
                   const source = objective?.graduation_benchmarks || validatedObj?.graduation_benchmarks || plan.graduation_workouts;
                   const benchmarks = (source as unknown as Record<string, Array<{ exerciseName: string; graduationTarget: string }>>)?.[dim];
                   if (!benchmarks || benchmarks.length === 0) return null;
+                  const gapAnalysis = (plan.plan_data as PlanData)?.gapAnalysis;
+                  const dimGap = dim !== "flexibility" && gapAnalysis ? gapAnalysis[dim as keyof GapAnalysis] : null;
                   return (
                     <div key={dim} className="space-y-1.5">
-                      <h4 className="text-xs font-semibold text-gold/70 uppercase tracking-wider mb-2">{dim.replace("_", " / ")}</h4>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h4 className="text-xs font-semibold text-gold/70 uppercase tracking-wider">{dim.replace("_", " / ")}</h4>
+                        {dimGap?.classification === "very_challenging" && (
+                          <span className="text-xs text-red-400 flex items-center gap-1">
+                            Aggressive timeline
+                            <GapInfoBubble />
+                          </span>
+                        )}
+                      </div>
                       {benchmarks.map((b, i) => (
-                        <div key={i} className="flex items-baseline gap-2">
-                          <span className="text-sm text-dark-muted flex-1 leading-snug">{b.exerciseName}</span>
-                          <strong className="text-sm text-dark-text font-semibold whitespace-nowrap">{b.graduationTarget}</strong>
+                        <div key={i} className="space-y-0.5">
+                          <span className="text-sm text-dark-muted leading-snug block">{b.exerciseName}</span>
+                          <strong className="text-sm text-dark-text font-semibold leading-snug block">{b.graduationTarget}</strong>
                         </div>
                       ))}
                     </div>
@@ -890,7 +1053,9 @@ function PlanContent() {
                   {isLoadingSessions && (
                     <AILoadingIndicator
                       size="sm"
-                      message={`Generating sessions for Week ${week.week_number}…`}
+                      message={streamingSessionCount[week.week_number]
+                        ? `Building session ${streamingSessionCount[week.week_number]}…`
+                        : `Generating sessions for Week ${week.week_number}…`}
                       rotatingMessages={[
                         "Designing exercises matched to your progress...",
                         "Balancing volume across training dimensions...",
@@ -971,9 +1136,9 @@ function PlanContent() {
                                     e.stopPropagation();
                                     setAlternativesPanel({ weekNumber: week.week_number, sessionIndex: i, session });
                                   }}
-                                  className="text-[11px] text-dark-muted/70 hover:text-dark-text px-2 py-1 rounded hover:bg-dark-border/40 transition-colors"
+                                  className="text-[11px] text-dark-muted/70 hover:text-dark-text px-2 py-1 rounded hover:bg-dark-border/40 transition-colors underline underline-offset-2"
                                 >
-                                  Alt
+                                  Alternatives
                                 </button>
                                 <Link
                                   href={`/log?session=${encodeURIComponent(session.name)}&planId=${plan.id}&week=${week.week_number}`}
@@ -1048,6 +1213,39 @@ function PlanContent() {
                       </div>
                     );
                   })}
+
+                  {/* Suggested Skill Practice */}
+                  {week.suggested_skill_practice && week.suggested_skill_practice.length > 0 && (
+                    <div className="mt-4 rounded-lg border border-sage/30 bg-sage/5 px-4 py-3">
+                      <button
+                        onClick={() => setSkillPracticeExpanded((prev) => ({ ...prev, [week.week_number]: !prev[week.week_number] }))}
+                        className="w-full text-left flex items-center justify-between"
+                      >
+                        <div>
+                          <h5 className="text-[10px] font-semibold text-sage uppercase tracking-widest mb-1">
+                            Suggested Skill Practice
+                          </h5>
+                          <p className="text-[11px] text-dark-muted">
+                            Practice these when you have time and access to appropriate terrain.
+                          </p>
+                        </div>
+                        <svg className={`w-4 h-4 text-sage transition-transform ${skillPracticeExpanded[week.week_number] ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {skillPracticeExpanded[week.week_number] && (
+                        <ul className="space-y-2 mt-3">
+                          {(week.suggested_skill_practice as SkillPracticeItem[]).map((item, i) => (
+                            <li key={i} className="text-sm text-dark-text">
+                              <span className="font-medium">{item.skill}</span>
+                              <span className="text-dark-muted"> — {item.terrain}</span>
+                              <p className="text-[13px] text-dark-muted mt-0.5">{item.description}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
 
                   {/* Complete Week button */}
                   {canComplete && (

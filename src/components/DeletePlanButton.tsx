@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
+import { mutate } from "swr";
 
 export default function DeletePlanButton({ planId, onDeleted }: { planId: string; onDeleted?: () => void }) {
   const router = useRouter();
@@ -23,13 +24,17 @@ export default function DeletePlanButton({ planId, onDeleted }: { planId: string
         throw new Error(data.error || "Failed to delete plan");
       }
 
+      // Clear SWR cache before any state updates or navigation
+      await mutate("plan-data", undefined, { revalidate: false });
+
       setShowConfirm(false);
       setDeleting(false);
       if (onDeleted) {
         onDeleted();
-      } else {
-        router.refresh();
       }
+      // Always navigate to dashboard after successful deletion
+      router.push("/dashboard");
+      router.refresh();
     } catch (error) {
       console.error("Error deleting plan:", error);
       alert(error instanceof Error ? error.message : "Failed to delete plan");

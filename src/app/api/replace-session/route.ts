@@ -18,7 +18,6 @@ export async function POST(request: NextRequest) {
     .from("training_plans")
     .select("id")
     .eq("id", planId)
-    .eq("user_id", user.id)
     .single();
 
   if (planError || !plan) {

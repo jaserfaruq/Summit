@@ -32,8 +32,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Objective not found" }, { status: 404 });
   }
 
+  // Fetch route name from validated objective if matched
+  let routeName = objective.name;
+  if (objective.matched_validated_id) {
+    const { data: validatedObj } = await supabase
+      .from("validated_objectives")
+      .select("route")
+      .eq("id", objective.matched_validated_id)
+      .single();
+    if (validatedObj?.route) routeName = validatedObj.route;
+  }
+
   const userMessage = `Objective: ${objective.name}${objective.type ? ` (${objective.type})` : ""}
-Route: ${objective.technical_grade || "N/A"}
+Route: ${routeName}
+${objective.distance_miles ? `Distance: ${objective.distance_miles} miles` : ""}
+${objective.elevation_gain_ft ? `Elevation gain: ${objective.elevation_gain_ft} ft` : ""}
+${objective.technical_grade ? `Technical grade: ${objective.technical_grade}` : ""}
 Target scores: Cardio ${objective.target_cardio_score}, Strength ${objective.target_strength_score}, Climbing/Technical ${objective.target_climbing_score}, Flexibility ${objective.target_flexibility_score}
 Graduation benchmarks: ${JSON.stringify(objective.graduation_benchmarks)}
 Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}
@@ -42,7 +56,7 @@ Standard answers provided:
 ${JSON.stringify(standardAnswers, null, 2)}`;
 
   try {
-    const responseText = await callClaude(PROMPT_ASSESS_Q_SYSTEM, userMessage, 4096, "opus");
+    const responseText = await callClaude(PROMPT_ASSESS_Q_SYSTEM, userMessage, 2048, "opus");
     const result = parseClaudeJSON<{ questions: AIQuestion[] }>(responseText);
 
     return NextResponse.json({ questions: result.questions });

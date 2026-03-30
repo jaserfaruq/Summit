@@ -5,6 +5,8 @@ import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_SEARCH_SYSTEM } from "@/lib/prompts";
 import { findSeedMatch } from "@/lib/seed-data";
 
+export const maxDuration = 30;
+
 /**
  * Server-side alias matching: check seed data before hitting Claude.
  * Returns the matching seed entry or null.
@@ -99,7 +101,7 @@ ${JSON.stringify(voSummaries, null, 2)}
 Suggest 3 closely related routes/objectives for this search. Prioritize validated objectives when they match, but also suggest real routes not in our library if they're geographically relevant.`;
 
     try {
-      const response = await callClaude(PROMPT_SEARCH_SYSTEM, userMessage, 2048);
+      const response = await callClaude(PROMPT_SEARCH_SYSTEM, userMessage, 2048, "sonnet");
       const parsed = parseClaudeJSON<{ suggestions: SearchSuggestion[] }>(response);
 
       const matches: SearchMatch[] = [];

@@ -2,8 +2,9 @@ import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { callClaudeWithCache, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_2B_SYSTEM } from "@/lib/prompts";
-import { PlanSession } from "@/lib/types";
-import { calculateAllSessionMinutes, calculateWeekTotalHours, dimensionProgressFractions } from "@/lib/scoring";
+import { PlanSession, SkillPracticeItem } from "@/lib/types";
+import { calculateAllSessionMinutes, calculateWeekTotalHours } from "@/lib/scoring";
+import { buildSessionUserMessage } from "@/lib/build-session-message";
 
 // Allow up to 5 minutes for batch generation of all weeks
 export const maxDuration = 300;
@@ -29,7 +30,6 @@ export async function POST(request: NextRequest) {
     .from("training_plans")
     .select("*")
     .eq("id", planId)
-    .eq("user_id", user.id)
     .single();
 
   if (planError || !plan) {
@@ -89,24 +89,41 @@ export async function POST(request: NextRequest) {
 
     const results = await Promise.allSettled(
       batch.map(async (weekTarget) => {
-        const userMessage = buildUserMessage(
-          profile, objective, weekTarget, totalWeeks, programmingHints, climbingRole, daysPerWeek
+        const userMessage = buildSessionUserMessage(
+          profile, objective,
+          { week_number: weekTarget.week_number as number, week_type: weekTarget.week_type as string, week_start: weekTarget.week_start as string, total_hours: weekTarget.total_hours as number, expected_scores: weekTarget.expected_scores as Record<string, number> },
+          totalWeeks, programmingHints, climbingRole, daysPerWeek
         );
 
         const responseText = await callClaudeWithCache(
           PROMPT_2B_SYSTEM, userMessage, 8192, "opus"
         );
-        const result = parseClaudeJSON<{ sessions: PlanSession[] }>(responseText);
+        const result = parseClaudeJSON<{ sessions: PlanSession[]; suggestedSkillPractice?: SkillPracticeItem[] }>(responseText);
         calculateAllSessionMinutes(result.sessions);
 
         const totalHours = calculateWeekTotalHours(result.sessions);
+        const updateData: Record<string, unknown> = { sessions: result.sessions, total_hours: totalHours };
+        if (result.suggestedSkillPractice && result.suggestedSkillPractice.length > 0) {
+          updateData.suggested_skill_practice = result.suggestedSkillPractice;
+        }
         const { error: updateError } = await supabase
           .from("weekly_targets")
-          .update({ sessions: result.sessions, total_hours: totalHours })
+          .update(updateData)
           .eq("id", weekTarget.id);
 
         if (updateError) {
-          throw new Error(`DB update failed for week ${weekTarget.week_number}: ${updateError.message}`);
+          // If update failed (e.g., suggested_skill_practice column missing), retry without it
+          if (result.suggestedSkillPractice) {
+            const { error: retryError } = await supabase
+              .from("weekly_targets")
+              .update({ sessions: result.sessions, total_hours: totalHours })
+              .eq("id", weekTarget.id);
+            if (retryError) {
+              throw new Error(`DB update failed for week ${weekTarget.week_number}: ${retryError.message}`);
+            }
+          } else {
+            throw new Error(`DB update failed for week ${weekTarget.week_number}: ${updateError.message}`);
+          }
         }
 
         return weekTarget.week_number;
@@ -132,94 +149,3 @@ export async function POST(request: NextRequest) {
   });
 }
 
-function buildUserMessage(
-  profile: { training_days_per_week?: number; equipment_access?: string[]; location?: string } | null,
-  objective: Record<string, unknown>,
-  weekTarget: Record<string, unknown>,
-  totalWeeks: number,
-  programmingHints: Record<string, unknown> | null,
-  climbingRole: string | null,
-  daysPerWeek: number
-): string {
-  const weekNumber = weekTarget.week_number as number;
-
-  const programmingHintsBlock = programmingHints
-    ? `\nATHLETE PROFILE (from assessment):\n${JSON.stringify(programmingHints, null, 2)}\nClimbing role: ${climbingRole || "not specified"}\n\nUse the programming hints to adapt session content to this specific athlete:\n- Start exercises at the recommended intensity level\n- Allocate time across dimensions as recommended\n- Apply specific adaptations noted above\n- If a dimension is flagged as "maintain", prescribe maintenance-level volume\n`
-    : "";
-
-  return `Athlete profile: Available ${daysPerWeek} days/week. Generate EXACTLY ${daysPerWeek} sessions total — no more, no fewer. Equipment: ${(profile?.equipment_access || []).join(", ") || "basic gym equipment"}. Location: ${profile?.location || "not specified"}. Injuries: none.
-${programmingHintsBlock}
-Objective: ${objective.name}. Type: ${objective.type}. Target date: ${objective.target_date}. Distance: ${objective.distance_miles || "N/A"} miles. Elevation gain: ${objective.elevation_gain_ft || "N/A"} ft. Technical grade: ${objective.technical_grade || "N/A"}.
-
-Current scores: Cardio ${objective.current_cardio_score}, Strength ${objective.current_strength_score}, Climbing/Technical ${objective.current_climbing_score}, Flexibility ${objective.current_flexibility_score}.
-Target scores: Cardio ${objective.target_cardio_score}, Strength ${objective.target_strength_score}, Climbing/Technical ${objective.target_climbing_score}, Flexibility ${objective.target_flexibility_score}.
-
-THIS IS WEEK ${weekNumber} of ${totalWeeks} total weeks.
-Week type: ${weekTarget.week_type}.
-Week start date: ${weekTarget.week_start}.
-Target hours: ${weekTarget.total_hours}.
-Expected scores this week: ${JSON.stringify(weekTarget.expected_scores)}.
-
-Graduation benchmarks: ${JSON.stringify(objective.graduation_benchmarks)}
-
-Relevance profiles: ${JSON.stringify(objective.relevance_profiles)}
-
-${buildProgressFractionBlock(objective, weekNumber, totalWeeks)}`;
-}
-
-function buildProgressFractionBlock(
-  objective: Record<string, unknown>,
-  weekNumber: number,
-  totalWeeks: number
-): string {
-  const currentScores = {
-    cardio: (objective.current_cardio_score as number) || 0,
-    strength: (objective.current_strength_score as number) || 0,
-    climbing_technical: (objective.current_climbing_score as number) || 0,
-    flexibility: (objective.current_flexibility_score as number) || 0,
-  };
-  const targetScores = {
-    cardio: (objective.target_cardio_score as number) || 0,
-    strength: (objective.target_strength_score as number) || 0,
-    climbing_technical: (objective.target_climbing_score as number) || 0,
-    flexibility: (objective.target_flexibility_score as number) || 0,
-  };
-  const fractions = dimensionProgressFractions(currentScores, targetScores, weekNumber, totalWeeks);
-
-  const dimLabels: Record<string, string> = {
-    cardio: "Cardio",
-    strength: "Strength",
-    climbing_technical: "Climbing/Technical",
-    flexibility: "Flexibility",
-  };
-
-  const lines: string[] = [];
-  const maintenanceDims: string[] = [];
-
-  for (const [dim, label] of Object.entries(dimLabels)) {
-    const prog = fractions[dim];
-    const current = currentScores[dim as keyof typeof currentScores];
-    const target = targetScores[dim as keyof typeof targetScores];
-
-    if (prog.maintenance) {
-      const performanceRatio = target > 0 ? Math.round((current / target) * 100) : 100;
-      lines.push(`- ${label}: MAINTENANCE MODE (1 session/week, 60% volume) — current ${current} vs target ${target}. Athlete performs at ~${performanceRatio}% of graduation benchmarks. Prescribe the single session at this higher level, not at graduation target level.`);
-      maintenanceDims.push(label);
-    } else if (current >= target) {
-      lines.push(`- ${label}: ${prog.fraction}% (already meets target — maintenance with slight progression)`);
-    } else {
-      lines.push(`- ${label}: ${prog.fraction}%`);
-    }
-  }
-
-  let result = `Per-dimension progress fractions for Week ${weekNumber} (percentage of graduation targets this week's sessions should reach):
-${lines.join("\n")}
-
-IMPORTANT: These percentages reflect the athlete's CURRENT fitness level. Do NOT prescribe beginner-level training for dimensions where the athlete is already strong. Match session intensity to the progress fraction shown.`;
-
-  if (maintenanceDims.length > 0) {
-    result += `\n\nMAINTENANCE REALLOCATION: ${maintenanceDims.join(", ")} ${maintenanceDims.length === 1 ? "is" : "are"} in maintenance mode. Reallocate freed training time to dimensions furthest below their target scores, prioritizing the dimension with the highest target score.`;
-  }
-
-  return result;
-}

@@ -104,7 +104,8 @@ export interface StandardAnswers {
   cardio_hike_duration_hours: number;
   cardio_hike_elevation_ft: number;       // optional elevation context
   strength_training_frequency: string;
-  strength_training_type: string;
+  strength_pullup_capacity: number;        // 1-5 scale: 1=none, 3=5-8 strict, 5=15+ or weighted
+  strength_loaded_leg_capacity: number;    // 1-5 scale: 1=untested, 3=25-35lb pack all day, 5=50lb+ steep terrain
   climbing_experience_level: string;
   climbing_highest_grade: string;
   climbing_skills: string[];
@@ -204,6 +205,7 @@ export interface WeeklyTarget {
   total_hours: number | null;
   expected_scores: DimensionScores;
   sessions: PlanSession[];
+  suggested_skill_practice?: SkillPracticeItem[];
   weekly_report: WeeklyReport | null;
 }
 
@@ -244,6 +246,16 @@ export interface ComponentFeedback {
 
 export type Dimension = 'cardio' | 'strength' | 'climbing_technical' | 'flexibility';
 
+export type GapClassification = 'exceeds' | 'on_target' | 'achievable' | 'stretch' | 'very_challenging';
+
+export interface DimensionGapAnalysis {
+  classification: GapClassification;
+  gap: number;           // target - current (negative if exceeds)
+  pointsPerWeek: number; // gap / totalWeeks (0 if exceeds/on_target)
+}
+
+export type GapAnalysis = Record<'cardio' | 'strength' | 'climbing_technical', DimensionGapAnalysis>;
+
 export type ObjectiveType = 'hike' | 'trail_run' | 'alpine_climb' | 'rock_climb' | 'mountaineering' | 'scramble' | 'backpacking';
 
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'expert';
@@ -281,6 +293,7 @@ export interface WeekCompletionFeedback {
   gaps: Record<Dimension, number>;
   summary: string;
   rebalanceRecommended: boolean;
+  aiExplanations?: Record<string, string>;
 }
 
 export interface DimensionScores {
@@ -346,6 +359,7 @@ export interface PlanData {
   programmingHints?: ProgrammingHints | null;
   weeks: PlanWeek[];
   difficultyAdjustments?: DifficultyAdjustment[];
+  gapAnalysis?: GapAnalysis;
 }
 
 export interface PlanWeek {
@@ -355,6 +369,7 @@ export interface PlanWeek {
   totalHoursTarget: number;
   expectedScores: DimensionScores;
   sessions: PlanSession[];
+  suggestedSkillPractice?: SkillPracticeItem[];
 }
 
 export interface PlanSession {
@@ -381,6 +396,12 @@ export interface PlanSession {
   cooldownMinutes?: number;
   originalSession?: PlanSession;  // preserved original when alternative is active
   isAlternative?: boolean;        // true if this replaced the original
+}
+
+export interface SkillPracticeItem {
+  skill: string;        // e.g., "Ice axe self-arrest"
+  description: string;  // e.g., "Practice on moderate snow slopes (30-40°)..."
+  terrain: string;      // e.g., "Snow slope", "Crag", "Any anchor point"
 }
 
 // ============================================

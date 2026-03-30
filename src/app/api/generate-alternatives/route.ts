@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
     .from("training_plans")
     .select("*")
     .eq("id", planId)
-    .eq("user_id", user.id)
     .single();
 
   if (planError || !plan) {
@@ -110,7 +109,7 @@ Athlete location: ${profile?.location || "not specified"}
 Week ${weekNumber} of ${totalWeeks || "?"}. Progress fraction for ${sessionForPrompt.dimension}: ${dimFraction?.fraction || 50}%.`;
 
   try {
-    const responseText = await callClaudeWithCache(PROMPT_6_SYSTEM, userMessage, 4096, "opus");
+    const responseText = await callClaudeWithCache(PROMPT_6_SYSTEM, userMessage, 8192, "opus");
     const result = parseClaudeJSON<{ alternatives: AlternativeSession[] }>(responseText);
 
     // Calculate estimated minutes for each alternative

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import AILoadingIndicator from "@/components/AILoadingIndicator";
-import { Objective, ObjectiveType, MatchObjectiveResponse, EstimateScoresResponse, DimensionGraduationBenchmarks, DimensionScores, DimensionTaglines, DimensionRelevanceProfiles, SearchMatch } from "@/lib/types";
+import { Objective, ObjectiveType, MatchObjectiveResponse, DimensionGraduationBenchmarks, DimensionScores, DimensionTaglines, DimensionRelevanceProfiles, SearchMatch } from "@/lib/types";
 
 const OBJECTIVE_TYPES: { value: ObjectiveType; label: string }[] = [
   { value: "hike", label: "Hike" },
@@ -136,6 +136,7 @@ export default function ObjectiveModal({
       let graduationBenchmarks: DimensionGraduationBenchmarks = { cardio: [], strength: [], climbing_technical: [], flexibility: [] };
       let matchedId = null;
       const tier = matchResult?.tier || "bronze";
+      let needsEstimation = false;
 
       if (matchResult?.tier === "gold" && matchResult.validatedObjective) {
         const vo = matchResult.validatedObjective;
@@ -145,42 +146,8 @@ export default function ObjectiveModal({
         graduationBenchmarks = vo.graduation_benchmarks;
         matchedId = vo.id;
       } else if (matchResult?.tier === "silver" || matchResult?.tier === "bronze") {
-        const { data: benchmarks } = await supabase
-          .from("benchmark_exercises")
-          .select("*")
-          .eq("status", "active");
-
-        const res = await fetch("/api/estimate-scores", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            objectiveDetails: {
-              name,
-              type,
-              elevation: elevation ? parseInt(elevation) : undefined,
-              totalGain: elevation ? parseInt(elevation) : undefined,
-              distance: distance ? parseFloat(distance) : undefined,
-              grade,
-            },
-            benchmarkExercises: benchmarks || [],
-            anchors: matchResult?.anchors || [],
-          }),
-        });
-        const estimates: EstimateScoresResponse = await res.json();
-        targetScores = {
-          cardio: estimates.dimensions.cardio.targetScore,
-          strength: estimates.dimensions.strength.targetScore,
-          climbing_technical: estimates.dimensions.climbing_technical.targetScore,
-          flexibility: estimates.dimensions.flexibility.targetScore,
-        };
-        taglines = {
-          cardio: estimates.dimensions.cardio.tagline,
-          strength: estimates.dimensions.strength.tagline,
-          climbing_technical: estimates.dimensions.climbing_technical.tagline,
-          flexibility: estimates.dimensions.flexibility.tagline,
-        };
-        relevanceProfiles = estimates.relevanceProfiles;
-        graduationBenchmarks = estimates.graduationBenchmarks;
+        // Save with placeholders now — estimate-scores runs in background on assessment page
+        needsEstimation = true;
       }
 
       if (objective) {
@@ -206,7 +173,7 @@ export default function ObjectiveModal({
           .eq("id", objective.id);
         onSaved();
       } else {
-        const { data: newObj } = await supabase.from("objectives").insert({
+        const { data: newObj, error: insertError } = await supabase.from("objectives").insert({
           user_id: user.id,
           name,
           type,
@@ -225,9 +192,16 @@ export default function ObjectiveModal({
           tier,
         }).select("id").single();
 
-        if (!newObj) throw new Error("Failed to create objective");
+        if (insertError) throw new Error(`Failed to create objective: ${insertError.message}`);
+        if (!newObj) throw new Error("Failed to create objective: no data returned");
 
-        // Fetch assessment for this specific objective
+        // For silver/bronze, redirect immediately — estimation happens on the assessment page
+        if (needsEstimation) {
+          router.push(`/assessment/${newObj.id}`);
+          return;
+        }
+
+        // Gold tier: check for existing assessment
         const { data: assessments } = await supabase
           .from("assessments")
           .select("id")
@@ -243,8 +217,9 @@ export default function ObjectiveModal({
           router.push(`/assessment/${newObj.id}`);
         }
       }
-    } catch {
-      setError("Failed to save objective");
+    } catch (err) {
+      console.error("Failed to save objective:", err);
+      setError(err instanceof Error ? err.message : "Failed to save objective");
     }
     setLoading(false);
   }
@@ -654,12 +629,7 @@ export default function ObjectiveModal({
               {loading && (
                 <AILoadingIndicator
                   size="sm"
-                  message="Setting up your objective..."
-                  rotatingMessages={[
-                    "Estimating target scores for each dimension...",
-                    "Generating graduation benchmarks...",
-                    "Building relevance profiles...",
-                  ]}
+                  message="Saving your objective..."
                 />
               )}
             </div>

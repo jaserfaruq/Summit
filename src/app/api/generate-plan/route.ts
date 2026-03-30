@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { GeneratePlanRequest } from "@/lib/types";
-import { expectedScoresAtWeek } from "@/lib/scoring";
+import { expectedScoresAtWeek, classifyGaps } from "@/lib/scoring";
 import { fetchHeroImageUrl } from "@/lib/unsplash";
 import { findSeedMatch } from "@/lib/seed-data";
 import { callClaude } from "@/lib/claude";
@@ -199,11 +199,25 @@ export async function POST(request: NextRequest) {
   // Extract programmingHints from assessment raw_data
   const programmingHints = assessment.raw_data?.programmingHints || null;
 
+  // Compute gap analysis for achievability warnings
+  const gapAnalysis = classifyGaps(currentScores, targetScores, totalWeeks);
+
   // Generate AI philosophy and fetch hero image in parallel
   const philosophyFallback = buildPlanPhilosophy(objective.name, currentScores, targetScores, objective.taglines, totalWeeks);
 
+  // Resolve route name from validated objective if matched
+  let objectiveRouteName = objective.name;
+  if (objective.matched_validated_id) {
+    const { data: validatedObj } = await supabase
+      .from("validated_objectives")
+      .select("route")
+      .eq("id", objective.matched_validated_id)
+      .single();
+    if (validatedObj?.route) objectiveRouteName = validatedObj.route;
+  }
+
   const [philosophyText, heroImageUrl] = await Promise.all([
-    generateAIPhilosophy(objective, assessment, currentScores, targetScores, totalWeeks).catch((err) => {
+    generateAIPhilosophy(objective, assessment, currentScores, targetScores, totalWeeks, objectiveRouteName, gapAnalysis).catch((err) => {
       console.warn("AI philosophy generation failed, using fallback:", err);
       return philosophyFallback;
     }),
@@ -232,6 +246,7 @@ export async function POST(request: NextRequest) {
           planSummary,
           heroImageUrl,
           programmingHints,
+          gapAnalysis,
           weeks: weeks.map((w) => ({ ...w, sessions: [] })),
         },
         graduation_workouts: objective.graduation_benchmarks,
@@ -304,13 +319,24 @@ async function generateAIPhilosophy(
   assessment: Record<string, unknown>,
   currentScores: Record<string, number>,
   targetScores: Record<string, number>,
-  totalWeeks: number
+  totalWeeks: number,
+  routeName: string,
+  gapAnalysis?: Record<string, { classification: string; gap: number; pointsPerWeek: number }>
 ): Promise<string> {
   const aiReasoning = assessment.ai_reasoning as Record<string, { explanation: string; keyFactor: string }> | null;
   const programmingHints = (assessment.raw_data as Record<string, unknown>)?.programmingHints || null;
 
+  const gapLines = gapAnalysis ? Object.entries(gapAnalysis).map(([dim, g]) => {
+    const label = dim === "climbing_technical" ? "Climbing/Technical" : dim.charAt(0).toUpperCase() + dim.slice(1);
+    if (g.classification === "exceeds") return `- ${label}: EXCEEDS target (current is 125%+ of target) — this is a strength`;
+    if (g.classification === "on_target") return `- ${label}: ON TARGET — meets requirements`;
+    if (g.classification === "stretch") return `- ${label}: STRETCH goal (${g.pointsPerWeek} pts/wk needed — ambitious, requires consistency)`;
+    if (g.classification === "very_challenging") return `- ${label}: VERY CHALLENGING (${g.pointsPerWeek} pts/wk needed — aggressive timeline, may not fully close this gap)`;
+    return `- ${label}: ACHIEVABLE (${g.pointsPerWeek} pts/wk needed)`;
+  }).join("\n") : "";
+
   const userMessage = `Objective: ${objective.name}${objective.type ? ` (${objective.type})` : ""}
-Route: ${(objective as Record<string, unknown>).technical_grade ? `Grade ${(objective as Record<string, unknown>).technical_grade}` : "N/A"}
+Route: ${routeName}
 Plan duration: ${totalWeeks} weeks
 Target date: ${objective.target_date}
 
@@ -319,6 +345,8 @@ Current → Target scores:
 - Strength: ${currentScores.strength} → ${targetScores.strength}
 - Climbing/Technical: ${currentScores.climbing_technical} → ${targetScores.climbing_technical}
 - Flexibility: ${currentScores.flexibility} → ${targetScores.flexibility}
+
+${gapLines ? `Gap analysis:\n${gapLines}` : ""}
 
 ${aiReasoning ? `Assessment findings:
 - Cardio: ${aiReasoning.cardio?.explanation || "N/A"} (Key factor: ${aiReasoning.cardio?.keyFactor || "N/A"})
@@ -331,7 +359,7 @@ ${objective.climbing_role ? `Climbing role: ${objective.climbing_role}` : ""}
 
 Write exactly 2 paragraphs. No formatting, no headers, no bullet points. Plain text only.`;
 
-  const response = await callClaude(PROMPT_PHILOSOPHY_SYSTEM, userMessage, 1024);
+  const response = await callClaude(PROMPT_PHILOSOPHY_SYSTEM, userMessage, 1024, "sonnet");
 
   // Clean up: remove any markdown formatting the AI might add
   const cleaned = response

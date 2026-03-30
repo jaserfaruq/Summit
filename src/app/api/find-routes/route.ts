@@ -22,7 +22,7 @@ Target elevation gain: ${targetElevation} ft
 Preferences: ${preferences || "none"}`;
 
   try {
-    const responseText = await callClaude(PROMPT_5_SYSTEM, userMessage);
+    const responseText = await callClaude(PROMPT_5_SYSTEM, userMessage, 2048, "haiku");
     const parsed = parseClaudeJSON<{ routes: RouteRecommendation[] }>(responseText);
     return NextResponse.json(parsed);
   } catch (error) {

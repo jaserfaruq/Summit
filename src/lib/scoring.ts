@@ -1,4 +1,4 @@
-import { DimensionScores, PlanSession, Dimension, WorkoutRating, RATING_MULTIPLIERS } from "./types";
+import { DimensionScores, PlanSession, Dimension, WorkoutRating, RATING_MULTIPLIERS, GapClassification, DimensionGapAnalysis, GapAnalysis } from "./types";
 
 const DIMENSIONS: Dimension[] = ["cardio", "strength", "climbing_technical", "flexibility"];
 
@@ -294,6 +294,52 @@ export function dimensionProgressFractions(
       fraction: Math.round(Math.min(progress, 1.0) * 100),
       maintenance: false,
     };
+  }
+
+  return result;
+}
+
+/**
+ * Classify the gap between current and target scores for cardio, strength,
+ * and climbing_technical. Flexibility is excluded (always relative prescriptions).
+ *
+ * Aligns with existing maintenance thresholds:
+ * - exceeds: current >= 1.25x target (matches maintenance mode trigger)
+ * - on_target: current >= target
+ * - achievable/stretch/very_challenging: based on points-per-week needed
+ */
+export function classifyGaps(
+  currentScores: DimensionScores,
+  targetScores: DimensionScores,
+  totalWeeks: number
+): GapAnalysis {
+  const dims: Array<'cardio' | 'strength' | 'climbing_technical'> = [
+    'cardio', 'strength', 'climbing_technical',
+  ];
+
+  const result = {} as GapAnalysis;
+
+  for (const dim of dims) {
+    const current = currentScores[dim];
+    const target = targetScores[dim];
+    const gap = target - current;
+
+    if (target > 0 && current >= 1.25 * target) {
+      result[dim] = { classification: 'exceeds', gap, pointsPerWeek: 0 };
+    } else if (current >= target) {
+      result[dim] = { classification: 'on_target', gap, pointsPerWeek: 0 };
+    } else {
+      const ppw = totalWeeks > 0 ? gap / totalWeeks : gap;
+      let classification: GapClassification;
+      if (ppw <= 2.5) {
+        classification = 'achievable';
+      } else if (ppw <= 4.0) {
+        classification = 'stretch';
+      } else {
+        classification = 'very_challenging';
+      }
+      result[dim] = { classification, gap, pointsPerWeek: Math.round(ppw * 10) / 10 };
+    }
   }
 
   return result;

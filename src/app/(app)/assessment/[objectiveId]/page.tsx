@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { AIQuestion, DimensionScores, AIReasoning, ProgrammingHints } from "@/lib/types";
+import { AIQuestion, DimensionScores, AIReasoning, ProgrammingHints, EstimateScoresResponse, GapAnalysis } from "@/lib/types";
 import InfoBubble from "@/components/InfoBubble";
+import GapInfoBubble from "@/components/GapInfoBubble";
 import AILoadingIndicator from "@/components/AILoadingIndicator";
+import { classifyGaps } from "@/lib/scoring";
 
 type Phase = "layer1" | "layer2" | "scoring" | "results";
 
@@ -18,7 +20,8 @@ interface StandardAnswers {
   cardio_hike_duration_hours: number;
   cardio_hike_elevation_ft: number;
   strength_training_frequency: string;
-  strength_training_type: string;
+  strength_pullup_capacity: number;
+  strength_loaded_leg_capacity: number;
   climbing_experience_level: string;
   climbing_highest_grade: string;
   climbing_skills: string[];
@@ -34,6 +37,7 @@ interface ScoreResults {
   programmingHints: ProgrammingHints;
   adjustedTargets?: DimensionScores;
   climbingRole?: string;
+  gapAnalysis?: GapAnalysis;
 }
 
 export default function AssessmentObjectivePage() {
@@ -68,7 +72,8 @@ function AssessmentContent() {
   const [hikeDuration, setHikeDuration] = useState("");
   const [hikeElevation, setHikeElevation] = useState("");
   const [strengthFrequency, setStrengthFrequency] = useState("1-2x/week");
-  const [strengthType, setStrengthType] = useState("general");
+  const [pullupCapacity, setPullupCapacity] = useState(3);
+  const [loadedLegCapacity, setLoadedLegCapacity] = useState(3);
   const [climbingLevel, setClimbingLevel] = useState("none");
   const [climbingGrade, setClimbingGrade] = useState("none");
   const [climbingSkills, setClimbingSkills] = useState<string[]>([]);
@@ -85,6 +90,109 @@ function AssessmentContent() {
   // Results
   const [results, setResults] = useState<ScoreResults | null>(null);
 
+  // Background estimation state — for silver/bronze objectives that need AI scoring
+  const [estimationReady, setEstimationReady] = useState(false);
+  const [estimationError, setEstimationError] = useState<string | null>(null);
+  const estimationStartedRef = useRef(false);
+  // When user finishes Layer 1 before estimation completes, this gates the transition
+  const [waitingForEstimation, setWaitingForEstimation] = useState(false);
+  const pendingLayer1SubmitRef = useRef(false);
+
+  // Run estimate-scores in background for silver/bronze objectives
+  const runBackgroundEstimation = useCallback(async (objName: string, objType: string, objData: {
+    distance_miles?: number | null;
+    elevation_gain_ft?: number | null;
+    technical_grade?: string | null;
+    tier?: string | null;
+    matched_validated_id?: string | null;
+  }) => {
+    if (estimationStartedRef.current) return;
+    estimationStartedRef.current = true;
+
+    try {
+      const { createClient } = await import("@/lib/supabase");
+      const supabase = createClient();
+
+      // Fetch benchmark exercises
+      const { data: benchmarks } = await supabase
+        .from("benchmark_exercises")
+        .select("id, name, dimension, measurement_type, measurement_unit, description, tags, equipment_required, is_gym_reproducible")
+        .eq("status", "active");
+
+      // Fetch validated objective data if silver tier (for anchors + route name)
+      let anchors: unknown[] = [];
+      let route: string | undefined;
+      if (objData.tier === "silver" && objData.matched_validated_id) {
+        const { data: anchorData } = await supabase
+          .from("validated_objectives")
+          .select("*")
+          .eq("id", objData.matched_validated_id)
+          .single();
+        if (anchorData) {
+          anchors = [anchorData];
+          route = anchorData.route;
+        }
+      }
+
+      const res = await fetch("/api/estimate-scores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          objectiveDetails: {
+            name: objName,
+            route: route || objName,
+            type: objType,
+            elevation: objData.elevation_gain_ft || undefined,
+            totalGain: objData.elevation_gain_ft || undefined,
+            distance: objData.distance_miles || undefined,
+            grade: objData.technical_grade || undefined,
+          },
+          benchmarkExercises: benchmarks || [],
+          anchors,
+        }),
+      });
+
+      const rawText = await res.text();
+      const jsonText = rawText.trim();
+      const estimates: EstimateScoresResponse = JSON.parse(jsonText);
+      if ((estimates as unknown as { error?: string }).error) {
+        throw new Error((estimates as unknown as { error: string }).error);
+      }
+
+      // Write real scores back to the objective
+      const targetScores = {
+        cardio: estimates.dimensions.cardio.targetScore,
+        strength: estimates.dimensions.strength.targetScore,
+        climbing_technical: estimates.dimensions.climbing_technical.targetScore,
+        flexibility: estimates.dimensions.flexibility.targetScore,
+      };
+      const taglines = {
+        cardio: estimates.dimensions.cardio.tagline,
+        strength: estimates.dimensions.strength.tagline,
+        climbing_technical: estimates.dimensions.climbing_technical.tagline,
+        flexibility: estimates.dimensions.flexibility.tagline,
+      };
+
+      await supabase
+        .from("objectives")
+        .update({
+          target_cardio_score: targetScores.cardio,
+          target_strength_score: targetScores.strength,
+          target_climbing_score: targetScores.climbing_technical,
+          target_flexibility_score: targetScores.flexibility,
+          taglines,
+          relevance_profiles: estimates.relevanceProfiles,
+          graduation_benchmarks: estimates.graduationBenchmarks,
+        })
+        .eq("id", objectiveId);
+
+      setEstimationReady(true);
+    } catch (err) {
+      console.error("Background estimation failed:", err);
+      setEstimationError(err instanceof Error ? err.message : "Failed to estimate scores");
+    }
+  }, [objectiveId]);
+
   // Fetch objective name on mount, and load existing assessment if deep-linking to results
   useEffect(() => {
     async function fetchObjective() {
@@ -93,10 +201,27 @@ function AssessmentContent() {
         const supabase = createClient();
         const { data: objData } = await supabase
           .from("objectives")
-          .select("name, target_cardio_score, target_strength_score, target_climbing_score, target_flexibility_score")
+          .select("name, type, distance_miles, elevation_gain_ft, technical_grade, tier, matched_validated_id, target_cardio_score, target_strength_score, target_climbing_score, target_flexibility_score, target_date, taglines")
           .eq("id", objectiveId)
           .single();
         if (objData) setObjectiveName(objData.name);
+
+        // Check if this objective needs background estimation
+        // Placeholder taglines = all empty strings → needs estimation
+        if (objData && objData.tier !== "gold") {
+          const taglines = objData.taglines as Record<string, string> | null;
+          const hasRealScores = taglines && Object.values(taglines).some((t) => t && t.length > 0);
+          if (!hasRealScores) {
+            // Fire estimation in background while user fills out Layer 1
+            runBackgroundEstimation(objData.name, objData.type, objData);
+          } else {
+            // Already has real scores (e.g., re-visiting assessment)
+            setEstimationReady(true);
+          }
+        } else if (objData) {
+          // Gold tier — scores come from validated objective, no estimation needed
+          setEstimationReady(true);
+        }
 
         // If deep-linking to results, load the most recent assessment
         if (viewResults && objData) {
@@ -109,14 +234,24 @@ function AssessmentContent() {
             .single();
 
           if (assessmentData) {
+            const storedScores: DimensionScores = {
+              cardio: assessmentData.cardio_score,
+              strength: assessmentData.strength_score,
+              climbing_technical: assessmentData.climbing_score,
+              flexibility: assessmentData.flexibility_score,
+            };
+            const storedTargets: DimensionScores = {
+              cardio: objData.target_cardio_score,
+              strength: objData.target_strength_score,
+              climbing_technical: objData.target_climbing_score,
+              flexibility: objData.target_flexibility_score,
+            };
+            const totalWeeks = objData.target_date
+              ? Math.max(4, Math.floor((new Date(objData.target_date).getTime() - Date.now()) / (7 * 24 * 60 * 60 * 1000)))
+              : 12;
             setResults({
               assessmentId: assessmentData.id,
-              scores: {
-                cardio: assessmentData.cardio_score,
-                strength: assessmentData.strength_score,
-                climbing_technical: assessmentData.climbing_score,
-                flexibility: assessmentData.flexibility_score,
-              },
+              scores: storedScores,
               reasoning: assessmentData.ai_reasoning || {
                 cardio: { explanation: "", keyFactor: "" },
                 strength: { explanation: "", keyFactor: "" },
@@ -129,12 +264,8 @@ function AssessmentContent() {
                 climbing_technical: { startingIntensity: "", sessionsPerWeek: 0, keyAdaptation: "" },
                 flexibility: { startingIntensity: "", sessionsPerWeek: 0, keyAdaptation: "" },
               },
-              adjustedTargets: {
-                cardio: objData.target_cardio_score,
-                strength: objData.target_strength_score,
-                climbing_technical: objData.target_climbing_score,
-                flexibility: objData.target_flexibility_score,
-              },
+              adjustedTargets: storedTargets,
+              gapAnalysis: classifyGaps(storedScores, storedTargets, totalWeeks),
             });
             setPhase("results");
           }
@@ -144,7 +275,7 @@ function AssessmentContent() {
       }
     }
     fetchObjective();
-  }, [objectiveId, viewResults]);
+  }, [objectiveId, viewResults, runBackgroundEstimation]);
 
   function buildStandardAnswers(): StandardAnswers {
     return {
@@ -157,7 +288,8 @@ function AssessmentContent() {
       cardio_hike_duration_hours: parseFloat(hikeDuration) || 0,
       cardio_hike_elevation_ft: parseFloat(hikeElevation) || 0,
       strength_training_frequency: strengthFrequency,
-      strength_training_type: strengthType,
+      strength_pullup_capacity: pullupCapacity,
+      strength_loaded_leg_capacity: loadedLegCapacity,
       climbing_experience_level: climbingLevel,
       climbing_highest_grade: climbingGrade,
       climbing_skills: climbingSkills,
@@ -167,7 +299,27 @@ function AssessmentContent() {
     };
   }
 
-  async function submitLayer1() {
+  // When estimation finishes and user was waiting, auto-proceed to generate questions
+  useEffect(() => {
+    if (estimationReady && pendingLayer1SubmitRef.current) {
+      pendingLayer1SubmitRef.current = false;
+      setWaitingForEstimation(false);
+      doSubmitLayer1();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estimationReady]);
+
+  // Also handle estimation error while waiting
+  useEffect(() => {
+    if (estimationError && waitingForEstimation) {
+      pendingLayer1SubmitRef.current = false;
+      setWaitingForEstimation(false);
+      setLoading(false);
+      setError(`Score estimation failed: ${estimationError}. Please go back and try again.`);
+    }
+  }, [estimationError, waitingForEstimation]);
+
+  async function doSubmitLayer1() {
     setLoading(true);
     setError(null);
     try {
@@ -191,6 +343,17 @@ function AssessmentContent() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function submitLayer1() {
+    if (!estimationReady) {
+      // User finished Layer 1 before Opus finished — show brief wait
+      setWaitingForEstimation(true);
+      setLoading(true);
+      pendingLayer1SubmitRef.current = true;
+      return;
+    }
+    doSubmitLayer1();
   }
 
   async function requestMoreQuestions() {
@@ -399,15 +562,34 @@ function AssessmentContent() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-dark-muted mb-1">Type of strength training</label>
-                <select value={strengthType} onChange={(e) => setStrengthType(e.target.value)} className={inputClass}>
-                  <option value="none">None</option>
-                  <option value="general">General fitness / bodyweight</option>
-                  <option value="powerlifting">Powerlifting / heavy barbell</option>
-                  <option value="functional">Functional / mountain-specific</option>
-                  <option value="crossfit">CrossFit / HIIT</option>
-                  <option value="bodybuilding">Bodybuilding / hypertrophy</option>
-                </select>
+                <label className="flex items-center text-sm font-medium text-dark-muted mb-1">
+                  Pull-up capacity (1 = none, 5 = very strong)
+                  <InfoBubble title="How to assess your pull-up capacity">
+                    <p>Think about strict pull-ups — full dead hang at the bottom, chin over the bar at the top. No kipping or swinging.</p>
+                    <p><span className="font-bold text-burnt-orange">1</span> <span className="font-semibold">(None):</span> Can&apos;t do a single pull-up or chin-up from a dead hang. Flexed-arm hang is under 5 seconds. This is common if you&apos;ve never trained upper body pulling — many strong hikers and runners are here.</p>
+                    <p><span className="font-bold text-burnt-orange">2</span> <span className="font-semibold">(Working on it):</span> Can do 1–3 strict pull-ups, or can do assisted pull-ups with a band or machine. You can hang from a bar for 15+ seconds. You&apos;ve started training them but they&apos;re still hard.</p>
+                    <p><span className="font-bold text-burnt-orange">3</span> <span className="font-semibold">(Solid base):</span> Can do 5–8 strict pull-ups in one set. Could hang from a bar for 30+ seconds. Most regularly active people who include some upper body work are here.</p>
+                    <p><span className="font-bold text-burnt-orange">4</span> <span className="font-semibold">(Strong):</span> Can do 10–15 strict pull-ups, or 3–5 with 10–25 lb added. Could do a set of 5 after a hard hike without much trouble. Climbers and people who train pull-ups regularly are typically here.</p>
+                    <p><span className="font-bold text-burnt-orange">5</span> <span className="font-semibold">(Very strong):</span> 15+ strict pull-ups or 5+ reps at +25 lb. Pull-up strength has never limited any activity. Serious climbers, CrossFitters, and calisthenics athletes are typically here.</p>
+                  </InfoBubble>
+                </label>
+                <input type="range" min="1" max="5" value={pullupCapacity} onChange={(e) => setPullupCapacity(parseInt(e.target.value))} className="w-full accent-gold" />
+                <div className="flex justify-between text-xs text-dark-muted"><span>1 (none)</span><span>3</span><span>5 (very strong)</span></div>
+              </div>
+              <div>
+                <label className="flex items-center text-sm font-medium text-dark-muted mb-1">
+                  Loaded leg capacity (1 = untested, 5 = very strong)
+                  <InfoBubble title="How to assess your loaded leg capacity">
+                    <p>This covers squats, step-ups, lunges, and carrying heavy packs uphill — anything that loads your legs beyond bodyweight. You don&apos;t need gym experience to rate this; hiking with a heavy pack counts.</p>
+                    <p><span className="font-bold text-burnt-orange">1</span> <span className="font-semibold">(Untested):</span> You&apos;ve never done weighted squats, step-ups, or lunges with a pack. Walking uphill with a 20 lb daypack for an hour would leave your legs wrecked the next day. Most people who are new to hiking or don&apos;t train legs are here.</p>
+                    <p><span className="font-bold text-burnt-orange">2</span> <span className="font-semibold">(Light):</span> You can hike with a 15–25 lb pack for a few hours but your quads burn on steep downhills. You&apos;ve done some squats or lunges but not with significant weight. Loaded step-ups with a pack would be unfamiliar.</p>
+                    <p><span className="font-bold text-burnt-orange">3</span> <span className="font-semibold">(Moderate):</span> You can carry a 25–35 lb pack all day on moderate terrain. You&apos;ve done weighted squats (bodyweight on the bar or equivalent) and can do lunges without balance issues. Most weekend hikers who do some gym work are here.</p>
+                    <p><span className="font-bold text-burnt-orange">4</span> <span className="font-semibold">(Strong):</span> You regularly carry 35–50 lb packs on steep terrain. You can squat 1.25x bodyweight or do 20+ loaded step-ups without stopping. Multi-day backpackers and people who train legs seriously are typically here.</p>
+                    <p><span className="font-bold text-burnt-orange">5</span> <span className="font-semibold">(Very strong):</span> 50+ lb packs feel manageable on steep terrain for hours. You can squat 1.5x+ bodyweight and crank out loaded step-ups all day. Mountaineers, military athletes, and dedicated strength trainers are typically here.</p>
+                  </InfoBubble>
+                </label>
+                <input type="range" min="1" max="5" value={loadedLegCapacity} onChange={(e) => setLoadedLegCapacity(parseInt(e.target.value))} className="w-full accent-gold" />
+                <div className="flex justify-between text-xs text-dark-muted"><span>1 (untested)</span><span>3</span><span>5 (very strong)</span></div>
               </div>
             </div>
           </div>
@@ -427,7 +609,13 @@ function AssessmentContent() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-dark-muted mb-1">Highest climbing grade</label>
+                <label className="flex items-center text-sm font-medium text-dark-muted mb-1">
+                  Highest climbing grade
+                  <InfoBubble title="Which grade should I pick?">
+                    <p>Rate this relative to how you&apos;ll actually do your objective. If you plan to lead trad, enter your outdoor trad leading grade. If you&apos;re following multi-pitch, enter the hardest grade you&apos;ve comfortably followed outdoors.</p>
+                    <p>If you only climb indoors, pick the closest outdoor equivalent — indoor grades typically translate 1–2 grades lower outside.</p>
+                  </InfoBubble>
+                </label>
                 <select value={climbingGrade} onChange={(e) => setClimbingGrade(e.target.value)} className={inputClass}>
                   <option value="none">None / no climbing</option>
                   <option value="class_3_4">Class 3-4 scrambling</option>
@@ -510,8 +698,23 @@ function AssessmentContent() {
             disabled={loading}
             className="w-full bg-gold text-dark-bg py-3 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
           >
-            {loading ? "Generating questions..." : "Continue to Objective-Specific Questions"}
+            {waitingForEstimation
+              ? "Finishing score analysis..."
+              : loading
+              ? "Generating questions..."
+              : "Continue to Objective-Specific Questions"}
           </button>
+          {waitingForEstimation && (
+            <AILoadingIndicator
+              size="sm"
+              message="Almost ready — finishing your objective analysis..."
+              rotatingMessages={[
+                "Finalizing target scores for each dimension...",
+                "Building graduation benchmarks...",
+                "Calibrating relevance profiles...",
+              ]}
+            />
+          )}
         </div>
       )}
 
@@ -596,7 +799,7 @@ function AssessmentContent() {
               value={freeformText}
               onChange={(e) => setFreeformText(e.target.value)}
               className={`${inputClass} min-h-[80px]`}
-              placeholder="Optional — any additional context about your fitness, experience, injuries, etc."
+              placeholder="Optional — any additional context about your fitness, experience, injuries, etc. The more detail you share, the more customized your plan will be."
             />
           </div>
 
@@ -657,6 +860,9 @@ function AssessmentContent() {
               const target = results.adjustedTargets?.[dim] ?? 0;
               const pct = target > 0 ? Math.min(100, Math.round((score / target) * 100)) : 0;
               const label = dim === "climbing_technical" ? "Climbing" : dim.charAt(0).toUpperCase() + dim.slice(1);
+              const gap = dim !== "flexibility" && results.gapAnalysis
+                ? results.gapAnalysis[dim as keyof GapAnalysis]
+                : null;
 
               return (
                 <div key={dim} className="bg-dark-card/80 backdrop-blur-sm rounded-xl p-4 border border-dark-border/50">
@@ -671,6 +877,12 @@ function AssessmentContent() {
                       style={{ width: `${pct}%` }}
                     />
                   </div>
+                  {gap && gap.classification === "very_challenging" && (
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <p className="text-xs text-red-400">Aggressive timeline</p>
+                      <GapInfoBubble />
+                    </div>
+                  )}
                 </div>
               );
             })}

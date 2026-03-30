@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { WeeklyTarget, PlanSession } from "@/lib/types";
+import { WeeklyTarget, PlanSession, SkillPracticeItem } from "@/lib/types";
 import AlternativesPanel from "./AlternativesPanel";
 
 export default function ThisWeekSessions({
@@ -13,6 +13,7 @@ export default function ThisWeekSessions({
   planId: string;
 }) {
   const [expandedSession, setExpandedSession] = useState<number | null>(null);
+  const [skillPracticeExpanded, setSkillPracticeExpanded] = useState(false);
   const [sessions, setSessions] = useState<PlanSession[]>(weekTarget.sessions);
   const [alternativesPanel, setAlternativesPanel] = useState<{
     sessionIndex: number;
@@ -86,6 +87,39 @@ export default function ThisWeekSessions({
           );
         })}
       </div>
+
+      {/* Suggested Skill Practice (expandable) */}
+      {weekTarget.suggested_skill_practice && (weekTarget.suggested_skill_practice as SkillPracticeItem[]).length > 0 && (
+        <div className="mt-3 rounded-lg border border-sage/20 bg-sage/5 px-3 py-2">
+          <button
+            onClick={() => setSkillPracticeExpanded(!skillPracticeExpanded)}
+            className="w-full text-left flex items-center justify-between"
+          >
+            <div>
+              <h5 className="text-[10px] font-semibold text-sage uppercase tracking-widest mb-0.5">
+                Suggested Skill Practice
+              </h5>
+              <p className="text-[11px] text-dark-muted">
+                Practice these when you have time and access to appropriate terrain.
+              </p>
+            </div>
+            <svg className={`w-4 h-4 text-sage transition-transform ${skillPracticeExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {skillPracticeExpanded && (
+            <ul className="space-y-2 mt-3">
+              {(weekTarget.suggested_skill_practice as SkillPracticeItem[]).map((item, i) => (
+                <li key={i} className="text-sm text-dark-text">
+                  <span className="font-medium">{item.skill}</span>
+                  <span className="text-dark-muted"> — {item.terrain}</span>
+                  <p className="text-[13px] text-dark-muted mt-0.5">{item.description}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Alternatives Panel */}
       {alternativesPanel && (

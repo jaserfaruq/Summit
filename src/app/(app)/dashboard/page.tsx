@@ -10,6 +10,8 @@ import ThisWeekSessions from "@/components/ThisWeekSessions";
 import PartnerNotificationBanner from "@/components/PartnerNotificationBanner";
 import AddObjectiveButton from "@/components/AddObjectiveButton";
 
+export const dynamic = "force-dynamic";
+
 function formatDimLabel(dim: string) {
   return dim.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" / ");
 }

@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_ASSESS_SCORE_SYSTEM } from "@/lib/prompts";
-import { DimensionScores, ProgrammingHints, AIReasoning, DimensionGraduationBenchmarks } from "@/lib/types";
+import { DimensionScores, ProgrammingHints, AIReasoning, DimensionGraduationBenchmarks, GapAnalysis } from "@/lib/types";
+import { classifyGaps } from "@/lib/scoring";
 
 interface ScoreAssessmentResponse {
   climbingRole: "lead" | "follow" | null;
@@ -55,10 +56,21 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Fetch route name from validated objective if matched
+  let routeName = objective.name;
+  if (objective.matched_validated_id) {
+    const { data: validatedObj } = await supabase
+      .from("validated_objectives")
+      .select("route")
+      .eq("id", objective.matched_validated_id)
+      .single();
+    if (validatedObj?.route) routeName = validatedObj.route;
+  }
+
   const userMessage = `Objective: ${objective.name}${objective.type ? ` (${objective.type})` : ""}
-Route: ${objective.technical_grade || "N/A"}
-Distance: ${objective.distance_miles || "N/A"} miles
-Elevation gain: ${objective.elevation_gain_ft || "N/A"} ft
+Route: ${routeName}
+${objective.distance_miles ? `Distance: ${objective.distance_miles} miles` : ""}
+${objective.elevation_gain_ft ? `Elevation gain: ${objective.elevation_gain_ft} ft` : ""}
 Target scores: Cardio ${objective.target_cardio_score}, Strength ${objective.target_strength_score}, Climbing/Technical ${objective.target_climbing_score}, Flexibility ${objective.target_flexibility_score}
 Graduation benchmarks: ${JSON.stringify(objective.graduation_benchmarks)}
 Relevance profiles (key components): ${JSON.stringify(objective.relevance_profiles)}
@@ -152,6 +164,19 @@ ${freeformText || "None provided"}`;
       confidence: "low",
     });
 
+    // Compute gap analysis for achievability warnings
+    const finalTargets: DimensionScores = climbingRole === "follow" && result.adjustedTargets
+      ? result.adjustedTargets
+      : {
+          cardio: objective.target_cardio_score,
+          strength: objective.target_strength_score,
+          climbing_technical: objective.target_climbing_score,
+          flexibility: objective.target_flexibility_score,
+        };
+    const targetDate = new Date(objective.target_date);
+    const totalWeeks = Math.max(4, Math.floor((targetDate.getTime() - Date.now()) / (7 * 24 * 60 * 60 * 1000)));
+    const gapAnalysis: GapAnalysis = classifyGaps(result.scores, finalTargets, totalWeeks);
+
     return NextResponse.json({
       assessmentId: assessment.id,
       scores: result.scores,
@@ -160,6 +185,7 @@ ${freeformText || "None provided"}`;
       adjustedTargets: result.adjustedTargets,
       adjustedBenchmarks: result.adjustedBenchmarks,
       climbingRole: result.climbingRole,
+      gapAnalysis,
     });
   } catch (error) {
     console.error("Error scoring assessment:", error);

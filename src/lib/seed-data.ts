@@ -47,8 +47,8 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
     taglines: { cardio: "High altitude endurance hiking engine", strength: "Load bearing leg endurance power", climbing_technical: "Route finding scrambling confidence", flexibility: "Mobile hips for long ascents" },
     graduation_benchmarks: {
       cardio: [
-        { exerciseId: "b1000000-0000-0000-0000-000000000002", exerciseName: "Sustained Zone 2 Run", graduationTarget: "10 miles at conversational pace", whyThisTarget: "150% overshoot of objective distance builds aerobic base for sustained high-altitude effort." },
-        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "5250 ft elevation gain in 60 minutes with 25lb pack", whyThisTarget: "150% overshoot of objective elevation gain ensures comfortable pace at altitude." },
+        { exerciseId: "b1000000-0000-0000-0000-000000000002", exerciseName: "Sustained Zone 2 Run", graduationTarget: "9 miles at conversational pace", whyThisTarget: "130% overshoot of objective distance builds aerobic base for sustained high-altitude effort." },
+        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "2000 ft gain in 60 minutes with 25lb pack", whyThisTarget: "Standard 14er pace is ~1,500 ft/hr; overshoot to 2,000 ft/hr ensures comfortable sustained climbing at altitude." },
       ],
       strength: [
         { exerciseId: "b2000000-0000-0000-0000-000000000002", exerciseName: "Single-Leg Step-Down", graduationTarget: "20 controlled reps per leg", whyThisTarget: "Eccentric quad control essential for safe descent from 14er summits." },
@@ -115,8 +115,8 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
     taglines: { cardio: "Sustained power under heavy load", strength: "Load carrying endurance and stability", climbing_technical: "Basic glacier travel and ropework", flexibility: "Hip and ankle mobility maintenance" },
     graduation_benchmarks: {
       cardio: [
-        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "13,500 ft gain in 60 min @ 45lb pack", whyThisTarget: "Builds 150% overshoot capacity for Rainier's sustained 9,000ft elevation gain with heavy multi-day pack." },
-        { exerciseId: "b1000000-0000-0000-0000-000000000001", exerciseName: "Timed Loaded Step-Ups", graduationTarget: "600 reps in 30 min @ 45lb pack", whyThisTarget: "Develops pack-carrying leg endurance at 150% of route demands for sustained uphill travel confidence." },
+        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "2500 ft gain in 60 min @ 45lb pack", whyThisTarget: "Rainier's steep sections demand ~2,000 ft/hr with heavy pack; overshoot to 2,500 ft/hr for comfort margin." },
+        { exerciseId: "b1000000-0000-0000-0000-000000000001", exerciseName: "Timed Loaded Step-Ups", graduationTarget: "520 reps in 30 min @ 45lb pack", whyThisTarget: "Develops pack-carrying leg endurance at 130% of route demands for sustained uphill travel confidence." },
       ],
       strength: [
         { exerciseId: "b2000000-0000-0000-0000-000000000004", exerciseName: "Loaded Carry", graduationTarget: "500m in 10 min @ 45lb pack", whyThisTarget: "Matches actual pack weight requirements for multi-day gear carrying over varied terrain." },
@@ -188,7 +188,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
     graduation_benchmarks: {
       cardio: [
         { exerciseId: "b1000000-0000-0000-0000-000000000002", exerciseName: "Sustained Zone 2 Run", graduationTarget: "12 miles at conversational pace", whyThisTarget: "Overshoot target builds aerobic base for 8-mile objective with elevation and climbing demands." },
-        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "4200 ft gain in 60 minutes with 15lb pack", whyThisTarget: "150% overshoot of 2800ft objective gain ensures strong uphill hiking power with approach gear." },
+        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "2500 ft gain in 60 minutes with 15lb pack", whyThisTarget: "Cathedral's approach demands steady uphill pace; 2,500 ft/hr with light pack ensures comfortable movement to the base." },
       ],
       strength: [
         { exerciseId: "b2000000-0000-0000-0000-000000000003", exerciseName: "Weighted Pull-Ups", graduationTarget: "8 bodyweight pull-ups", whyThisTarget: "Sustained pulling strength needed for 5-6 pitches of 5.6 granite climbing." },
@@ -212,8 +212,8 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
     taglines: { cardio: "Sustained power over rolling terrain", strength: "Leg endurance for continuous climbing", climbing_technical: "Sure footing on technical trail", flexibility: "Mobile hips and ankles" },
     graduation_benchmarks: {
       cardio: [
-        { exerciseId: "b1000000-0000-0000-0000-000000000002", exerciseName: "Sustained Zone 2 Run", graduationTarget: "20 miles at conversational pace", whyThisTarget: "Builds aerobic base 150% above race distance for comfortable completion." },
-        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "6000 feet of gain in 60 minutes with light pack", whyThisTarget: "Develops uphill power 150% above race elevation gain for strong climbing ability." },
+        { exerciseId: "b1000000-0000-0000-0000-000000000002", exerciseName: "Sustained Zone 2 Run", graduationTarget: "17 miles at conversational pace", whyThisTarget: "Builds aerobic base 130% above race distance for comfortable completion." },
+        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "2500 ft gain in 60 minutes unloaded", whyThisTarget: "Trail runners power-hike uphills at ~2,000 ft/hr; 2,500 ft/hr unloaded ensures strong climbing legs on race day." },
       ],
       strength: [
         { exerciseId: "b2000000-0000-0000-0000-000000000002", exerciseName: "Single-Leg Step-Down", graduationTarget: "25 controlled reps per leg", whyThisTarget: "Ensures eccentric leg control for safe and efficient downhill running." },
@@ -236,7 +236,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
     graduation_benchmarks: {
       cardio: [
         { exerciseId: "b1000000-0000-0000-0000-000000000002", exerciseName: "Sustained Zone 2 Run", graduationTarget: "15+ miles at conversational pace", whyThisTarget: "Builds aerobic base needed for 6-10 hour sustained effort at race pace." },
-        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "3000+ ft/hr elevation gain for 60 minutes", whyThisTarget: "Develops power hiking capacity needed for 12,000+ feet of climbing during race." },
+        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "2500 ft gain in 60 minutes unloaded", whyThisTarget: "Ultra runners need sustained uphill capacity; 2,500 ft/hr unloaded builds power-hiking fitness for 12,000+ ft of race climbing." },
       ],
       strength: [
         { exerciseId: "b2000000-0000-0000-0000-000000000002", exerciseName: "Single-Leg Step-Down", graduationTarget: "25+ controlled reps per leg", whyThisTarget: "Builds eccentric quad strength for long descents and prevents knee breakdown." },
@@ -282,8 +282,8 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
     taglines: { cardio: "All-day endurance hiking engine", strength: "Load bearing hiking strength", climbing_technical: "Basic scrambling confidence only", flexibility: "Hiking mobility and recovery" },
     graduation_benchmarks: {
       cardio: [
-        { exerciseId: "b1000000-0000-0000-0000-000000000002", exerciseName: "Sustained Zone 2 Run", graduationTarget: "12-15 miles at conversational pace", whyThisTarget: "Builds the sustained aerobic base needed for 18-mile hiking objective with 50% training overshoot." },
-        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "3000+ ft gain in 60 minutes with day pack", whyThisTarget: "Prepares for 4,500 ft elevation gain with 150% overshoot to build comfort buffer." },
+        { exerciseId: "b1000000-0000-0000-0000-000000000002", exerciseName: "Sustained Zone 2 Run", graduationTarget: "12-15 miles at conversational pace", whyThisTarget: "Builds the sustained aerobic base needed for 18-mile hiking objective with 30% training overshoot." },
+        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "2600+ ft gain in 60 minutes with day pack", whyThisTarget: "Prepares for 4,500 ft elevation gain with 130% overshoot to build comfort buffer." },
       ],
       strength: [
         { exerciseId: "b2000000-0000-0000-0000-000000000002", exerciseName: "Single-Leg Step-Down", graduationTarget: "20 controlled reps per leg", whyThisTarget: "Builds knee stability and eccentric strength needed for long descents in the traverse." },
@@ -328,8 +328,8 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
     taglines: { cardio: "Multi-day altitude endurance machine", strength: "Pack-carrying leg durability", climbing_technical: "Class 1 scrambling confidence", flexibility: "Hip and ankle mobility" },
     graduation_benchmarks: {
       cardio: [
-        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "3000 ft gain/hr @ 25lb pack", whyThisTarget: "150% overshoot of Kilimanjaro's daily 1800-2000ft gain builds altitude endurance buffer." },
-        { exerciseId: "b1000000-0000-0000-0000-000000000002", exerciseName: "Sustained Zone 2 Run", graduationTarget: "12 miles continuous", whyThisTarget: "150% of daily 8-mile hiking distance builds aerobic base for multi-day effort." },
+        { exerciseId: "b1000000-0000-0000-0000-000000000003", exerciseName: "Uphill Hike with Pack", graduationTarget: "2500 ft gain/hr @ 25lb pack", whyThisTarget: "130% overshoot of Kilimanjaro's daily 1800-2000ft gain builds altitude endurance buffer." },
+        { exerciseId: "b1000000-0000-0000-0000-000000000002", exerciseName: "Sustained Zone 2 Run", graduationTarget: "10-11 miles continuous", whyThisTarget: "130% of daily 8-mile hiking distance builds aerobic base for multi-day effort." },
       ],
       strength: [
         { exerciseId: "b2000000-0000-0000-0000-000000000002", exerciseName: "Single-Leg Step-Down", graduationTarget: "25 controlled reps per leg", whyThisTarget: "Ensures eccentric quad control for steep descents with heavy pack over multiple days." },

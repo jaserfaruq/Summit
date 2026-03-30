@@ -13,42 +13,62 @@ interface RelevanceResult {
   explanation: string;
 }
 
+interface BatchedRelevanceInput {
+  dimension: Dimension;
+  rating: WorkoutRating;
+  comment: string;
+  sessionDetails: string;
+}
+
+interface BatchedRelevanceResponse {
+  evaluations: Record<string, RelevanceResult>;
+}
+
 /**
- * Call Claude with Prompt 3B to evaluate relevance of a user's comment
- * against the objective's relevance profiles for a given dimension.
+ * Call Claude with Prompt 3B to evaluate relevance of user comments
+ * across ALL dimensions in a single batched call (instead of 1-4 sequential calls).
  */
-async function evaluateRelevance(
-  rating: WorkoutRating,
-  comment: string,
-  dimension: Dimension,
+async function evaluateRelevanceBatched(
+  inputs: BatchedRelevanceInput[],
   objectiveName: string,
-  sessionDetails: string,
   relevanceProfiles: Record<string, { keyComponents: string[]; irrelevantComponents: string[] }>
-): Promise<RelevanceResult> {
-  const baseMultiplier = RATING_MULTIPLIERS[rating];
-  const profile = relevanceProfiles[dimension];
-
-  const userMessage = `The athlete rated their week as ${rating} and provided this comment: "${comment}"
-
-The objective is: ${objectiveName}
-The prescribed session was: ${sessionDetails}
-The dimension being evaluated is: ${dimension}
-
-Relevance profile for this dimension:
+): Promise<Record<Dimension, RelevanceResult>> {
+  const dimensionBlocks = inputs.map((input) => {
+    const profile = relevanceProfiles[input.dimension];
+    const baseMultiplier = RATING_MULTIPLIERS[input.rating];
+    return `--- ${input.dimension} ---
+Rating: ${input.rating} (base multiplier: ${baseMultiplier})
+Comment: "${input.comment}"
+Prescribed session: ${input.sessionDetails}
 Key components: ${JSON.stringify(profile?.keyComponents || [])}
-Irrelevant components: ${JSON.stringify(profile?.irrelevantComponents || [])}
+Irrelevant components: ${JSON.stringify(profile?.irrelevantComponents || [])}`;
+  });
 
-The base multiplier for rating ${rating} is ${baseMultiplier}. You may adjust it by up to ±0.25 based on how relevant the athlete's actual training was to the key components.`;
+  const userMessage = `The objective is: ${objectiveName}
 
-  const responseText = await callClaude(PROMPT_3B_SYSTEM, userMessage, 1024, "opus");
-  const result = parseClaudeJSON<RelevanceResult>(responseText);
+Evaluate the following dimensions:
 
-  // Clamp the multiplier within allowed range (base ±0.25)
-  const minMultiplier = Math.max(0, baseMultiplier - 0.25);
-  const maxMultiplier = baseMultiplier + 0.25;
-  result.adjustedMultiplier = Math.max(minMultiplier, Math.min(maxMultiplier, result.adjustedMultiplier));
+${dimensionBlocks.join("\n\n")}
 
-  return result;
+For each dimension, adjust the base multiplier by up to ±0.25 based on how relevant the athlete's actual training was to the key components.`;
+
+  const responseText = await callClaude(PROMPT_3B_SYSTEM, userMessage, 1024, "sonnet");
+  const parsed = parseClaudeJSON<BatchedRelevanceResponse>(responseText);
+
+  // Clamp each multiplier within allowed range
+  const results: Record<string, RelevanceResult> = {};
+  for (const input of inputs) {
+    const dimResult = parsed.evaluations?.[input.dimension];
+    if (dimResult) {
+      const baseMultiplier = RATING_MULTIPLIERS[input.rating];
+      const minMultiplier = Math.max(0, baseMultiplier - 0.25);
+      const maxMultiplier = baseMultiplier + 0.25;
+      dimResult.adjustedMultiplier = Math.max(minMultiplier, Math.min(maxMultiplier, dimResult.adjustedMultiplier));
+      results[input.dimension] = dimResult;
+    }
+  }
+
+  return results as Record<Dimension, RelevanceResult>;
 }
 
 export async function POST(request: NextRequest) {
@@ -127,32 +147,40 @@ export async function POST(request: NextRequest) {
     { keyComponents: string[]; irrelevantComponents: string[] }
   >;
 
-  // Group ratings by dimension — if ANY rating in a dimension is non-3, evaluate that dimension
+  // Collect all dimensions needing AI evaluation, then batch into ONE Claude call
+  const batchInputs: BatchedRelevanceInput[] = [];
   for (const dim of DIMENSIONS) {
     const dimRatings = ratings.filter((r: SessionRating) => r.dimension === dim);
     const nonThreeRatings = dimRatings.filter((r: SessionRating) => r.rating !== 3);
 
     if (nonThreeRatings.length > 0 && relevanceProfiles[dim]) {
-      // Use the first non-3 rating's comment for AI evaluation
       const primaryRating = nonThreeRatings[0];
-      const comment = primaryRating.comment || "";
-      const sessionDetails = primaryRating.sessionName || dim;
+      batchInputs.push({
+        dimension: dim,
+        rating: primaryRating.rating as WorkoutRating,
+        comment: primaryRating.comment || "",
+        sessionDetails: primaryRating.sessionName || dim,
+      });
+    }
+  }
 
-      try {
-        const result = await evaluateRelevance(
-          primaryRating.rating as WorkoutRating,
-          comment,
-          dim,
-          objective.name as string,
-          sessionDetails,
-          relevanceProfiles
-        );
-        aiMultipliers[dim] = result.adjustedMultiplier;
-        aiExplanations[dim] = result.explanation;
-      } catch (err) {
-        console.error(`AI relevance evaluation failed for ${dim}:`, err);
-        // Fall back to base multiplier (no AI adjustment)
+  if (batchInputs.length > 0) {
+    try {
+      const batchResults = await evaluateRelevanceBatched(
+        batchInputs,
+        objective.name as string,
+        relevanceProfiles
+      );
+      for (const input of batchInputs) {
+        const result = batchResults[input.dimension];
+        if (result) {
+          aiMultipliers[input.dimension] = result.adjustedMultiplier;
+          aiExplanations[input.dimension] = result.explanation;
+        }
       }
+    } catch (err) {
+      console.error("Batched AI relevance evaluation failed:", err);
+      // Fall back to base multipliers (no AI adjustment)
     }
   }
 

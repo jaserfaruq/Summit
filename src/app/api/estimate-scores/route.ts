@@ -32,31 +32,60 @@ export async function POST(request: NextRequest) {
     })))}. Use these as anchors to calibrate your assessment relative to known standards.`;
   }
 
+  // Trim benchmark exercises to only fields Claude needs for selection
+  const trimmedBenchmarks = benchmarkExercises.map((b) => ({
+    id: b.id,
+    name: b.name,
+    dimension: b.dimension,
+    measurement_type: b.measurement_type,
+    measurement_unit: b.measurement_unit,
+    description: b.description,
+  }));
+
   const userMessage = `Objective: ${objectiveDetails.name}. Route: ${objectiveDetails.route || "N/A"}. Type: ${objectiveDetails.type}. Season: ${objectiveDetails.season || "N/A"}. Duration: ${objectiveDetails.duration || "N/A"}. Summit elevation: ${objectiveDetails.elevation || "N/A"}. Total gain: ${objectiveDetails.totalGain || "N/A"}. Distance: ${objectiveDetails.distance || "N/A"}. Technical grade: ${objectiveDetails.grade || "N/A"}. Additional details: ${objectiveDetails.details || "N/A"}. Pack weight: ${objectiveDetails.packWeight || "N/A"}.
 
-Available benchmark exercises: ${JSON.stringify(benchmarkExercises)}
+Available benchmark exercises: ${JSON.stringify(trimmedBenchmarks)}
 
 ${anchors.length > 0 ? `Calibration anchors: ${JSON.stringify(anchors.map(a => ({ name: a.name, targetScores: a.target_scores })))}` : ""}`;
 
-  try {
-    const responseText = await callClaude(systemPrompt, userMessage);
-    const parsed = parseClaudeJSON<EstimateScoresResponse>(responseText);
+  // Use streaming response with keep-alive to prevent Safari's ~60s timeout
+  // from killing the connection while Opus thinks
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      // Send a keep-alive space every 10s to keep the connection open
+      const keepAlive = setInterval(() => {
+        controller.enqueue(encoder.encode(" "));
+      }, 10000);
 
-    // Enforce minimum benchmark counts per dimension
-    const gb = parsed.graduationBenchmarks;
-    if (!gb.cardio || gb.cardio.length < 2) {
-      throw new Error("AI returned fewer than 2 cardio graduation benchmarks");
-    }
-    if (!gb.strength || gb.strength.length < 2) {
-      throw new Error("AI returned fewer than 2 strength graduation benchmarks");
-    }
+      try {
+        const t0 = Date.now();
+        const responseText = await callClaude(systemPrompt, userMessage, 6144);
+        console.log(`[estimate-scores] Claude call took ${Date.now() - t0}ms`);
+        const parsed = parseClaudeJSON<EstimateScoresResponse>(responseText);
 
-    return NextResponse.json(parsed);
-  } catch (error) {
-    console.error("Error estimating scores:", error);
-    return NextResponse.json(
-      { error: "Failed to estimate scores" },
-      { status: 500 }
-    );
-  }
+        // Enforce minimum benchmark counts per dimension
+        const gb = parsed.graduationBenchmarks;
+        if (!gb.cardio || gb.cardio.length < 2) {
+          throw new Error("AI returned fewer than 2 cardio graduation benchmarks");
+        }
+        if (!gb.strength || gb.strength.length < 2) {
+          throw new Error("AI returned fewer than 2 strength graduation benchmarks");
+        }
+
+        clearInterval(keepAlive);
+        controller.enqueue(encoder.encode(JSON.stringify(parsed)));
+        controller.close();
+      } catch (error) {
+        clearInterval(keepAlive);
+        console.error("Error estimating scores:", error);
+        controller.enqueue(encoder.encode(JSON.stringify({ error: "Failed to estimate scores" })));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: { "Content-Type": "application/json" },
+  });
 }
