@@ -102,7 +102,9 @@ Suggest 3 closely related routes/objectives for this search. Prioritize validate
 
     try {
       const response = await callClaude(PROMPT_SEARCH_SYSTEM, userMessage, 2048, "sonnet");
+      console.log("AI search raw response:", response.substring(0, 500));
       const parsed = parseClaudeJSON<{ suggestions: SearchSuggestion[] }>(response);
+      console.log("Parsed suggestions count:", parsed.suggestions?.length, JSON.stringify(parsed.suggestions?.map(s => s.name)));
 
       const matches: SearchMatch[] = [];
 
@@ -157,7 +159,8 @@ Suggest 3 closely related routes/objectives for this search. Prioritize validate
         anchors: [],
       };
       return NextResponse.json(response2);
-    } catch {
+    } catch (err) {
+      console.error("AI search failed:", err);
       // Fallback: if Claude fails but we have a pre-match, still return it
       if (preMatchedVO) {
         return NextResponse.json({

@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { mutate } from "swr";
 
 export default function DeletePlanButton({ planId, onDeleted }: { planId: string; onDeleted?: () => void }) {
-  const router = useRouter();
   const [showConfirm, setShowConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -24,17 +22,14 @@ export default function DeletePlanButton({ planId, onDeleted }: { planId: string
         throw new Error(data.error || "Failed to delete plan");
       }
 
-      // Clear SWR cache before any state updates or navigation
+      // Clear SWR cache so plan page doesn't rehydrate stale data
       await mutate("plan-data", undefined, { revalidate: false });
 
-      setShowConfirm(false);
-      setDeleting(false);
       if (onDeleted) {
         onDeleted();
       }
-      // Always navigate to dashboard after successful deletion
-      router.push("/dashboard");
-      router.refresh();
+      // Hard navigation to bypass Next.js client-side router cache
+      window.location.href = "/dashboard";
     } catch (error) {
       console.error("Error deleting plan:", error);
       alert(error instanceof Error ? error.message : "Failed to delete plan");

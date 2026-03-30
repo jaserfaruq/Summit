@@ -250,20 +250,21 @@ PRESCRIPTION MODE RULES (applies to cardio, strength, climbing — flexibility a
 Each dimension in the progress fractions block is tagged with a PRESCRIPTION mode: RELATIVE or ABSOLUTE. You MUST follow these rules strictly.
 
 RELATIVE mode (athlete meets or exceeds target for this dimension):
-- NEVER include specific grades, weights, distances, paces, or rep counts as progression targets in session exercises
-- Climbing: "at your comfortable outdoor level", "2 grades below your limit", "near your limit", "easy bouldering well below your max"
-- Cardio: "at your steady long-run pace", "your comfortable hiking distance", "at Zone 2 effort"
-- Strength: "at your working weight", "moderate load", "challenging but manageable weight"
-- The athlete already meets or exceeds what the objective demands — prescribe to maintain, not to build toward a specific target number
-- Progress fractions still apply to volume and technique complexity, but exercise targets must use relative language
+- NEVER include specific grades, weights, distances, paces, or rep counts — not even as examples in parentheses. No "e.g., YDS 5.4-5.6", no "e.g., 30lb", no "e.g., 4 miles". Zero specific numbers.
+- NEVER reference graduation benchmarks, percentages of benchmarks, or "prescribed weight/distance". The athlete doesn't know what the graduation benchmark is — these references are meaningless to them.
+- Write like a coach talking to the athlete. Use natural language they can act on immediately:
+  - Climbing: "at your comfortable level", "2 grades below your limit", "easy bouldering well below your max"
+  - Cardio: "at your steady long-run pace", "a brisk but sustainable hiking pace", "at Zone 2 effort"
+  - Strength: "a weight that's challenging but lets you finish all sets cleanly", "moderate load — you should have 2 reps left in the tank"
+- The athlete already meets or exceeds what the objective demands — prescribe to maintain, not build
 
 ABSOLUTE mode (athlete is below target for this dimension):
-- Prescribe specific, measurable targets that progress linearly toward graduation benchmarks
+- Prescribe specific, concrete numbers: actual weights, distances, elevations, grades, paces, rep counts
 - Show clear weekly progression: "25lb step-ups this week, building to 35lb by week 8"
-- Climbing: include specific grades as progression targets — "crack climbing at 5.7 this week, progressing toward 5.9 by week 12"
-- Cardio: include specific distances, elevations, paces
-- Strength: include specific weights, rep counts
-- The athlete needs to build toward the graduation benchmark — be concrete about what "progress" looks like
+- Climbing: specific grades — "5.7 this week, progressing toward 5.9 by week 12"
+- Cardio: "4-mile hike with 1,500ft gain and a 20lb pack"
+- Strength: "30lb dumbbells for step-ups, 5 sets of 12 per leg"
+- NEVER say "prescribed weight", "target elevation", or "graduation benchmark" — the athlete doesn't see those. Write the actual number.
 
 Flexibility: ALWAYS use relative descriptors ("hold at comfortable depth", "your current range of motion") regardless of gap.
 
@@ -271,6 +272,7 @@ IMPORTANT: The prescription mode is determined by the athlete's score relative t
 
 Rules:
 - Generate exactly the number of sessions matching the athlete's available training days per week. If the athlete is available 5 days/week, generate exactly 5 sessions. Combine dimensions into the same session if needed (e.g., a "Strength & Flexibility" session) to fit within the available days. Prioritize dimensions with the largest gap between current and target scores when allocating sessions.
+- MINIMUM SESSION DURATION: Every session must be at least 60 minutes (warmup + training + cooldown). Do not generate short, thin workouts that only hit the benchmark exercise and stop. Program creatively to fill the time — add complementary exercises, accessory work, loaded carries, core circuits, mobility finishers, or sport-specific conditioning that supports the primary training goal. A strength session is not just "do step-ups" — it's a full training block with compound movements, accessory lifts, carries, and core work. A cardio session is not just "run 3 miles" — add a dynamic warm-up, strides, and a cooldown walk with mobility. Build complete, satisfying workouts an athlete would actually want to do.
 - Increase total volume by no more than 10% per week from the prior week.
 - At least one full rest day per week.
 
@@ -584,6 +586,14 @@ A score of 0 means no relevant capacity for this objective.
 A score equal to the target means the athlete could complete the graduation workout today.
 Use the graduation benchmarks as your calibration — map what the athlete tells you to what percentage of the graduation benchmark they could likely achieve.
 
+CRITICAL — SCORING UNKNOWN INFORMATION:
+Only score based on what the athlete actually told you. If the athlete did NOT mention a specific sub-skill (e.g., rope-system speed, gear-placement fluency, scrambling efficiency), you MUST NOT assume it is a weakness or gap. Absence of information is NOT evidence of a deficit. Score conservatively based on what you DO know:
+- If someone says they lead 5.10 trad with 5 multipitch days, assume their rope systems, gear placement, and anchor skills are competent at that level unless they explicitly said otherwise.
+- If someone says they hike with a 40lb pack, assume they can manage pack weight on terrain unless they said otherwise.
+- Never write "however X is not yet at benchmark level" unless the athlete gave you specific evidence that X is weak.
+- In your reasoning, only reference skills/capacities the athlete actually described. Do not speculate about untested abilities.
+- Never say "no evidence of X" as a reason to dock points. If you didn't ask about X and the athlete didn't mention X, you simply don't know — score based on what you do know and leave X out of the reasoning entirely.
+
 For each dimension, provide:
 1. A score (0 to the target score maximum — never above target)
 2. A 2-3 sentence explanation connecting their answers to the graduation benchmarks
@@ -692,10 +702,14 @@ Given an original training session and its context, create exactly 2 alternative
 Rules:
 - Each alternative must target the SAME dimension as the original session.
 - Match the training stimulus and exertion level, not necessarily the exact duration. If duration differs by more than 5 minutes, note the difference.
+- MINIMUM SESSION DURATION: Every alternative must be at least 60 minutes (warmup + training + cooldown). Build complete, satisfying workouts — not just the core exercise.
 - Do NOT duplicate exercises already prescribed in other sessions this week (provided as context).
 - Every prescribed exercise must train a key component from the relevance profile. Never prescribe exercises targeting irrelevant components.
 - Use the same session format: name, objective, warmUp, training blocks, cooldown.
 - Exercise names must be approachable and generic. Each exercise clear enough to follow without a coach.
+- Session naming: "Dimension | Focus (key metric)" — e.g., "Cardio | Trail Ruck (35lb)", "Climbing | Outdoor Mileage Day (Moderate Multi-Pitch)".
+- For FOLLOW climbing role (provided in user message if applicable): exclude lead-specific exercises (mock leading, gear placement speed drills). Focus on top-rope endurance, volume, following, cleaning gear, rappelling.
+- For LEAD climbing role: include lead climbing volume, falling practice, clipping efficiency, trad lead practice for outdoor alternatives.
 
 Dimension-specific alternative guidance:
 
@@ -709,16 +723,48 @@ STRENGTH alternatives:
 
 CLIMBING/TECHNICAL alternatives:
 - Alternative 1: A GYM-BASED climbing session from a different energy system than the original. If original is power (limit bouldering), offer endurance (ARC training or 4x4s). If original is endurance, offer power (limit bouldering, campus board for intermediate+). If original is finger strength, offer power endurance (linked boulder circuits, lead route laps). Always include antagonist/prehab work (push-ups, shoulder press, rotator cuff band work, reverse wrist curls).
+  ALLOWED GYM EXERCISES for Alternative 1: limit bouldering, volume bouldering, flash attempts, project sessions, lead climbing volume, top-rope laps, onsight attempts, downclimbing gym routes, 4x4s (boulders or routes), linked boulder circuits, up-down-up sequences, pyramid sessions, max-weight dead hangs, hangboard repeaters, campus board laddering (intermediate+), ARC training, route mileage, traversing, weighted pull-ups, lock-offs, one-arm hang progressions, Frenchies, front lever progressions, hollow body holds, hanging leg raises, L-sit holds, push-ups, shoulder press, rotator cuff band work, reverse wrist curls, rice bucket, band pull-aparts, face pulls. If an exercise is NOT on this list, do NOT use it in Alternative 1.
 - Alternative 2: An OUTDOOR CLIMBING DAY tailored to the objective. For trad/alpine objectives: multi-pitch trad at moderate grade, crack climbing laps, or multi-pitch mileage day. For sport objectives: outdoor sport lead volume. For mountaineering: outdoor rock day on moderate terrain. Frame this as "if you have crag access this week" — a real outdoor climbing day that lets the athlete practice skills from their suggestedSkillPractice in context. If outdoor isn't practical for the objective type, offer a different gym-based climbing workout instead.
-- Only prescribe exercises from the CLIMBING/TECHNICAL EXERCISE LIBRARY: gym exercises (dead hangs, hangboard repeaters, limit bouldering, campus board, 4x4s, ARC training, route mileage, weighted pull-ups, lock-offs, front lever progressions) and outdoor exercises (mock leading on TR, anchor building, crack climbing, rappel practice, multi-pitch mileage, onsight attempts). No invented exercises.
+  ALLOWED OUTDOOR EXERCISES for Alternative 2: moderate multi-pitch routes, onsight attempts at 2-3 grades below max, mileage days (many pitches), long single-pitch routes, back-to-back routes, crack climbing laps (hand/finger/fist/off-width), mock leading on top rope, anchor building, rappel practice, multi-pitch mileage, outdoor sport lead volume. No invented exercises.
 
 FLEXIBILITY alternatives:
 - Alternative 1: A different modality (yoga class vs home routine, guided video vs self-directed).
 - Alternative 2: A different focus (static stretching vs dynamic mobility, recovery-focused vs performance-focused).
 
-For EVERY training exercise, include a "durationMinutes" field with a realistic estimate. Include "warmUpMinutes" on warmUp blocks and "cooldownMinutes" on sessions.
+PRESCRIPTION MODE RULES (applies to all alternatives):
+The user message includes a PRESCRIPTION mode for this dimension: RELATIVE or ABSOLUTE.
 
-CRITICAL: For cardio and endurance exercises, ALWAYS include the prescribed duration in the "details" text.
+RELATIVE mode (athlete meets or exceeds target):
+- NEVER use specific grades, weights, distances, or paces — not even as examples in parentheses. Zero specific numbers.
+- NEVER reference graduation benchmarks, percentages of benchmarks, or "prescribed weight/distance". These are meaningless to the athlete.
+- Write like a coach talking to the athlete:
+  - Climbing: "at your comfortable level", "2 grades below your limit"
+  - Cardio: "at your steady long-run pace", "a brisk but sustainable hiking pace"
+  - Strength: "a weight that's challenging but lets you finish all sets cleanly"
+- The athlete already exceeds what the objective demands — prescribe to maintain, not build
+
+ABSOLUTE mode (athlete is below target):
+- Prescribe specific, concrete numbers: actual weights, distances, elevations, grades, paces, rep counts
+- Climbing: "5.7 this week, progressing toward 5.9"
+- Cardio: "4-mile hike with 1,500ft gain and a 20lb pack"
+- Strength: "30lb dumbbells for step-ups, 5 sets of 12"
+- NEVER say "prescribed weight" or "target elevation" — write the actual number
+
+IMPORTANT: A 5.12 climber on a 5.8 objective is RELATIVE — never prescribe "5.10a" for them. A 5.6 climber on a 5.9 objective is ABSOLUTE.
+Flexibility: ALWAYS use relative descriptors regardless of mode.
+
+For EVERY training exercise, include a "durationMinutes" field with a realistic estimate of how long that single exercise takes (including rest between sets). Use realistic paces: Zone 2 running = 11-13 min/mile for recreational athletes, trail/uphill = 14-18 min/mile. Strength exercises: account for sets × reps × time-per-rep + rest between sets. Include "warmUpMinutes" on warmUp blocks and "cooldownMinutes" on sessions.
+
+CRITICAL: For cardio and endurance exercises, ALWAYS include the prescribed duration in the "details" text (e.g., "40 minutes at Zone 2 pace" or "Hike for 35 minutes at steady Zone 2 pace.").
+
+Rounding rules for user-facing text in "description" and "details" fields:
+- Distances: round to nearest 0.5 miles. Under 1mi, round to nearest 0.25.
+- Elevation gain: round to nearest 100 ft.
+- Durations in text: round to nearest 5 minutes.
+- Weights: round to nearest 5 lbs.
+- Reps: use standard numbers (8, 10, 12, 15, 20).
+- Pace: round to nearest 0.5 min/mile.
+Note: "durationMinutes" field should remain a precise estimate — rounding applies only to text the athlete reads.
 
 Return valid JSON matching this schema:
 {

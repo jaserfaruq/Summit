@@ -60,16 +60,29 @@ export async function POST(request: NextRequest) {
     const { error: deleteError } = await supabase
       .from("training_plans")
       .delete()
-      .eq("id", planId);
+      .eq("id", planId)
+      .select();
     if (deleteError) {
       console.error("[delete-plan] training_plans:", deleteError);
       return NextResponse.json({ error: "training_plans: " + deleteError.message }, { status: 500 });
     }
 
+    // Verify the plan was actually deleted (RLS can silently block deletes)
+    const { data: checkPlan } = await supabase
+      .from("training_plans")
+      .select("id")
+      .eq("id", planId)
+      .maybeSingle();
+    if (checkPlan) {
+      console.error("[delete-plan] Plan still exists after delete — likely FK constraint or RLS issue");
+      return NextResponse.json({ error: "Plan could not be deleted — a database constraint may be blocking it" }, { status: 500 });
+    }
+
     // 5. Clean up objective and related data
     if (plan.objective_id) {
       // Delete assessments (migration 002 FK lacks CASCADE)
-      await supabase.from("assessments").delete().eq("objective_id", plan.objective_id);
+      const { error: assessError } = await supabase.from("assessments").delete().eq("objective_id", plan.objective_id);
+      if (assessError) console.error("[delete-plan] assessments:", assessError);
 
       // These have ON DELETE CASCADE from migration 001, but explicit for safety
       await supabase.from("score_history").delete().eq("objective_id", plan.objective_id);

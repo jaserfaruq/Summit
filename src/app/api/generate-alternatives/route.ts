@@ -103,10 +103,21 @@ ${JSON.stringify(otherSessions.map(s => ({ name: s.name, dimension: s.dimension,
 Dimension: ${sessionForPrompt.dimension}
 Relevance profile for this dimension: ${JSON.stringify(dimensionRelevance, null, 2)}
 
+Objective: ${objective.name} (${objective.type})
+Climbing role: ${objective.climbing_role || "not specified"}
+
 Athlete equipment: ${(profile?.equipment_access || []).join(", ") || "basic gym equipment"}
 Athlete location: ${profile?.location || "not specified"}
 
-Week ${weekNumber} of ${totalWeeks || "?"}. Progress fraction for ${sessionForPrompt.dimension}: ${dimFraction?.fraction || 50}%.`;
+Week ${weekNumber} of ${totalWeeks || "?"}. Progress fraction for ${sessionForPrompt.dimension}: ${dimFraction?.fraction || 50}%.
+
+${(() => {
+  const dim = sessionForPrompt.dimension;
+  const current = currentScores[dim as keyof typeof currentScores] || 0;
+  const target = targetScores[dim as keyof typeof targetScores] || 0;
+  const isRelative = dim === "flexibility" || current >= target;
+  return `PRESCRIPTION MODE for ${dim}: ${isRelative ? "RELATIVE" : "ABSOLUTE"}. Current score: ${current}, Target score: ${target}.`;
+})()}`;
 
   try {
     const responseText = await callClaudeWithCache(PROMPT_6_SYSTEM, userMessage, 8192, "opus");

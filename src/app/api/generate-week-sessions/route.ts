@@ -94,30 +94,34 @@ export async function POST(request: NextRequest) {
   );
 
   // Helper to save sessions to DB and trigger partner notifications
+  // Uses service client to bypass RLS — the user client's auth context may expire
+  // during streaming flush, causing silent save failures.
   async function saveSessions(sessions: PlanSession[], suggestedSkillPractice?: SkillPracticeItem[]) {
+    const serviceClient = createServiceClient();
     const totalHours = calculateWeekTotalHours(sessions);
     const updateData: Record<string, unknown> = { sessions, total_hours: totalHours };
     if (suggestedSkillPractice && suggestedSkillPractice.length > 0) {
       updateData.suggested_skill_practice = suggestedSkillPractice;
     }
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceClient
       .from("weekly_targets")
       .update(updateData)
       .eq("id", weekTarget.id);
     if (updateError) {
-      console.error("Error saving week sessions:", updateError);
-      // If the update failed (e.g., suggested_skill_practice column missing), retry without it
-      if (suggestedSkillPractice) {
-        const { error: retryError } = await supabase
-          .from("weekly_targets")
-          .update({ sessions, total_hours: totalHours })
-          .eq("id", weekTarget.id);
-        if (retryError) {
-          console.error("Error saving week sessions (retry):", retryError);
-        }
+      console.error("Error saving week sessions:", JSON.stringify(updateError));
+      // Retry with just sessions and total_hours (in case suggested_skill_practice column doesn't exist)
+      const { error: retryError } = await serviceClient
+        .from("weekly_targets")
+        .update({ sessions, total_hours: totalHours })
+        .eq("id", weekTarget.id);
+      if (retryError) {
+        console.error("Error saving week sessions (retry):", JSON.stringify(retryError));
+      } else {
+        console.log("Retry save succeeded for week", weekTarget.week_number);
       }
+    } else {
+      console.log("Sessions saved successfully for week", weekTarget.week_number, "- session count:", sessions.length);
     }
-    const serviceClient = createServiceClient();
     checkAndCreateNotifications(user!.id, planId, weekNumber, sessions, serviceClient)
       .catch((err) => console.error("Error creating partner notifications:", err));
   }
