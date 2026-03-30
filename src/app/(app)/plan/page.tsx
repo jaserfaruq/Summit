@@ -164,7 +164,7 @@ function PlanContent() {
         throw new Error(data.error || "Failed to generate plan");
       }
 
-      const planResult = await res.json();
+      await res.json();
 
       // Reset auto-load so it triggers with the new plan data
       autoLoadTriggeredRef.current = false;
