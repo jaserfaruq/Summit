@@ -49,22 +49,33 @@ export function PlanSwitcherProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("training_plans")
-      .select("id, created_at, current_week_number, objectives(name, type, target_date)")
+      .select("id, created_at, current_week_number, objective_id")
       .eq("user_id", user.id)
       .eq("status", "active")
       .order("created_at", { ascending: false });
 
-    if (!data || data.length === 0) {
+    if (error || !data || data.length === 0) {
       setPlans([]);
       setActivePlanIdState(null);
       setIsLoading(false);
       return;
     }
 
+    // Fetch objective details separately to avoid join issues
+    const objectiveIds = data.map((p) => p.objective_id).filter(Boolean);
+    const { data: objectivesData } = await supabase
+      .from("objectives")
+      .select("id, name, type, target_date")
+      .in("id", objectiveIds);
+
+    const objectiveMap = new Map(
+      (objectivesData || []).map((o: Record<string, unknown>) => [o.id as string, o])
+    );
+
     const mapped: PlanSummary[] = data.map((p: Record<string, unknown>) => {
-      const obj = p.objectives as Record<string, unknown> | null;
+      const obj = objectiveMap.get(p.objective_id as string) as Record<string, unknown> | undefined;
       return {
         id: p.id as string,
         objective_name: (obj?.name as string) || "Unnamed Objective",
