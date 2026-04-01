@@ -1,5 +1,6 @@
 import useSWR from "swr";
 import { createClient } from "@/lib/supabase";
+import { usePlanSwitcher } from "@/lib/plan-switcher-context";
 import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Assessment } from "@/lib/types";
 
 export interface CachedPlanData {
@@ -26,20 +27,20 @@ const EMPTY: CachedPlanData = {
   activeWeek: null,
 };
 
-async function fetchPlanData(): Promise<CachedPlanData> {
+async function fetchPlanData(planId: string): Promise<CachedPlanData> {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return EMPTY;
 
-  const { data: plans } = await supabase
+  // Fetch the specific plan by ID
+  const { data: planData } = await supabase
     .from("training_plans")
     .select("*")
+    .eq("id", planId)
     .eq("user_id", user.id)
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(1);
+    .single();
 
-  const activePlan = (plans as TrainingPlan[] | null)?.[0];
+  const activePlan = planData as TrainingPlan | null;
   if (!activePlan) return EMPTY;
 
   // Parallel fetch: these 5 queries are independent
@@ -123,11 +124,17 @@ async function fetchPlanData(): Promise<CachedPlanData> {
 }
 
 export function usePlanData() {
-  const { data, error, isLoading, mutate } = useSWR("plan-data", fetchPlanData, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: true,
-    dedupingInterval: 5000,
-  });
+  const { activePlanId } = usePlanSwitcher();
+
+  const { data, error, isLoading, mutate } = useSWR(
+    activePlanId ? `plan-data-${activePlanId}` : null,
+    () => fetchPlanData(activePlanId!),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      dedupingInterval: 5000,
+    }
+  );
 
   return {
     data: data ?? EMPTY,

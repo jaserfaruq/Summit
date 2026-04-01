@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import { PlanSwitcherProvider } from "@/lib/plan-switcher-context";
 
 export default async function AppLayout({
   children,
@@ -21,8 +22,10 @@ export default async function AppLayout({
     .single();
 
   return (
-    <AppShell email={user.email || ""} isValidator={profile?.is_validator}>
-      {children}
-    </AppShell>
+    <PlanSwitcherProvider>
+      <AppShell email={user.email || ""} isValidator={profile?.is_validator}>
+        {children}
+      </AppShell>
+    </PlanSwitcherProvider>
   );
 }

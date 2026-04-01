@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { signout } from "@/app/auth/actions";
+import PlanSwitcher from "@/components/PlanSwitcher";
 
 const NAV_ITEMS = [
   {
@@ -138,7 +139,9 @@ export default function AppShell({
           })}
         </nav>
 
-        {/* Right: avatar menu */}
+        {/* Right: plan switcher + avatar menu */}
+        <div className="flex items-center gap-3">
+        <PlanSwitcher />
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
@@ -163,6 +166,7 @@ export default function AppShell({
               </form>
             </div>
           )}
+        </div>
         </div>
       </header>
 

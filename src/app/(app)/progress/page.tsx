@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
+import { usePlanSwitcher } from "@/lib/plan-switcher-context";
 import { ScoreHistory, Objective, WeeklyTarget } from "@/lib/types";
 
 const CHANGE_REASON_LABELS: Record<string, string> = {
@@ -304,29 +305,62 @@ function DimensionChart({
 }
 
 export default function ProgressPage() {
+  const { activePlanId, isLoading: plansLoading } = usePlanSwitcher();
   const [scoreHistory, setScoreHistory] = useState<ScoreHistory[]>([]);
   const [weeklyTargets, setWeeklyTargets] = useState<WeeklyTarget[]>([]);
   const [objective, setObjective] = useState<Objective | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  async function fetchData() {
+  const fetchData = useCallback(async function fetchData() {
+    setLoading(true);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setLoading(false); return; }
 
-    const { data: objectives } = await supabase
-      .from("objectives")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("target_date")
-      .limit(1);
+    let obj: Objective | null = null;
+    let planId: string | null = null;
 
-    const obj = (objectives as Objective[] | null)?.[0];
-    setObjective(obj || null);
+    if (activePlanId) {
+      // Fetch the plan to get its objective_id
+      const { data: planData } = await supabase
+        .from("training_plans")
+        .select("id, objective_id")
+        .eq("id", activePlanId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (planData) {
+        planId = planData.id;
+        const { data: objData } = await supabase
+          .from("objectives")
+          .select("*")
+          .eq("id", planData.objective_id)
+          .single();
+        obj = objData as Objective | null;
+      }
+    } else {
+      // Fallback: first objective by date
+      const { data: objectives } = await supabase
+        .from("objectives")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("target_date")
+        .limit(1);
+      obj = (objectives as Objective[] | null)?.[0] || null;
+
+      if (obj) {
+        const { data: plans } = await supabase
+          .from("training_plans")
+          .select("id")
+          .eq("objective_id", obj.id)
+          .eq("status", "active")
+          .order("created_at", { ascending: false })
+          .limit(1);
+        planId = plans?.[0]?.id || null;
+      }
+    }
+
+    setObjective(obj);
 
     if (obj) {
       const { data: history } = await supabase
@@ -337,28 +371,28 @@ export default function ProgressPage() {
 
       setScoreHistory((history as ScoreHistory[]) || []);
 
-      // Fetch active training plan and its weekly targets for trajectory line
-      const { data: plans } = await supabase
-        .from("training_plans")
-        .select("id")
-        .eq("objective_id", obj.id)
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      const activePlan = plans?.[0];
-      if (activePlan) {
+      if (planId) {
         const { data: targets } = await supabase
           .from("weekly_targets")
           .select("id, week_number, week_start, expected_scores")
-          .eq("plan_id", activePlan.id)
+          .eq("plan_id", planId)
           .order("week_number");
 
         setWeeklyTargets((targets as WeeklyTarget[]) || []);
+      } else {
+        setWeeklyTargets([]);
       }
+    } else {
+      setScoreHistory([]);
+      setWeeklyTargets([]);
     }
     setLoading(false);
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlanId]);
+
+  useEffect(() => {
+    if (!plansLoading) fetchData();
+  }, [fetchData, plansLoading]);
 
   if (loading) {
     return (

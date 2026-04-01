@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
-import { Objective, WeeklyTarget, TrainingPlan, PlanSession, WorkoutLog } from "@/lib/types";
+import { usePlanSwitcher } from "@/lib/plan-switcher-context";
+import { Objective, WeeklyTarget, PlanSession, WorkoutLog } from "@/lib/types";
 import ObjectiveModal from "@/components/ObjectiveModal";
 import WeekBadge from "@/components/WeekBadge";
 import Link from "next/link";
@@ -36,6 +37,7 @@ interface CalendarSession {
 }
 
 export default function CalendarPage() {
+  const { activePlanId, isLoading: plansLoading } = usePlanSwitcher();
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [calendarSessions, setCalendarSessions] = useState<CalendarSession[]>([]);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
@@ -44,11 +46,7 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  async function fetchData() {
+  const fetchData = useCallback(async function fetchData() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -59,26 +57,32 @@ export default function CalendarPage() {
       .order("target_date");
     if (objData) setObjectives(objData as Objective[]);
 
-    const { data: plans } = await supabase
-      .from("training_plans")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(1);
+    // Use the selected plan from context, or fall back to latest
+    let planId = activePlanId;
+    if (!planId) {
+      const { data: plans } = await supabase
+        .from("training_plans")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      planId = (plans as { id: string }[] | null)?.[0]?.id || null;
+    }
 
-    const activePlan = (plans as TrainingPlan[] | null)?.[0];
-    if (activePlan) {
+    if (planId) {
       const { data: weekData } = await supabase
         .from("weekly_targets")
         .select("*")
-        .eq("plan_id", activePlan.id)
+        .eq("plan_id", planId)
         .order("week_number");
 
       if (weekData) {
-        const sessions = distributeSessionsToDates(weekData as WeeklyTarget[], activePlan.id);
+        const sessions = distributeSessionsToDates(weekData as WeeklyTarget[], planId);
         setCalendarSessions(sessions);
       }
+    } else {
+      setCalendarSessions([]);
     }
 
     const { data: logData } = await supabase
@@ -86,7 +90,12 @@ export default function CalendarPage() {
       .select("*")
       .eq("user_id", user.id);
     if (logData) setWorkoutLogs(logData as WorkoutLog[]);
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlanId]);
+
+  useEffect(() => {
+    if (!plansLoading) fetchData();
+  }, [fetchData, plansLoading]);
 
   function distributeSessionsToDates(weeks: WeeklyTarget[], planId: string): CalendarSession[] {
     const results: CalendarSession[] = [];
