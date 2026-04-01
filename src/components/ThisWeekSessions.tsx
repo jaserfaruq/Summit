@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { WeeklyTarget, PlanSession, SkillPracticeItem } from "@/lib/types";
 import AlternativesPanel from "./AlternativesPanel";
+import ExerciseDemoButton from "./ExerciseDemoButton";
 
 export default function ThisWeekSessions({
   weekTarget,
@@ -152,7 +153,7 @@ function SessionDetails({ session }: { session: PlanSession }) {
           </h5>
           <ul className="text-sm text-dark-muted space-y-0.5">
             {session.warmUp.exercises.map((ex, j) => (
-              <li key={j}>• {ex.name} — {ex.reps}</li>
+              <li key={j}>• {ex.name}<ExerciseDemoButton exerciseName={ex.name} /> — {ex.reps}</li>
             ))}
           </ul>
         </div>
@@ -165,7 +166,7 @@ function SessionDetails({ session }: { session: PlanSession }) {
             {session.training.map((ex) => (
               <li key={ex.exerciseNumber}>
                 <span className="font-medium text-dark-text">
-                  {ex.exerciseNumber}. {ex.description}
+                  {ex.exerciseNumber}. {ex.description}<ExerciseDemoButton exerciseName={ex.description} />
                   {ex.durationMinutes ? (
                     <span className="text-dark-muted font-normal text-xs ml-2">{ex.durationMinutes} min</span>
                   ) : null}

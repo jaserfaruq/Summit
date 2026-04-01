@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { PlanSession, AlternativeSession } from "@/lib/types";
 import AILoadingIndicator from "@/components/AILoadingIndicator";
+import ExerciseDemoButton from "@/components/ExerciseDemoButton";
 
 interface AlternativesPanelProps {
   isOpen: boolean;
@@ -260,7 +261,7 @@ export default function AlternativesPanel({
                         </h5>
                         <ul className="text-sm text-dark-muted space-y-0.5">
                           {option.session.warmUp.exercises.map((ex, j) => (
-                            <li key={j}>• {ex.name} — {ex.reps}</li>
+                            <li key={j}>• {ex.name}<ExerciseDemoButton exerciseName={ex.name} /> — {ex.reps}</li>
                           ))}
                         </ul>
                       </div>
@@ -273,7 +274,7 @@ export default function AlternativesPanel({
                           {option.session.training.map((ex) => (
                             <li key={ex.exerciseNumber}>
                               <span className="font-medium text-dark-text">
-                                {ex.exerciseNumber}. {ex.description}
+                                {ex.exerciseNumber}. {ex.description}<ExerciseDemoButton exerciseName={ex.description} />
                                 {ex.durationMinutes ? (
                                   <span className="text-dark-muted font-normal text-xs ml-2">{ex.durationMinutes} min</span>
                                 ) : null}

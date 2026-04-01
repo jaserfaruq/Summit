@@ -11,6 +11,7 @@ import GapInfoBubble from "@/components/GapInfoBubble";
 import ScoreArc from "@/components/ScoreArc";
 import AlternativesPanel from "@/components/AlternativesPanel";
 import AILoadingIndicator from "@/components/AILoadingIndicator";
+import ExerciseDemoButton from "@/components/ExerciseDemoButton";
 import Link from "next/link";
 
 /** Inline SVG mountain silhouette used when no hero image URL is stored */
@@ -1168,7 +1169,7 @@ function PlanContent() {
                                   {session.warmUp.exercises.map((ex, j) => (
                                     <li key={j} className="flex gap-2">
                                       <span className="text-dark-muted/40 select-none">—</span>
-                                      <span>{ex.name} <span className="text-dark-muted/60">{ex.reps}</span></span>
+                                      <span>{ex.name}<ExerciseDemoButton exerciseName={ex.name} /> <span className="text-dark-muted/60">{ex.reps}</span></span>
                                     </li>
                                   ))}
                                 </ul>
@@ -1184,7 +1185,7 @@ function PlanContent() {
                                       <div className="flex items-baseline gap-2">
                                         <span className="text-dark-muted/40 text-[11px] tabular-nums select-none">{ex.exerciseNumber}.</span>
                                         <span className="font-medium text-dark-text leading-snug">
-                                          {ex.description}
+                                          {ex.description}<ExerciseDemoButton exerciseName={ex.description} />
                                           {ex.durationMinutes ? (
                                             <span className="text-dark-muted/60 font-normal text-[11px] ml-2">{ex.durationMinutes} min</span>
                                           ) : null}
