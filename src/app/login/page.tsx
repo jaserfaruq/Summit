@@ -4,22 +4,22 @@ import { login } from "@/app/auth/actions";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
+import { useState, useTransition, Suspense } from "react";
 
 function LoginForm() {
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   async function handleSubmit(formData: FormData) {
-    setLoading(true);
     setError(null);
-    const result = await login(formData);
-    if (result?.error) {
-      setError(result.error);
-      setLoading(false);
-    }
+    startTransition(async () => {
+      const result = await login(formData);
+      if (result?.error) {
+        setError(result.error);
+      }
+    });
   }
 
   return (
@@ -88,16 +88,16 @@ function LoginForm() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isPending}
               className="w-full bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {loading && (
+              {isPending && (
                 <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               )}
-              {loading ? "Logging in..." : "Log In"}
+              {isPending ? "Logging in..." : "Log In"}
             </button>
           </form>
 
