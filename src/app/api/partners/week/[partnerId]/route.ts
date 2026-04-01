@@ -15,6 +15,8 @@ export async function GET(
   }
 
   const { partnerId } = params;
+  const partnerPlanId = request.nextUrl.searchParams.get("partnerPlanId");
+  const userPlanId = request.nextUrl.searchParams.get("userPlanId");
 
   // Verify an accepted partnership exists between the user and this partner
   const { data: partnership, error: partnershipError } = await supabase
@@ -39,15 +41,20 @@ export async function GET(
     .eq("id", partnerId)
     .single();
 
-  // Fetch partner's active plan
-  const { data: partnerPlan } = await serviceClient
+  // Fetch partner's active plan — use specific plan if provided, otherwise latest
+  let partnerPlanQuery = serviceClient
     .from("training_plans")
     .select("id, objective_id, current_week_number")
     .eq("user_id", partnerId)
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
+    .eq("status", "active");
+
+  if (partnerPlanId) {
+    partnerPlanQuery = partnerPlanQuery.eq("id", partnerPlanId);
+  } else {
+    partnerPlanQuery = partnerPlanQuery.order("created_at", { ascending: false }).limit(1);
+  }
+
+  const { data: partnerPlan } = await partnerPlanQuery.single();
 
   if (!partnerPlan) {
     return NextResponse.json({
@@ -130,15 +137,20 @@ export async function GET(
   // Run matching against user's current week
   let matches: PartnerWeekResponse["matches"] = [];
 
-  // Fetch user's active plan and current week
-  const { data: userPlan } = await supabase
+  // Fetch user's active plan and current week — use specific plan if provided
+  let userPlanQuery = supabase
     .from("training_plans")
     .select("id, current_week_number")
     .eq("user_id", user.id)
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
+    .eq("status", "active");
+
+  if (userPlanId) {
+    userPlanQuery = userPlanQuery.eq("id", userPlanId);
+  } else {
+    userPlanQuery = userPlanQuery.order("created_at", { ascending: false }).limit(1);
+  }
+
+  const { data: userPlan } = await userPlanQuery.single();
 
   if (userPlan) {
     const { data: userWeekTarget } = await supabase

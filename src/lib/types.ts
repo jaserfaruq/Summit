@@ -628,6 +628,15 @@ export interface PartnerSession {
   fullSession?: PlanSession;
 }
 
+export interface PartnerPlanSummary {
+  planId: string;
+  objectiveName: string;
+  objectiveType: string;
+  targetDate: string;
+  currentWeekNumber: number;
+  totalWeeks: number;
+}
+
 export interface AcceptedPartner {
   partnershipId: string;
   partnerId: string;
@@ -637,6 +646,7 @@ export interface AcceptedPartner {
   scoresVisible: boolean;
   scores: DimensionScores | null;
   currentWeekSessions: PartnerSession[];
+  partnerPlans: PartnerPlanSummary[];
 }
 
 export interface PendingPartner {

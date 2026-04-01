@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import { createServiceClient } from "@/lib/supabase-service";
 import { NextResponse } from "next/server";
-import { AcceptedPartner, PendingPartner, PartnerListResponse, PlanSession } from "@/lib/types";
+import { AcceptedPartner, PendingPartner, PartnerListResponse, PartnerPlanSummary, PlanSession } from "@/lib/types";
 import { inferSessionEnvironment } from "@/lib/session-matching";
 
 export async function GET() {
@@ -50,37 +50,49 @@ export async function GET() {
 
     if (p.status === "declined") continue;
 
-    // Accepted — fetch partner's active plan and current week data
-    const { data: partnerPlan } = await serviceClient
+    // Accepted — fetch ALL of partner's active plans
+    const { data: partnerPlansData } = await serviceClient
       .from("training_plans")
       .select("id, objective_id, current_week_number")
       .eq("user_id", partnerId)
       .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
+      .order("created_at", { ascending: false });
+
+    // Build partner plan summaries
+    const partnerPlans: PartnerPlanSummary[] = [];
+    for (const pp of partnerPlansData || []) {
+      const { data: obj } = await serviceClient
+        .from("objectives")
+        .select("name, type, target_date")
+        .eq("id", pp.objective_id)
+        .single();
+
+      const { count: totalWeeks } = await serviceClient
+        .from("weekly_targets")
+        .select("*", { count: "exact", head: true })
+        .eq("plan_id", pp.id);
+
+      partnerPlans.push({
+        planId: pp.id,
+        objectiveName: obj?.name || "Unknown",
+        objectiveType: obj?.type || "hike",
+        targetDate: obj?.target_date || "",
+        currentWeekNumber: pp.current_week_number,
+        totalWeeks: totalWeeks || 0,
+      });
+    }
+
+    // Use most recent plan for the card preview
+    const partnerPlan = (partnerPlansData || [])[0] || null;
 
     let objectiveName: string | null = null;
     let weekLabel: string | null = null;
     let currentWeekSessions: AcceptedPartner["currentWeekSessions"] = [];
 
     if (partnerPlan) {
-      // Fetch objective name
-      const { data: objective } = await serviceClient
-        .from("objectives")
-        .select("name")
-        .eq("id", partnerPlan.objective_id)
-        .single();
-
-      objectiveName = objective?.name || null;
-
-      // Fetch total weeks
-      const { count: totalWeeks } = await serviceClient
-        .from("weekly_targets")
-        .select("*", { count: "exact", head: true })
-        .eq("plan_id", partnerPlan.id);
-
-      weekLabel = `Week ${partnerPlan.current_week_number} of ${totalWeeks || "?"}`;
+      objectiveName = partnerPlans[0]?.objectiveName || null;
+      const totalWeeks = partnerPlans[0]?.totalWeeks || "?";
+      weekLabel = `Week ${partnerPlan.current_week_number} of ${totalWeeks}`;
 
       // Fetch current week's sessions
       const { data: weekTarget } = await serviceClient
@@ -143,6 +155,7 @@ export async function GET() {
       scoresVisible,
       scores,
       currentWeekSessions,
+      partnerPlans,
     });
   }
 

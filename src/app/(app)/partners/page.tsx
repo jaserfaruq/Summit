@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { PartnerListResponse, PartnerWeekResponse } from "@/lib/types";
+import { PartnerListResponse, PartnerWeekResponse, PartnerPlanSummary } from "@/lib/types";
+import { usePlanSwitcher } from "@/lib/plan-switcher-context";
 import PartnerList from "@/components/PartnerList";
 import PartnerWeekView from "@/components/PartnerWeekView";
 
 export default function PartnersPage() {
+  const { activePlanId } = usePlanSwitcher();
   const [data, setData] = useState<PartnerListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
+  const [selectedPartnerPlanId, setSelectedPartnerPlanId] = useState<string | null>(null);
   const [partnerWeek, setPartnerWeek] = useState<PartnerWeekResponse | null>(null);
   const [weekLoading, setWeekLoading] = useState(false);
 
@@ -29,7 +32,12 @@ export default function PartnersPage() {
     fetchPartners();
   }, [fetchPartners]);
 
-  // Fetch partner week data when a partner is selected
+  // Reset partner plan selection when switching partners
+  useEffect(() => {
+    setSelectedPartnerPlanId(null);
+  }, [selectedPartnerId]);
+
+  // Fetch partner week data when a partner or partner plan is selected
   useEffect(() => {
     if (!selectedPartnerId) {
       setPartnerWeek(null);
@@ -39,7 +47,11 @@ export default function PartnersPage() {
     async function fetchWeek() {
       setWeekLoading(true);
       try {
-        const res = await fetch(`/api/partners/week/${selectedPartnerId}`);
+        const params = new URLSearchParams();
+        if (selectedPartnerPlanId) params.set("partnerPlanId", selectedPartnerPlanId);
+        if (activePlanId) params.set("userPlanId", activePlanId);
+        const qs = params.toString();
+        const res = await fetch(`/api/partners/week/${selectedPartnerId}${qs ? `?${qs}` : ""}`);
         if (!res.ok) throw new Error("Failed to fetch partner week");
         const json = await res.json();
         setPartnerWeek(json);
@@ -52,7 +64,12 @@ export default function PartnersPage() {
     }
 
     fetchWeek();
-  }, [selectedPartnerId]);
+  }, [selectedPartnerId, selectedPartnerPlanId, activePlanId]);
+
+  // Get the selected partner's plans for the plan selector
+  const selectedPartnerPlans: PartnerPlanSummary[] = selectedPartnerId
+    ? data?.accepted.find((p) => p.partnerId === selectedPartnerId)?.partnerPlans || []
+    : [];
 
   if (loading) {
     return (
@@ -93,6 +110,9 @@ export default function PartnersPage() {
           ) : partnerWeek ? (
             <PartnerWeekView
               partnerWeek={partnerWeek}
+              partnerPlans={selectedPartnerPlans}
+              selectedPartnerPlanId={selectedPartnerPlanId}
+              onSelectPartnerPlan={setSelectedPartnerPlanId}
               onRefresh={fetchPartners}
             />
           ) : (

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { PartnerWeekResponse, PartnerSession, PlanSession } from "@/lib/types";
+import { PartnerWeekResponse, PartnerSession, PartnerPlanSummary, PlanSession } from "@/lib/types";
 import { createClient } from "@/lib/supabase";
+import { usePlanSwitcher } from "@/lib/plan-switcher-context";
 import { inferSessionEnvironment } from "@/lib/session-matching";
 import PartnerSessionCard from "./PartnerSessionCard";
 import ScoreArc from "./ScoreArc";
@@ -17,31 +18,43 @@ const DIMENSION_LABELS: Record<string, string> = {
 
 export default function PartnerWeekView({
   partnerWeek,
+  partnerPlans,
+  selectedPartnerPlanId,
+  onSelectPartnerPlan,
   onRefresh,
 }: {
   partnerWeek: PartnerWeekResponse;
+  partnerPlans: PartnerPlanSummary[];
+  selectedPartnerPlanId: string | null;
+  onSelectPartnerPlan: (planId: string) => void;
   onRefresh: () => void;
 }) {
+  const { activePlanId } = usePlanSwitcher();
   const [userSessions, setUserSessions] = useState<PartnerSession[]>([]);
   const [userPlanId, setUserPlanId] = useState<string | null>(null);
   const [userWeekNumber, setUserWeekNumber] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch user's own current week sessions for side-by-side
+  // Fetch user's own current week sessions using the selected plan from context
   const fetchUserSessions = useCallback(async () => {
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: plan } = await supabase
+      let planQuery = supabase
         .from("training_plans")
         .select("id, current_week_number")
         .eq("user_id", user.id)
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+        .eq("status", "active");
+
+      if (activePlanId) {
+        planQuery = planQuery.eq("id", activePlanId);
+      } else {
+        planQuery = planQuery.order("created_at", { ascending: false }).limit(1);
+      }
+
+      const { data: plan } = await planQuery.single();
 
       if (!plan) return;
 
@@ -82,7 +95,7 @@ export default function PartnerWeekView({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activePlanId]);
 
   useEffect(() => {
     fetchUserSessions();
@@ -118,6 +131,26 @@ export default function PartnerWeekView({
           </p>
         </div>
       </div>
+
+      {/* Partner plan selector — shown when partner has multiple plans */}
+      {partnerPlans.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-dark-muted">Plan:</span>
+          {partnerPlans.map((pp) => (
+            <button
+              key={pp.planId}
+              onClick={() => onSelectPartnerPlan(pp.planId)}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                (selectedPartnerPlanId || partnerPlans[0].planId) === pp.planId
+                  ? "bg-burnt-orange/20 border-burnt-orange/40 text-burnt-orange"
+                  : "bg-dark-surface border-dark-border text-dark-muted hover:text-white hover:border-dark-muted"
+              }`}
+            >
+              {pp.objectiveName}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Partner score arcs (if visible) */}
       {partnerWeek.scoresVisible && partnerWeek.scores && partnerWeek.targetScores && (
