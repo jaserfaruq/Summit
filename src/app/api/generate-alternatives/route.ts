@@ -120,7 +120,7 @@ ${(() => {
 })()}`;
 
   try {
-    const responseText = await callClaudeWithCache(PROMPT_6_SYSTEM, userMessage, 8192, "opus");
+    const responseText = await callClaudeWithCache(PROMPT_6_SYSTEM, userMessage, 8192, "opus4_7");
     const result = parseClaudeJSON<{ alternatives: AlternativeSession[] }>(responseText);
 
     // Calculate estimated minutes for each alternative

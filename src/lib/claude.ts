@@ -25,10 +25,12 @@ const openai =
 const MODEL_HAIKU = "claude-haiku-4-5-20251001";
 const MODEL_SONNET = "claude-sonnet-4-20250514";
 const MODEL_OPUS = "claude-opus-4-20250514";
+const MODEL_OPUS_4_7 = "claude-opus-4-7";
 
-export type ClaudeModel = "haiku" | "sonnet" | "opus";
+export type ClaudeModel = "haiku" | "sonnet" | "opus" | "opus4_7";
 
 function getModelId(model: ClaudeModel): string {
+  if (model === "opus4_7") return MODEL_OPUS_4_7;
   if (model === "opus") return MODEL_OPUS;
   if (model === "haiku") return MODEL_HAIKU;
   return MODEL_SONNET;
@@ -36,9 +38,9 @@ function getModelId(model: ClaudeModel): string {
 
 // OpenAI model mapping
 function getOpenAIModelId(model: ClaudeModel): string {
-  if (model === "opus") return "gpt-4.1";
-  if (model === "haiku") return "gpt-4.1-nano";
-  return "gpt-4.1"; // sonnet → gpt-4.1
+  if (model === "opus4_7" || model === "opus") return "gpt-5.4";
+  if (model === "haiku") return "gpt-5.4-mini";
+  return "gpt-5.4-mini"; // sonnet → gpt-5.4-mini
 }
 
 // --- OpenAI implementations ---
@@ -46,7 +48,7 @@ function getOpenAIModelId(model: ClaudeModel): string {
 // Check if a model is a reasoning model (uses thinking tokens)
 function isReasoningModel(model: ClaudeModel): boolean {
   const modelId = getOpenAIModelId(model);
-  return modelId === "gpt-5" || modelId.startsWith("o");
+  return modelId.startsWith("gpt-5") || modelId.startsWith("o");
 }
 
 async function callOpenAI(

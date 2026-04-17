@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         );
 
         const responseText = await callClaudeWithCache(
-          PROMPT_2B_SYSTEM, userMessage, 8192, "opus"
+          PROMPT_2B_SYSTEM, userMessage, 8192, "opus4_7"
         );
         const result = parseClaudeJSON<{ sessions: PlanSession[]; suggestedSkillPractice?: SkillPracticeItem[] }>(responseText);
         calculateAllSessionMinutes(result.sessions);

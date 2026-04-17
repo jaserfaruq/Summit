@@ -86,7 +86,7 @@ Additional context from athlete:
 ${freeformText || "None provided"}`;
 
   try {
-    const responseText = await callClaude(PROMPT_ASSESS_SCORE_SYSTEM, userMessage, 8192, "opus");
+    const responseText = await callClaude(PROMPT_ASSESS_SCORE_SYSTEM, userMessage, 8192, "opus4_7");
     const result = parseClaudeJSON<ScoreAssessmentResponse>(responseText);
 
     // Store climbing_role on the objective

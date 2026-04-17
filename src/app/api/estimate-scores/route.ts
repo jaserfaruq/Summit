@@ -60,7 +60,7 @@ ${anchors.length > 0 ? `Calibration anchors: ${JSON.stringify(anchors.map(a => (
 
       try {
         const t0 = Date.now();
-        const responseText = await callClaude(systemPrompt, userMessage, 6144);
+        const responseText = await callClaude(systemPrompt, userMessage, 6144, "opus4_7");
         console.log(`[estimate-scores] Claude call took ${Date.now() - t0}ms`);
         const parsed = parseClaudeJSON<EstimateScoresResponse>(responseText);
 
