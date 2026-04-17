@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData, WeeklyReport, DimensionScores, SkillPracticeItem, GapAnalysis } from "@/lib/types";
 import { usePlanData } from "@/lib/use-plan-data";
+import { usePlanSwitcher } from "@/lib/plan-switcher-context";
 import { calculateAllScoresFromRatings, shouldHighlightRebalance, generateCompletionSummary } from "@/lib/scoring";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import GapInfoBubble from "@/components/GapInfoBubble";
@@ -31,6 +32,7 @@ function PlanContent() {
 
   // SWR-cached plan data — returns stale data instantly on revisit, revalidates in background
   const { data: planData, isLoading: swrLoading, mutate } = usePlanData();
+  const { refreshPlans } = usePlanSwitcher();
 
   // Local state derived from SWR (allows real-time mutation feedback)
   const [plan, setPlan] = useState<TrainingPlan | null>(null);
@@ -169,8 +171,11 @@ function PlanContent() {
 
       // Reset auto-load so it triggers with the new plan data
       autoLoadTriggeredRef.current = false;
-      router.replace("/plan");
+      // Refresh plan switcher first so activePlanId picks up the new plan,
+      // then refresh SWR cache, then navigate — avoids "No Active Plan" flash
+      await refreshPlans();
       await mutate();
+      router.replace("/plan");
       // Sessions are generated on-demand when weeks are expanded (auto-load handles first 3)
     } catch (error) {
       console.error("Plan generation error:", error);
