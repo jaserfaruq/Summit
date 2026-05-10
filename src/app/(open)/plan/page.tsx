@@ -241,7 +241,6 @@ function PlanContent() {
     const visited = localStorage.getItem(key);
     if (!visited) {
       setPhilosophyExpanded(true);
-      setGraduationExpanded(true);
       localStorage.setItem(key, 'true');
     }
   }, [plan]); // eslint-disable-line react-hooks/exhaustive-deps

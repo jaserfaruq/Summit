@@ -420,7 +420,7 @@ ${aiReasoning ? `Assessment findings:
 ${programmingHints ? `Programming hints: ${JSON.stringify(programmingHints)}` : ""}
 ${objective.climbing_role ? `Climbing role: ${objective.climbing_role}` : ""}
 
-Write exactly 2 paragraphs. No formatting, no headers, no bullet points. Plain text only.`;
+Write exactly 1 short paragraph. No formatting, no headers, no bullet points. Plain text only.`;
 
   const response = await callClaude(PROMPT_PHILOSOPHY_SYSTEM, userMessage, 1024, "sonnet");
 
@@ -474,7 +474,7 @@ function buildPlanPhilosophy(
   bigGaps.sort((a, b) => b.pct - a.pct);
 
   const parts: string[] = [];
-  parts.push(`This ${totalWeeks}-week plan prepares you for ${objectiveName}.`);
+  parts.push(`${totalWeeks}-week plan for ${objectiveName}.`);
 
   if (bigGaps.length > 0) {
     const gapDescriptions = bigGaps.map((g) => {
@@ -485,32 +485,32 @@ function buildPlanPhilosophy(
     });
 
     if (bigGaps.length === 1) {
-      parts.push(`Your biggest priority is ${gapDescriptions[0]}. The plan dedicates the most training volume here to close this gap.`);
+      parts.push(`Priority: ${gapDescriptions[0]}.`);
     } else {
-      parts.push(`Your biggest gaps are in ${gapDescriptions.join(" and ")}. The plan prioritizes these dimensions with the most training volume.`);
+      parts.push(`Priorities: ${gapDescriptions.join(" and ")}.`);
     }
   }
 
   if (moderateGaps.length > 0) {
     const labels = moderateGaps.map((g) => DIM_LABELS[g.dim]);
-    parts.push(`${labels.join(" and ")} ${moderateGaps.length === 1 ? "needs" : "need"} steady progression to reach target.`);
+    parts.push(`${labels.join(" and ")} ${moderateGaps.length === 1 ? "needs" : "need"} steady work.`);
   }
 
   if (maintenance.length > 0) {
     const labels = maintenance.map((g) => DIM_LABELS[g.dim]);
-    parts.push(`${labels.join(" and ")} ${maintenance.length === 1 ? "is" : "are"} already at or above target — the plan maintains ${maintenance.length === 1 ? "this" : "these"} with reduced volume and reallocates that time to weaker areas.`);
+    parts.push(`${labels.join(" and ")} already at target — maintaining with reduced volume.`);
   }
 
   if (minimal.length > 0 && bigGaps.length > 0) {
     const labels = minimal.map((g) => DIM_LABELS[g.dim]);
-    parts.push(`${labels.join(" and ")} ${minimal.length === 1 ? "is" : "are"} close to target and ${minimal.length === 1 ? "needs" : "need"} only light work.`);
+    parts.push(`${labels.join(" and ")} nearly there.`);
   }
 
   const taperWeeks = totalWeeks < 6 ? 0 : totalWeeks < 8 ? 1 : 2;
   if (taperWeeks > 0) {
-    parts.push(`Rate each workout on a 1-5 scale to track your progress. The plan includes a ${taperWeeks}-week taper to peak on your target date.`);
+    parts.push(`The plan includes a ${taperWeeks}-week taper to peak on your target date.`);
   } else {
-    parts.push(`Rate each workout on a 1-5 scale to track your progress. No taper — every week counts with this timeline.`);
+    parts.push(`No taper — every week counts with this timeline.`);
   }
 
   return parts.join(" ");

@@ -241,6 +241,7 @@ export default function DashboardClient() {
           </div>
         </div>
         <div className="flex items-center gap-2 mt-4 pt-4 border-t border-dark-border/50">
+          <AddObjectiveButton label="Add Objective" />
           <UpdateAssessmentButton planId={activePlan.id} objectiveId={activeObjective.id} />
           <DeletePlanButton planId={activePlan.id} />
         </div>

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import ObjectiveModal from "./ObjectiveModal";
 import { useRouter } from "next/navigation";
 
-export default function AddObjectiveButton() {
+export default function AddObjectiveButton({ label }: { label?: string }) {
   const [showModal, setShowModal] = useState(false);
   const router = useRouter();
 
@@ -15,7 +15,7 @@ export default function AddObjectiveButton() {
         onClick={() => setShowModal(true)}
         className="btn-press inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors"
       >
-        Add Your First Objective
+        {label || "Add Your First Objective"}
       </button>
 
       {showModal && createPortal(

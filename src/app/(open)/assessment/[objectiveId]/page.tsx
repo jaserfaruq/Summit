@@ -533,6 +533,11 @@ function AssessmentContent() {
           {phase === "scoring" && "Analyzing your responses..."}
           {phase === "results" && "Your assessment results"}
         </p>
+        {phase === "layer1" && (
+          <p className="text-sm text-dark-muted/70 mt-1">
+            Answer what you can — all fields are optional. The more you share, the more personalized your plan.
+          </p>
+        )}
       </div>
 
       {/* Progress */}
