@@ -180,7 +180,7 @@ export default function ObjectiveModal({
           clearDraft();
         }
         setDraftObjective(draftObj);
-        router.push("/assessment/draft");
+        window.location.href = "/assessment/draft";
         return;
       }
 
