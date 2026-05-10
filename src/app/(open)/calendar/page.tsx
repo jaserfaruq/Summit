@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { usePlanSwitcher } from "@/lib/plan-switcher-context";
 import { useDraftPlan } from "@/lib/draft-plan-context";
@@ -38,6 +39,7 @@ interface CalendarSession {
 }
 
 export default function CalendarPage() {
+  const searchParams = useSearchParams();
   const { activePlanId, isLoading: plansLoading } = usePlanSwitcher();
   const { draft, isLoaded: draftLoaded } = useDraftPlan();
   const [objectives, setObjectives] = useState<Objective[]>([]);
@@ -47,6 +49,15 @@ export default function CalendarPage() {
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
+
+  // Auto-open the add objective modal when ?add=true is present
+  useEffect(() => {
+    if (searchParams.get("add") === "true" && !showModal) {
+      setSelectedDate(new Date().toISOString().split("T")[0]);
+      setShowModal(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const fetchData = useCallback(async function fetchData() {
     const supabase = createClient();

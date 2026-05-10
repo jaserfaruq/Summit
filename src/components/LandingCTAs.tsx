@@ -74,7 +74,7 @@ export default function LandingCTAs() {
   return (
     <div className="flex flex-wrap gap-3">
       <Link
-        href="/calendar"
+        href="/calendar?add=true"
         className="bg-burnt-orange hover:bg-burnt-orange/90 text-white font-semibold py-3 px-7 rounded-lg transition-colors text-sm"
       >
         Plan your summit
