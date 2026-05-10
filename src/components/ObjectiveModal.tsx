@@ -38,6 +38,9 @@ export default function ObjectiveModal({
   const [error, setError] = useState<string | null>(null);
   const [targetDate, setTargetDate] = useState(objective?.target_date || date || "");
 
+  // Minimum date: 3 weeks from today
+  const minDate = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
   // Search mode state
   const [searchName, setSearchName] = useState("");
   const [searchMatches, setSearchMatches] = useState<SearchMatch[]>([]);
@@ -507,9 +510,11 @@ export default function ObjectiveModal({
                 <input
                   type="date"
                   value={targetDate}
+                  min={minDate}
                   onChange={(e) => setTargetDate(e.target.value)}
                   className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
                 />
+                <p className="text-xs text-dark-muted mt-1">At least 3 weeks out</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -645,9 +650,11 @@ export default function ObjectiveModal({
                 <input
                   type="date"
                   value={targetDate}
+                  min={minDate}
                   onChange={(e) => setTargetDate(e.target.value)}
                   className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
                 />
+                <p className="text-xs text-dark-muted mt-1">At least 3 weeks out</p>
               </div>
 
               <div className="flex gap-3">

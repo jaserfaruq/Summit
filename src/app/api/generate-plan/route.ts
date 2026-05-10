@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
   const now = new Date();
   const targetDate = new Date(objective.target_date);
   const totalWeeks = Math.max(
-    4,
+    3,
     Math.floor((targetDate.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000))
   );
 
