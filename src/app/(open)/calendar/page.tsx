@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { usePlanSwitcher } from "@/lib/plan-switcher-context";
 import { useDraftPlan } from "@/lib/draft-plan-context";
@@ -40,6 +40,7 @@ interface CalendarSession {
 
 export default function CalendarPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { activePlanId, isLoading: plansLoading } = usePlanSwitcher();
   const { draft, isLoaded: draftLoaded } = useDraftPlan();
   const [objectives, setObjectives] = useState<Objective[]>([]);
@@ -227,11 +228,25 @@ export default function CalendarPage() {
     return workoutLogs.filter((l) => l.logged_date?.substring(0, 10) === dateStr);
   }
 
+  function hasBeenAssessed(obj: Objective) {
+    return obj.current_cardio_score > 0 || obj.current_strength_score > 0 ||
+      obj.current_climbing_score > 0 || obj.current_flexibility_score > 0;
+  }
+
+  function handleObjectiveClick(obj: Objective) {
+    if (!hasBeenAssessed(obj)) {
+      const path = obj.id === "draft" ? "/assessment/draft" : `/assessment/${obj.id}`;
+      router.push(path);
+    } else {
+      setSelectedObjective(obj);
+      setShowModal(true);
+    }
+  }
+
   function handleDayClick(day: number) {
     const dayObjectives = getObjectivesForDate(day);
     if (dayObjectives.length > 0) {
-      setSelectedObjective(dayObjectives[0]);
-      setShowModal(true);
+      handleObjectiveClick(dayObjectives[0]);
     } else {
       setSelectedDate(formatDateStr(day));
       setShowModal(true);
@@ -303,7 +318,7 @@ export default function CalendarPage() {
               {dayObjs.map((obj) => (
                 <button
                   key={obj.id}
-                  onClick={() => { setSelectedObjective(obj); setShowModal(true); }}
+                  onClick={() => handleObjectiveClick(obj)}
                   className={`w-full text-left text-xs px-2 py-1 rounded mb-1 ${TYPE_COLORS[obj.type] || "bg-dark-border"}`}
                 >
                   {obj.name}
@@ -429,8 +444,7 @@ export default function CalendarPage() {
                   key={obj.id}
                   onClick={() => {
                     setCurrentDate(new Date(objDate.getFullYear(), objDate.getMonth()));
-                    setSelectedObjective(obj);
-                    setShowModal(true);
+                    handleObjectiveClick(obj);
                   }}
                   className="w-full text-left flex items-center justify-between px-3 py-2 rounded-lg hover:bg-dark-surface"
                 >
