@@ -196,11 +196,10 @@ function AssessmentContent() {
           taglines,
           relevance_profiles: estimates.relevanceProfiles,
           graduation_benchmarks: estimates.graduationBenchmarks,
+          ...(estimates.pitchCount != null && !draft.objective.pitch_count ? { pitch_count: estimates.pitchCount } : {}),
         });
       } else {
-        await supabase
-          .from("objectives")
-          .update({
+        const updateData: Record<string, unknown> = {
             target_cardio_score: targetScores.cardio,
             target_strength_score: targetScores.strength,
             target_climbing_score: targetScores.climbing_technical,
@@ -208,7 +207,21 @@ function AssessmentContent() {
             taglines,
             relevance_profiles: estimates.relevanceProfiles,
             graduation_benchmarks: estimates.graduationBenchmarks,
-          })
+        };
+        // Backfill pitch_count from AI if not already set
+        if (estimates.pitchCount != null) {
+          const { data: currentObj } = await supabase
+            .from("objectives")
+            .select("pitch_count")
+            .eq("id", objectiveId)
+            .single();
+          if (!currentObj?.pitch_count) {
+            updateData.pitch_count = estimates.pitchCount;
+          }
+        }
+        await supabase
+          .from("objectives")
+          .update(updateData)
           .eq("id", objectiveId);
       }
 

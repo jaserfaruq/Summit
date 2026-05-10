@@ -6,7 +6,7 @@ import { PROMPT_2B_SYSTEM } from "@/lib/prompts";
 import { PlanSession, SkillPracticeItem, DimensionScores, ProgrammingHints } from "@/lib/types";
 import { calculateAllSessionMinutes, calculateWeekTotalHours } from "@/lib/scoring";
 import { checkAndCreateNotifications } from "@/lib/partner-notifications";
-import { buildSessionUserMessage } from "@/lib/build-session-message";
+import { buildSessionUserMessage, ClimbingContext } from "@/lib/build-session-message";
 
 export const maxDuration = 120;
 
@@ -47,6 +47,7 @@ interface GenerateWeekSessionsRequest {
   weekTarget?: GuestWeekTarget;
   totalWeeks?: number;
   programmingHints?: ProgrammingHints | null;
+  climbingContext?: ClimbingContext | null;
   trainingDaysPerWeek?: number;
 }
 
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
   let totalWeeks: number;
   let programmingHints: ProgrammingHints | null = null;
   let climbingRole: string | null = null;
+  let climbingCtx: ClimbingContext | null = null;
   let daysPerWeek: number;
   let userIdForNotif: string | null = null;
   let profileForMessage: { training_days_per_week?: number; equipment_access?: string[]; location?: string } | null = null;
@@ -127,6 +129,7 @@ export async function POST(request: NextRequest) {
     totalWeeks = count || weekNumber;
     programmingHints = (plan.plan_data?.programmingHints as ProgrammingHints | null) || null;
     climbingRole = dbObjective.climbing_role || null;
+    climbingCtx = (plan.plan_data?.climbingContext as ClimbingContext | null) || null;
     daysPerWeek = profile?.training_days_per_week || 5;
     userIdForNotif = user.id;
     profileForMessage = profile;
@@ -136,6 +139,7 @@ export async function POST(request: NextRequest) {
     weekTarget = body.weekTarget;
     totalWeeks = body.totalWeeks;
     programmingHints = body.programmingHints || null;
+    climbingCtx = body.climbingContext || null;
     climbingRole = body.objective.climbing_role || null;
     daysPerWeek = body.trainingDaysPerWeek || 5;
     profileForMessage = { training_days_per_week: daysPerWeek };
@@ -159,7 +163,8 @@ export async function POST(request: NextRequest) {
     totalWeeks,
     programmingHints as unknown as Record<string, unknown> | null,
     climbingRole,
-    daysPerWeek
+    daysPerWeek,
+    climbingCtx
   );
 
   // Helper to save sessions to DB and trigger partner notifications (authed only)

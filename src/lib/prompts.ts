@@ -48,8 +48,11 @@ Hip mobility and ankle dorsiflexion are the two primary flexibility pillars acro
 
 Always select graduation benchmarks from the exercise library that test hip and ankle mobility. Additional benchmarks for thoracic spine or shoulder mobility should only be added when the objective specifically demands chimney, off-width, stemming, or overhead climbing.
 
+PITCH COUNT ESTIMATION: If the objective involves technical climbing and no pitch_count was provided (or it is "N/A"), use your knowledge of the route to estimate the number of pitches. Return this as "pitchCount" in your response. If you cannot determine the pitch count (e.g., it's a single-pitch crag or non-climbing objective), return null.
+
 Return only valid JSON matching this schema:
 {
+  "pitchCount": number | null,
   "dimensions": {
     "cardio": { "tagline": "string (4-7 words)", "targetScore": number },
     "strength": { "tagline": "string", "targetScore": number },
@@ -528,6 +531,7 @@ Return only valid JSON matching this schema:
       "distance_miles": number | null,
       "summit_elevation_ft": number | null,
       "technical_grade": "string | null",
+      "pitch_count": "number | null (number of technical pitches for climbing routes, null for non-climbing)",
       "validated": boolean,
       "validatedId": "string (UUID) | null",
       "matchReason": "string (1 sentence why this matches the search)"

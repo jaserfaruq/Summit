@@ -105,6 +105,11 @@ Relevance profile for this dimension: ${JSON.stringify(dimensionRelevance, null,
 
 Objective: ${objective.name} (${objective.type})
 Climbing role: ${objective.climbing_role || "not specified"}
+${(() => {
+  const cc = plan.plan_data?.climbingContext as { climbing_highest_grade?: string; climbing_style?: string; climbing_effective_outdoor_lead?: string } | null;
+  if (!cc?.climbing_effective_outdoor_lead) return "";
+  return `\nATHLETE CLIMBING GRADE CONTEXT:\nReported grade: ${cc.climbing_highest_grade || "unknown"} (${cc.climbing_style?.replace("_", " ") || "unknown style"})\nEffective outdoor lead grade: ${cc.climbing_effective_outdoor_lead}\nWhen prescribing indoor gym climbing, convert UP from the outdoor lead grade. Indoor top-rope is approximately 6 letter grades easier than outdoor lead. Indoor lead is approximately 4 letter grades easier.\n`;
+})()}
 
 Athlete equipment: ${(profile?.equipment_access || []).join(", ") || "basic gym equipment"}
 Athlete location: ${profile?.location || "not specified"}

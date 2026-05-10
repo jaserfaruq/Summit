@@ -429,6 +429,7 @@ export interface SuggestedObjective {
   distance_miles: number | null;
   summit_elevation_ft: number | null;
   technical_grade: string | null;
+  pitch_count: number | null;
 }
 
 export interface SearchMatch {
@@ -474,6 +475,7 @@ export interface EstimateScoresResponse {
   };
   relevanceProfiles: DimensionRelevanceProfiles;
   graduationBenchmarks: DimensionGraduationBenchmarks;
+  pitchCount?: number | null;
 }
 
 export interface GeneratePlanRequest {

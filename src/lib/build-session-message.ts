@@ -20,6 +20,12 @@ export interface SessionMessageWeekTarget {
   expected_scores: Record<string, number>;
 }
 
+export interface ClimbingContext {
+  climbing_highest_grade?: string | null;
+  climbing_style?: string | null;
+  climbing_effective_outdoor_lead?: string | null;
+}
+
 export function buildSessionUserMessage(
   profile: SessionMessageProfile | null,
   objective: Record<string, unknown>,
@@ -27,7 +33,8 @@ export function buildSessionUserMessage(
   totalWeeks: number,
   programmingHints: Record<string, unknown> | null,
   climbingRole: string | null,
-  daysPerWeek: number
+  daysPerWeek: number,
+  climbingContext?: ClimbingContext | null
 ): string {
   const weekNumber = weekTarget.week_number;
 
@@ -35,8 +42,12 @@ export function buildSessionUserMessage(
     ? `\nATHLETE PROFILE (from assessment):\n${JSON.stringify(programmingHints, null, 2)}\nClimbing role: ${climbingRole || "not specified"}\n\nUse the programming hints to adapt session content to this specific athlete:\n- Start exercises at the recommended intensity level\n- Allocate time across dimensions as recommended\n- Apply specific adaptations noted above\n- If a dimension is flagged as "maintain", prescribe maintenance-level volume\n`
     : "";
 
+  const climbingContextBlock = climbingContext?.climbing_effective_outdoor_lead
+    ? `\nATHLETE CLIMBING GRADE CONTEXT:\nReported grade: ${climbingContext.climbing_highest_grade || "unknown"} (${climbingContext.climbing_style?.replace("_", " ") || "unknown style"})\nEffective outdoor lead grade: ${climbingContext.climbing_effective_outdoor_lead}\nWhen prescribing indoor gym climbing, convert UP from the outdoor lead grade. Indoor top-rope is approximately 6 letter grades easier than outdoor lead (e.g., outdoor lead 5.8 → indoor top-rope 5.10d). Indoor lead is approximately 4 letter grades easier. Always prescribe gym grades using the converted indoor grade, not the outdoor lead grade.\n`
+    : "";
+
   return `Athlete profile: Available ${daysPerWeek} days/week. Generate EXACTLY ${daysPerWeek} sessions total — no more, no fewer. Equipment: ${(profile?.equipment_access || []).join(", ") || "basic gym equipment"}. Location: ${profile?.location || "not specified"}. Injuries: none.
-${programmingHintsBlock}
+${programmingHintsBlock}${climbingContextBlock}
 Objective: ${objective.name}. Type: ${objective.type}. Target date: ${objective.target_date}. Distance: ${objective.distance_miles || "N/A"} miles. Elevation gain: ${objective.elevation_gain_ft || "N/A"} ft. Technical grade: ${objective.technical_grade || "N/A"}. Pitch count: ${objective.pitch_count || "N/A"}.
 
 Current scores: Cardio ${objective.current_cardio_score}, Strength ${objective.current_strength_score}, Climbing/Technical ${objective.current_climbing_score}, Flexibility ${objective.current_flexibility_score}.

@@ -75,9 +75,10 @@ export async function POST(request: NextRequest) {
 
   const totalWeeks = allWeeks.length;
 
-  // Extract programmingHints and climbing role for session generation
+  // Extract programmingHints, climbing role, and climbing context for session generation
   const programmingHints = plan.plan_data?.programmingHints || null;
   const climbingRole = objective.climbing_role || null;
+  const climbingCtx = plan.plan_data?.climbingContext || null;
   const daysPerWeek = profile?.training_days_per_week || 5;
 
   // Generate sessions in batches of MAX_CONCURRENT
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
         const userMessage = buildSessionUserMessage(
           profile, objective,
           { week_number: weekTarget.week_number as number, week_type: weekTarget.week_type as string, week_start: weekTarget.week_start as string, total_hours: weekTarget.total_hours as number, expected_scores: weekTarget.expected_scores as Record<string, number> },
-          totalWeeks, programmingHints, climbingRole, daysPerWeek
+          totalWeeks, programmingHints, climbingRole, daysPerWeek, climbingCtx
         );
 
         const responseText = await callClaudeWithCache(

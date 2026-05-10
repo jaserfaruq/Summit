@@ -104,6 +104,7 @@ export default function ObjectiveModal({
       setDistance(so.distance_miles?.toString() || "");
       setElevation(so.total_gain_ft?.toString() || "");
       setGrade(so.technical_grade || "");
+      setPitchCount(so.pitch_count?.toString() || "");
       setMatchResult({
         tier: "silver",
         anchors: [],

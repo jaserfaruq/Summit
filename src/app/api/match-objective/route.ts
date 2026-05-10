@@ -40,6 +40,7 @@ interface SearchSuggestion {
   distance_miles: number | null;
   summit_elevation_ft: number | null;
   technical_grade: string | null;
+  pitch_count: number | null;
   validated: boolean;
   validatedId: string | null;
   matchReason: string;
@@ -140,6 +141,7 @@ Suggest 3 closely related routes/objectives for this search. Prioritize validate
               distance_miles: suggestion.distance_miles,
               summit_elevation_ft: suggestion.summit_elevation_ft,
               technical_grade: suggestion.technical_grade,
+              pitch_count: suggestion.pitch_count ?? null,
             },
             tier: "silver" as const,
             matchReason: suggestion.matchReason,

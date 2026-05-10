@@ -251,6 +251,13 @@ export async function POST(request: NextRequest) {
   const programmingHints = assessment.raw_data?.programmingHints || null;
   const gapAnalysis = classifyGaps(currentScores, targetScores, totalWeeks);
 
+  // Extract climbing grade context from assessment for session generation
+  const climbingContext = assessment.standard_answers ? {
+    climbing_highest_grade: assessment.standard_answers.climbing_highest_grade || null,
+    climbing_style: assessment.standard_answers.climbing_style || null,
+    climbing_effective_outdoor_lead: assessment.standard_answers.climbing_effective_outdoor_lead || null,
+  } : null;
+
   // Resolve route name from validated objective if matched (only if DB available)
   let objectiveRouteName = objective.name;
   if (objective.matched_validated_id) {
@@ -296,6 +303,7 @@ export async function POST(request: NextRequest) {
       planSummary,
       heroImageUrl,
       programmingHints,
+      climbingContext,
       gapAnalysis,
       graduationWorkouts: objective.graduation_benchmarks,
       weeks: weeks.map((w) => ({ ...w, sessions: [] })),
@@ -314,6 +322,7 @@ export async function POST(request: NextRequest) {
           planSummary,
           heroImageUrl,
           programmingHints,
+          climbingContext,
           gapAnalysis,
           weeks: weeks.map((w) => ({ ...w, sessions: [] })),
         },

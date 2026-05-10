@@ -377,6 +377,11 @@ function PlanContent() {
           },
           totalWeeks: draft.plan?.weeks.length || weekNumber,
           programmingHints: draft.assessment?.programming_hints || null,
+          climbingContext: draft.assessment?.standard_answers ? {
+            climbing_highest_grade: draft.assessment.standard_answers.climbing_highest_grade || null,
+            climbing_style: draft.assessment.standard_answers.climbing_style || null,
+            climbing_effective_outdoor_lead: draft.assessment.standard_answers.climbing_effective_outdoor_lead || null,
+          } : null,
           trainingDaysPerWeek: draft.assessment?.standard_answers?.training_days_per_week || 5,
         }
       : { planId: plan.id, weekNumber, stream: true };
