@@ -30,7 +30,7 @@ The four training dimensions are fixed: Cardio, Strength, Climbing/Technical, an
 TRAINING OVERSHOOT RULE: Graduation benchmarks must be set ABOVE the objective's actual requirements to build a comfort buffer. The athlete should arrive over-prepared, not at bare minimum readiness. Apply these overshoot multipliers:
 - Cardio distance (Sustained Zone 2 Run): Set graduation targets at ~130% of the objective's total distance (e.g., 8-mile objective → 10-11 mile graduation target).
 - Cardio climb rate (Uphill Hike with Pack): This benchmark measures HOURLY CLIMB RATE (elevation gained in 60 minutes), NOT total route elevation. Do NOT apply 130% to the objective's total elevation gain — that produces impossible numbers. Instead, estimate the objective's required sustained climb rate (typically 1,000-2,000 ft/hr depending on terrain, pack weight, and altitude) and set the graduation target 20-30% above that rate. Realistic graduation targets range from 2,000-3,000 ft/hr depending on pack weight. No human can exceed ~3,500 ft/hr even unloaded on a treadmill.
-- Climbing/Technical grade: Set graduation targets 1 sub-grade above the objective for outdoor climbing (e.g., 5.10d objective → 5.11a graduation target), or 2 sub-grades above for indoor/top-rope benchmarks (e.g., 5.10d → 5.11b).
+- Climbing/Technical grade: Set graduation targets 1 sub-grade above the objective for outdoor lead climbing (e.g., 5.10d objective → 5.11a graduation target), or 2 sub-grades above for indoor benchmarks (e.g., 5.10d → 5.11b).
 - Strength: No overshoot — set graduation targets at the objective's actual requirements.
 - Flexibility: No overshoot — set graduation targets at the objective's actual requirements.
 - Pack weight: No overshoot — keep pack weight at the objective's specified weight.
@@ -558,6 +558,8 @@ The athlete's standard answers include cardio data in one of two modes (indicate
 - "hike_run" mode: The athlete reported a full hike or trail run with total distance, total time (hours), and optional elevation gain. This includes all terrain (flat, uphill, downhill). Do NOT compute a climb rate from this data — it would underestimate their uphill ability. Instead, use it to assess endurance, time-on-feet, and pace.
 Use the mode to choose the right assessment lens. Do not ask redundant questions about data the athlete already provided.
 
+CLIMBING GRADE CONVERSION: If the athlete provides climbing_style and climbing_effective_outdoor_lead in their standard answers, use the effective outdoor lead grade as their true ability baseline. The raw grade + style are provided for context. Indoor top-rope 5.10a is very different from outdoor lead 5.10a — the conversion accounts for this.
+
 STRENGTH BASELINE DATA:
 The athlete self-assessed two strength dimensions on a 1-5 scale:
 - Pull-up capacity: 1=can't do one, 2=1-3 strict, 3=5-8 strict, 4=10-15 or light weighted, 5=15+ or 5@+25lb
@@ -630,6 +632,8 @@ Loaded leg capacity (maps to Loaded Pack Squat, Single-Leg Step-Down, and Timed 
 CRITICAL: The programmingHints.strength.startingIntensity MUST be consistent with what the athlete reported. If someone rates themselves a 4 on loaded legs, do not program them to start step-ups at 15lb — start them at 35-40lb. If someone rates themselves a 1 on pull-ups, do not program weighted pull-ups — start with dead hangs and band-assisted progressions.
 
 When a strength scale rating of 4-5 puts the athlete at or above the graduation benchmark targets for this specific objective, flag it as maintenance in programmingHints.strength.keyAdaptation (e.g., "leg strength exceeds requirements — maintain with 1-2 sessions/week, invest time in weaker dimensions").
+
+CLIMBING GRADE CONVERSION: The athlete's standard answers may include climbing_style (the context of their reported grade: indoor_toprope, indoor_lead, outdoor_toprope, or outdoor_lead) and climbing_effective_outdoor_lead (the pre-computed equivalent outdoor lead grade). When these fields are present, use the effective outdoor lead grade as the baseline for scoring climbing ability — it accounts for the significant difficulty difference between styles. Conversion rules applied: outdoor lead is the baseline, outdoor top-rope is 3 letter grades easier, indoor lead is 4 letter grades easier, indoor top-rope is 6 letter grades easier.
 
 FLEXIBILITY SCORING CONTEXT:
 The athlete self-assessed hip mobility and ankle mobility on a 1-5 scale using anchored descriptions:

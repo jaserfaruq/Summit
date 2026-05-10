@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { AIQuestion, DimensionScores, AIReasoning, ProgrammingHints, EstimateScoresResponse, GapAnalysis } from "@/lib/types";
+import { YDS_GRADES, ClimbingStyle, STYLE_LABELS, isClimbingGrade, toOutdoorLead, getAllEquivalents } from "@/lib/climbing-grades";
 import InfoBubble from "@/components/InfoBubble";
 import GapInfoBubble from "@/components/GapInfoBubble";
 import AILoadingIndicator from "@/components/AILoadingIndicator";
@@ -26,6 +27,8 @@ interface StandardAnswers {
   climbing_experience_level: string;
   climbing_highest_grade: string;
   climbing_skills: string[];
+  climbing_style?: ClimbingStyle;
+  climbing_effective_outdoor_lead?: string;
   flexibility_hip_tightness: number;
   flexibility_ankle_mobility: number;
   flexibility_regular_routine: boolean;
@@ -79,6 +82,7 @@ function AssessmentContent() {
   const [loadedLegCapacity, setLoadedLegCapacity] = useState(3);
   const [climbingLevel, setClimbingLevel] = useState("none");
   const [climbingGrade, setClimbingGrade] = useState("none");
+  const [climbingStyle, setClimbingStyle] = useState<ClimbingStyle>("indoor_toprope");
   const [climbingSkills, setClimbingSkills] = useState<string[]>([]);
   const [hipTightness, setHipTightness] = useState(3);
   const [ankleMobility, setAnkleMobility] = useState(3);
@@ -345,11 +349,24 @@ function AssessmentContent() {
       climbing_experience_level: climbingLevel,
       climbing_highest_grade: climbingGrade,
       climbing_skills: climbingSkills,
+      climbing_style: isClimbingGrade(climbingGrade) ? climbingStyle : undefined,
+      climbing_effective_outdoor_lead: isClimbingGrade(climbingGrade)
+        ? toOutdoorLead(climbingGrade, climbingStyle) ?? undefined
+        : undefined,
       flexibility_hip_tightness: hipTightness,
       flexibility_ankle_mobility: ankleMobility,
       flexibility_regular_routine: hasFlexRoutine,
     };
   }
+
+  // Auto-default climbing style based on skill checkboxes
+  useEffect(() => {
+    if (climbingSkills.includes("trad") || climbingSkills.includes("outdoor_sport")) {
+      setClimbingStyle("outdoor_lead");
+    } else if (climbingSkills.includes("indoor_gym")) {
+      setClimbingStyle("indoor_toprope");
+    }
+  }, [climbingSkills]);
 
   // When estimation finishes and user was waiting, auto-proceed to generate questions or quick score
   useEffect(() => {
@@ -714,21 +731,52 @@ function AssessmentContent() {
                 <label className="flex items-center text-sm font-medium text-dark-muted mb-1">
                   Highest climbing grade
                   <InfoBubble title="Which grade should I pick?">
-                    <p>Rate this relative to how you&apos;ll actually do your objective. If you plan to lead trad, enter your outdoor trad leading grade. If you&apos;re following multi-pitch, enter the hardest grade you&apos;ve comfortably followed outdoors.</p>
-                    <p>If you only climb indoors, pick the closest outdoor equivalent — indoor grades typically translate 1–2 grades lower outside.</p>
+                    <p>Select the grade you climb at and your climbing style below. We&apos;ll convert it to an outdoor lead equivalent automatically.</p>
                   </InfoBubble>
                 </label>
                 <select value={climbingGrade} onChange={(e) => setClimbingGrade(e.target.value)} className={inputClass}>
                   <option value="none">None / no climbing</option>
                   <option value="class_3_4">Class 3-4 scrambling</option>
-                  <option value="5.0-5.6">5.0-5.6 (easy roped)</option>
-                  <option value="5.7-5.8">5.7-5.8 (moderate)</option>
-                  <option value="5.9-5.10a">5.9-5.10a (intermediate)</option>
-                  <option value="5.10b-5.10d">5.10b-5.10d (upper intermediate)</option>
-                  <option value="5.11+">5.11+ (advanced)</option>
-                  <option value="5.12+">5.12+ (expert)</option>
+                  {climbingLevel !== "none" && YDS_GRADES.map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
                 </select>
               </div>
+              {isClimbingGrade(climbingGrade) && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-dark-muted mb-1">Climbing style</label>
+                    <select value={climbingStyle} onChange={(e) => setClimbingStyle(e.target.value as ClimbingStyle)} className={inputClass}>
+                      <option value="indoor_toprope">Indoor Top-Rope</option>
+                      <option value="indoor_lead">Indoor Lead</option>
+                      <option value="outdoor_toprope">Outdoor Top-Rope</option>
+                      <option value="outdoor_lead">Outdoor Lead</option>
+                    </select>
+                  </div>
+                  {(() => {
+                    const equivalents = getAllEquivalents(climbingGrade, climbingStyle);
+                    if (!equivalents.outdoor_lead) return null;
+                    return (
+                      <div className="bg-dark-surface/60 border border-dark-border/50 rounded-lg px-4 py-3 text-sm">
+                        <p className="text-dark-muted mb-2">
+                          Your {climbingGrade} {STYLE_LABELS[climbingStyle].toLowerCase()} converts to:
+                        </p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                          {(Object.entries(equivalents) as [ClimbingStyle, string | null][]).map(([style, grade]) => (
+                            grade && style !== climbingStyle && (
+                              <div key={style} className="flex justify-between">
+                                <span className="text-dark-muted/70">{STYLE_LABELS[style]}</span>
+                                <span className={style === "outdoor_lead" ? "text-gold font-medium" : "text-dark-text"}>{grade}</span>
+                              </div>
+                            )
+                          ))}
+                        </div>
+                        <p className="text-xs text-dark-muted/50 mt-2">AI will use outdoor lead equivalent for scoring.</p>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
               <div>
                 <label className="block text-sm font-medium text-dark-muted mb-2">Skills (check all that apply)</label>
                 <div className="space-y-2">

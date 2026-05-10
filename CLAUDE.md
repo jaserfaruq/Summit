@@ -479,6 +479,23 @@ When a dimension’s current score ≥ 1.25 × target score, that dimension ente
 
 Graduation benchmarks are set above actual objective requirements to build a comfort buffer. Cardio distance (Sustained Zone 2 Run): ~130% of objective distance (e.g., 10-mile objective → 13-mile graduation target). Cardio climb rate (Uphill Hike with Pack): this measures hourly climb rate, NOT total route elevation — overshoot the objective’s required sustained climb rate by 20-30%, targeting 2,000-3,000 ft/hr depending on pack weight. Do NOT apply 130% to total route elevation gain. Climbing: +1 sub-grade outdoor, +2 indoor. Strength, flexibility, and pack weight: no overshoot. If you can hit the graduation workout, you’re more than ready — not barely ready.
 
+### Climbing Grade Conversion
+
+The assessment captures the user's climbing grade AND the style context (indoor/outdoor, top-rope/lead). All conversion logic lives in `src/lib/climbing-grades.ts` — the `STYLE_OFFSETS` table is the single place to edit conversion rules.
+
+**Conversion table (offsets from outdoor lead baseline):**
+
+| Style | Offset (letter grades easier) |
+|-------|------|
+| Outdoor Lead | 0 (baseline) |
+| Outdoor Top-Rope | +3 |
+| Indoor Lead | +4 |
+| Indoor Top-Rope | +6 |
+
+Example: A user who climbs 5.10d indoor top-rope → subtract 6 letter-grade steps → equivalent outdoor lead grade is 5.8.
+
+The computed `climbing_effective_outdoor_lead` is passed to the AI in `standardAnswers` so scoring and session generation use the correct effective grade. The conversion card on the assessment page shows all equivalents to the user.
+
 ### No-session regression
 
 -1 point per dimension per week with no logged sessions.
@@ -1126,6 +1143,7 @@ Seed data is defined in `src/lib/seed-data.ts`. The `findSeedMatch(name, route?)
 | `src/lib/prompts.ts` | All AI prompt constants (PROMPT_1, 2, 2A, 2B, 3B, 4, 5, 6, ASSESS_Q, ASSESS_SCORE, RESCALE_BENCHMARKS, SEARCH, REPORT). Includes MTI reference URLs. |
 | `src/lib/scoring.ts` | `calculateScoreFromRatings()`, `calculateAllScoresFromRatings()`, `expectedScoreAtWeek()`, `shouldHighlightRebalance()`, `scoreArcColor()`, `calculateSessionMinutes()`, `scaleDifficultyTargets()`, `dimensionProgressFractions()`. |
 | `src/lib/types.ts` | All TypeScript types: `Profile`, `ValidatedObjective`, `Objective`, `Assessment`, `TrainingPlan`, `WeeklyTarget`, `PlanSession`, `WorkoutLog`, `ScoreHistory`, `ComponentFeedback`, `WeeklyReport`, `ProgrammingHints`, `DimensionScores`, `RATING_MULTIPLIERS`. |
+| `src/lib/climbing-grades.ts` | Climbing grade conversion matrix. `STYLE_OFFSETS` is the editable conversion table (outdoor lead = baseline). `toOutdoorLead()`, `fromOutdoorLead()`, `getAllEquivalents()`. See Climbing Grade Conversion section below. |
 | `src/lib/seed-data.ts` | Hardcoded 15 validated objectives + 15 benchmark exercises. `findSeedMatch()` for authoritative Gold tier lookups. |
 | `src/lib/generate-report.ts` | `generateWeeklyReport()` — fetches all data for a completed week and calls Claude with PROMPT_REPORT. Stores result in `weekly_targets.weekly_report`. |
 | `src/lib/unsplash.ts` | `fetchHeroImageUrl()` — fetches Unsplash image URL for objective (non-blocking, used in plan generation). |

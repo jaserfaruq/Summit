@@ -108,6 +108,8 @@ export interface StandardAnswers {
   strength_loaded_leg_capacity: number;    // 1-5 scale: 1=untested, 3=25-35lb pack all day, 5=50lb+ steep terrain
   climbing_experience_level: string;
   climbing_highest_grade: string;
+  climbing_style?: string;                    // climbing context: indoor_toprope, indoor_lead, outdoor_toprope, outdoor_lead
+  climbing_effective_outdoor_lead?: string;    // computed equivalent outdoor lead grade
   climbing_skills: string[];
   flexibility_hip_tightness: number;
   flexibility_ankle_mobility: number;
