@@ -160,6 +160,8 @@ ${lines.join("\n")}
 
 IMPORTANT: These percentages reflect the athlete's CURRENT fitness level. Do NOT prescribe beginner-level training for dimensions where the athlete is already strong. Match session intensity to the progress fraction shown.
 
+CRITICAL — HOW TO APPLY FRACTIONS: Look at each graduation benchmark target. Multiply its numeric value by the fraction percentage to get THIS WEEK's target. Example: if graduation benchmark is "15 miles" and fraction is 80%, prescribe a "12 mile" run this week. If fraction is 100%, prescribe the FULL graduation target (e.g., "15 miles"). Do NOT under-prescribe — the fractions already account for the athlete's level.
+
 PRESCRIPTION MODE KEY:
 - RELATIVE: Athlete meets or exceeds target. NEVER prescribe specific grades, weights, distances, or rep counts as targets. Use ONLY relative descriptors: "at your comfortable level", "2 grades below your limit", "your usual pace", "at your working weight".
 - ABSOLUTE: Athlete is below target. Prescribe specific, measurable targets progressing toward graduation benchmarks. Show clear weekly progression (e.g., "25lb step-ups this week, building to 35lb by week 8").
