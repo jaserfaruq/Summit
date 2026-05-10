@@ -990,6 +990,15 @@ function PlanContent() {
           <div className="flex-1 min-w-[220px]">
             <p className="text-sm font-semibold text-white">Your plan isn&apos;t saved yet.</p>
             <p className="text-xs text-white/70 mt-0.5">Sign up to keep it, log workouts, and track your progress week by week.</p>
+            <p className="text-xs text-white/50 mt-1">
+              Already have an account?{" "}
+              <Link
+                href="/login?return=persist"
+                className="text-burnt-orange/80 hover:text-burnt-orange underline underline-offset-2 transition-colors"
+              >
+                Log in
+              </Link>
+            </p>
           </div>
           <Link
             href="/signup?return=persist"
