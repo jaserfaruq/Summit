@@ -359,12 +359,13 @@ function AssessmentContent() {
     };
   }
 
-  // Auto-default climbing style based on skill checkboxes
+  // Auto-default climbing style based on skill checkboxes — only once
+  const climbingStyleInitRef = useRef(false);
   useEffect(() => {
+    if (climbingStyleInitRef.current || climbingSkills.length === 0) return;
+    climbingStyleInitRef.current = true;
     if (climbingSkills.includes("trad") || climbingSkills.includes("outdoor_sport")) {
       setClimbingStyle("outdoor_lead");
-    } else if (climbingSkills.includes("indoor_gym")) {
-      setClimbingStyle("indoor_toprope");
     }
   }, [climbingSkills]);
 
