@@ -57,6 +57,12 @@ ${anchors.length > 0 ? `Calibration anchors: ${JSON.stringify(anchors.map(a => (
         console.log(`[estimate-scores] Claude call took ${Date.now() - t0}ms`);
         const parsed = parseClaudeJSON<EstimateScoresResponse>(responseText);
 
+        // Validate response structure
+        if (!parsed.dimensions?.cardio || !parsed.dimensions?.strength ||
+            !parsed.dimensions?.climbing_technical || !parsed.dimensions?.flexibility) {
+          throw new Error("AI response missing required dimension scores");
+        }
+
         // Enforce minimum benchmark counts per dimension
         const gb = parsed.graduationBenchmarks;
         if (!gb.cardio || gb.cardio.length < 2) {

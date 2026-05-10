@@ -163,6 +163,9 @@ function AssessmentContent() {
       if ((estimates as unknown as { error?: string }).error) {
         throw new Error((estimates as unknown as { error: string }).error);
       }
+      if (!estimates.dimensions?.cardio || !estimates.dimensions?.strength) {
+        throw new Error("Score estimation returned incomplete data — please try again");
+      }
 
       // Write real scores back to the objective
       const targetScores = {
