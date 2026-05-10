@@ -80,7 +80,9 @@ export default function ObjectiveModal({
 
     if (match.tier === "gold" && match.validatedObjective) {
       const vo = match.validatedObjective;
-      setName(vo.name);
+      // Keep the user's original search term as the objective name — only pull
+      // physical stats and type from the validated objective for calibration
+      setName(searchName || vo.name);
       setType(vo.type);
       setDistance(vo.distance_miles?.toString() || "");
       setElevation(vo.total_gain_ft?.toString() || "");
@@ -92,7 +94,7 @@ export default function ObjectiveModal({
       });
     } else if (match.suggestedObjective) {
       const so = match.suggestedObjective;
-      setName(so.name);
+      setName(searchName || so.name);
       setType(so.type as ObjectiveType);
       setDistance(so.distance_miles?.toString() || "");
       setElevation(so.total_gain_ft?.toString() || "");

@@ -1057,7 +1057,11 @@ function PlanContent() {
       {/* Objective details */}
       {objective && (
         <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 px-5 py-4">
-          {validatedObj?.description ? (
+          {validatedObj?.description && validatedObj.name !== objective.name ? (
+            <p className="text-sm text-dark-muted mb-4 leading-relaxed">
+              <span className="text-xs text-dark-muted/70">Calibrated from: {validatedObj.name} — </span>{validatedObj.description}
+            </p>
+          ) : validatedObj?.description ? (
             <p className="text-sm text-dark-muted mb-4 leading-relaxed">{validatedObj.description}</p>
           ) : objective.relevance_profiles && typeof objective.relevance_profiles === "object" && "cardio" in objective.relevance_profiles && (
             <p className="text-sm text-dark-muted mb-4 leading-relaxed">
