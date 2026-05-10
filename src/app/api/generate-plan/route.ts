@@ -14,6 +14,7 @@ interface GuestObjective {
   distance_miles: number | null;
   elevation_gain_ft: number | null;
   technical_grade: string | null;
+  pitch_count: number | null;
   target_cardio_score: number;
   target_strength_score: number;
   target_climbing_score: number;

@@ -7,6 +7,7 @@
 export interface SeedObjective {
   name: string;
   match_aliases: string[];
+  pitch_count?: number;
   target_scores: { cardio: number; strength: number; climbing_technical: number; flexibility: number };
   taglines: { cardio: string; strength: string; climbing_technical: string; flexibility: string };
   graduation_benchmarks: {
@@ -21,6 +22,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Half Dome",
     match_aliases: ["half dome", "half dome mist trail", "half dome cables", "half dome yosemite"],
+    pitch_count: 0,
     target_scores: { cardio: 75, strength: 70, climbing_technical: 45, flexibility: 55 },
     taglines: { cardio: "All-day hiking endurance engine", strength: "Leg power plus grip endurance", climbing_technical: "Cable confidence and exposure comfort", flexibility: "Hip and ankle mobility support" },
     graduation_benchmarks: {
@@ -43,6 +45,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Colorado 14er (Class 1-2)",
     match_aliases: ["14er", "fourteener", "quandary peak", "mount elbert", "bierstadt", "colorado 14er", "14er class 1", "14er class 2"],
+    pitch_count: 0,
     target_scores: { cardio: 65, strength: 60, climbing_technical: 35, flexibility: 50 },
     taglines: { cardio: "High altitude endurance hiking engine", strength: "Load bearing leg endurance power", climbing_technical: "Route finding scrambling confidence", flexibility: "Mobile hips for long ascents" },
     graduation_benchmarks: {
@@ -66,6 +69,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Mt. Whitney",
     match_aliases: ["mt whitney", "mount whitney", "whitney", "whitney main trail", "whitney portal"],
+    pitch_count: 0,
     target_scores: { cardio: 75, strength: 65, climbing_technical: 25, flexibility: 45 },
     taglines: { cardio: "All-day hiking endurance at altitude", strength: "Load-bearing legs for long descents", climbing_technical: "Basic trail navigation and balance", flexibility: "Hip and ankle mobility maintenance" },
     graduation_benchmarks: {
@@ -88,6 +92,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Mont Blanc",
     match_aliases: ["mont blanc", "mont blanc normal route", "mont blanc gouter", "mont blanc from saint-gervais"],
+    pitch_count: 0,
     target_scores: { cardio: 75, strength: 70, climbing_technical: 60, flexibility: 55 },
     taglines: { cardio: "High altitude endurance with heavy pack", strength: "Multi-day load carrying capacity", climbing_technical: "Glacier travel and crampon skills", flexibility: "Crampon mobility and recovery" },
     graduation_benchmarks: {
@@ -111,6 +116,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Mt. Rainier",
     match_aliases: ["mt rainier", "mount rainier", "rainier", "rainier dc", "disappointment cleaver"],
+    pitch_count: 0,
     target_scores: { cardio: 75, strength: 70, climbing_technical: 35, flexibility: 45 },
     taglines: { cardio: "Sustained power under heavy load", strength: "Load carrying endurance and stability", climbing_technical: "Basic glacier travel and ropework", flexibility: "Hip and ankle mobility maintenance" },
     graduation_benchmarks: {
@@ -134,6 +140,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Denali",
     match_aliases: ["denali", "denali west buttress", "mt mckinley", "mount mckinley"],
+    pitch_count: 0,
     target_scores: { cardio: 85, strength: 80, climbing_technical: 35, flexibility: 45 },
     taglines: { cardio: "Monster uphill endurance with heavy loads", strength: "Bulletproof legs and pack-carrying power", climbing_technical: "Basic glacier travel and rope skills", flexibility: "Crampon comfort and boot mobility" },
     graduation_benchmarks: {
@@ -158,6 +165,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Grand Teton",
     match_aliases: ["grand teton", "grand teton exum", "exum ridge", "upper exum"],
+    pitch_count: 5,
     target_scores: { cardio: 75, strength: 70, climbing_technical: 65, flexibility: 55 },
     taglines: { cardio: "Long sustained power under load", strength: "Heavy pack endurance and grip", climbing_technical: "Exposed 5.5 movement with pack", flexibility: "Hip and ankle range under fatigue" },
     graduation_benchmarks: {
@@ -183,6 +191,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Cathedral Peak",
     match_aliases: ["cathedral peak", "cathedral peak se buttress", "cathedral peak tuolumne"],
+    pitch_count: 6,
     target_scores: { cardio: 65, strength: 70, climbing_technical: 75, flexibility: 60 },
     taglines: { cardio: "Sustained mountain endurance power", strength: "Granite hauling and climbing strength", climbing_technical: "Multi-pitch trad confidence", flexibility: "High-step and jamming mobility" },
     graduation_benchmarks: {
@@ -208,6 +217,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Trail Half Marathon",
     match_aliases: ["trail half marathon", "trail half", "half marathon trail"],
+    pitch_count: 0,
     target_scores: { cardio: 75, strength: 60, climbing_technical: 30, flexibility: 50 },
     taglines: { cardio: "Sustained power over rolling terrain", strength: "Leg endurance for continuous climbing", climbing_technical: "Sure footing on technical trail", flexibility: "Mobile hips and ankles" },
     graduation_benchmarks: {
@@ -231,6 +241,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "50K Mountain Ultra",
     match_aliases: ["50k ultra", "50k mountain ultra", "ultramarathon", "ultra trail", "50k trail"],
+    pitch_count: 0,
     target_scores: { cardio: 85, strength: 70, climbing_technical: 25, flexibility: 60 },
     taglines: { cardio: "Relentless aerobic engine for distance", strength: "Muscular endurance through long climbs", climbing_technical: "Basic trail navigation and footing", flexibility: "Mobile hips for sustained stride" },
     graduation_benchmarks: {
@@ -254,6 +265,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Colorado 14er (Class 3-4)",
     match_aliases: ["capitol peak", "longs peak", "14er class 3", "14er class 4", "capitol peak knife edge"],
+    pitch_count: 0,
     target_scores: { cardio: 70, strength: 65, climbing_technical: 75, flexibility: 50 },
     taglines: { cardio: "High-altitude endurance with heavy pack", strength: "Load-bearing leg power and grip", climbing_technical: "Exposed scrambling confidence and movement", flexibility: "Hip and ankle mobility for scrambling" },
     graduation_benchmarks: {
@@ -278,6 +290,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Enchantments Traverse",
     match_aliases: ["enchantments", "enchantments traverse", "enchantment lakes"],
+    pitch_count: 0,
     target_scores: { cardio: 70, strength: 60, climbing_technical: 25, flexibility: 50 },
     taglines: { cardio: "All-day endurance hiking engine", strength: "Load bearing hiking strength", climbing_technical: "Basic scrambling confidence only", flexibility: "Hiking mobility and recovery" },
     graduation_benchmarks: {
@@ -301,6 +314,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "John Muir Trail",
     match_aliases: ["john muir trail", "jmt", "john muir", "jmt thru-hike"],
+    pitch_count: 0,
     target_scores: { cardio: 85, strength: 75, climbing_technical: 35, flexibility: 65 },
     taglines: { cardio: "Multi-week high altitude endurance engine", strength: "Heavy pack durability over terrain", climbing_technical: "Basic trail navigation confidence", flexibility: "Joint durability for repetitive motion" },
     graduation_benchmarks: {
@@ -324,6 +338,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Kilimanjaro",
     match_aliases: ["kilimanjaro", "kili", "kilimanjaro machame", "mount kilimanjaro"],
+    pitch_count: 0,
     target_scores: { cardio: 80, strength: 70, climbing_technical: 25, flexibility: 60 },
     taglines: { cardio: "Multi-day altitude endurance machine", strength: "Pack-carrying leg durability", climbing_technical: "Class 1 scrambling confidence", flexibility: "Hip and ankle mobility" },
     graduation_benchmarks: {
@@ -347,6 +362,7 @@ export const SEED_OBJECTIVES: SeedObjective[] = [
   {
     name: "Tour du Mont Blanc",
     match_aliases: ["tour du mont blanc", "tmb", "tmb trek", "tour mont blanc"],
+    pitch_count: 0,
     target_scores: { cardio: 80, strength: 75, climbing_technical: 30, flexibility: 60 },
     taglines: { cardio: "Multi-day pack endurance engine", strength: "Heavy pack durability and stability", climbing_technical: "Trail navigation and basic scrambling", flexibility: "Lower body mobility for recovery" },
     graduation_benchmarks: {

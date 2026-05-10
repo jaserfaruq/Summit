@@ -23,6 +23,7 @@ export interface ValidatedObjective {
   distance_miles: number | null;
   duration_days: number | null;
   technical_grade: string | null;
+  pitch_count: number | null;
   tags: string[];
   target_scores: DimensionScores;
   taglines: DimensionTaglines;
@@ -58,6 +59,7 @@ export interface Objective {
   distance_miles: number | null;
   elevation_gain_ft: number | null;
   technical_grade: string | null;
+  pitch_count: number | null;
   target_cardio_score: number;
   target_strength_score: number;
   target_climbing_score: number;
@@ -454,6 +456,7 @@ export interface EstimateScoresRequest {
     totalGain?: number;
     distance?: number;
     grade?: string;
+    pitchCount?: number;
     packWeight?: string;
     details?: string;
   };

@@ -106,6 +106,7 @@ CREATE TABLE objectives (
   distance_miles FLOAT,
   elevation_gain_ft FLOAT,
   technical_grade TEXT,
+  pitch_count INT,                     -- number of technical climbing pitches (multi-pitch routes)
   target_cardio_score INT NOT NULL,
   target_strength_score INT NOT NULL,
   target_climbing_score INT NOT NULL,

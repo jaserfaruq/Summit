@@ -35,6 +35,7 @@ function buildGuestPlanData(draftObjective: DraftObjective, draftPlan: DraftPlan
     distance_miles: draftObjective.distance_miles,
     elevation_gain_ft: draftObjective.elevation_gain_ft,
     technical_grade: draftObjective.technical_grade,
+    pitch_count: draftObjective.pitch_count ?? null,
     target_cardio_score: draftObjective.target_cardio_score,
     target_strength_score: draftObjective.target_strength_score,
     target_climbing_score: draftObjective.target_climbing_score,

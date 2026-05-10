@@ -52,6 +52,7 @@ export default function ObjectiveModal({
   const [distance, setDistance] = useState(objective?.distance_miles?.toString() || "");
   const [elevation, setElevation] = useState(objective?.elevation_gain_ft?.toString() || "");
   const [grade, setGrade] = useState(objective?.technical_grade || "");
+  const [pitchCount, setPitchCount] = useState(objective?.pitch_count?.toString() || "");
 
   // Match/confirm state
   const [matchResult, setMatchResult] = useState<MatchObjectiveResponse | null>(null);
@@ -90,6 +91,7 @@ export default function ObjectiveModal({
       setDistance(vo.distance_miles?.toString() || "");
       setElevation(vo.total_gain_ft?.toString() || "");
       setGrade(vo.technical_grade || "");
+      setPitchCount(vo.pitch_count?.toString() || "");
       setMatchResult({
         tier: "gold",
         validatedObjective: vo,
@@ -165,6 +167,7 @@ export default function ObjectiveModal({
           distance_miles: distance ? parseFloat(distance) : null,
           elevation_gain_ft: elevation ? parseFloat(elevation) : null,
           technical_grade: grade || null,
+          pitch_count: pitchCount ? parseInt(pitchCount) : null,
           target_cardio_score: targetScores.cardio,
           target_strength_score: targetScores.strength,
           target_climbing_score: targetScores.climbing_technical,
@@ -200,6 +203,7 @@ export default function ObjectiveModal({
             distance_miles: distance ? parseFloat(distance) : null,
             elevation_gain_ft: elevation ? parseFloat(elevation) : null,
             technical_grade: grade || null,
+            pitch_count: pitchCount ? parseInt(pitchCount) : null,
             target_cardio_score: targetScores.cardio,
             target_strength_score: targetScores.strength,
             target_climbing_score: targetScores.climbing_technical,
@@ -221,6 +225,7 @@ export default function ObjectiveModal({
           distance_miles: distance ? parseFloat(distance) : null,
           elevation_gain_ft: elevation ? parseFloat(elevation) : null,
           technical_grade: grade || null,
+          pitch_count: pitchCount ? parseInt(pitchCount) : null,
           target_cardio_score: targetScores.cardio,
           target_strength_score: targetScores.strength,
           target_climbing_score: targetScores.climbing_technical,
@@ -547,6 +552,19 @@ export default function ObjectiveModal({
                   placeholder="e.g., 5.7, Class 3, PD"
                 />
               </div>
+
+              {(type === "alpine_climb" || type === "rock_climb" || type === "mountaineering" || type === "scramble") && (
+                <div>
+                  <label className="block text-sm font-medium text-dark-muted mb-1">Pitch count (optional)</label>
+                  <input
+                    type="number"
+                    value={pitchCount}
+                    onChange={(e) => setPitchCount(e.target.value)}
+                    placeholder="e.g., 8"
+                    className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
+                  />
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button

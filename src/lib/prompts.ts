@@ -35,6 +35,8 @@ TRAINING OVERSHOOT RULE: Graduation benchmarks must be set ABOVE the objective's
 - Flexibility: No overshoot — set graduation targets at the objective's actual requirements.
 - Pack weight: No overshoot — keep pack weight at the objective's specified weight.
 
+MULTI-PITCH ENDURANCE: When pitch_count is provided and >= 5, climbing endurance becomes a major training demand alongside grade. The relevance profile should include "sustained multi-pitch climbing endurance", "pacing over many consecutive pitches", and "climbing efficiency under fatigue". Graduation benchmarks should include a volume benchmark like "Climb N pitches at [grade] continuously in the gym" where N approaches the objective's pitch count. This is separate from the grade-based top-rope benchmark — endurance is about sustained output, not peak difficulty.
+
 Select benchmark exercises ONLY from the provided library. Do not invent new exercises.
 
 FLEXIBILITY DIMENSION GUIDANCE:
@@ -311,7 +313,11 @@ CLIMBING/TECHNICAL EXERCISE LIBRARY:
 
 DEFAULT CLIMBING SESSIONS MUST BE GYM-BASED. Every climbing/technical session in the main plan MUST use ONLY exercises from the ALLOWED GYM EXERCISES list below. If an exercise cannot be done on a gym climbing wall, hangboard, campus board, pull-up bar, or gym floor, it does NOT belong in a default climbing session. Outdoor climbing is ONLY offered through the alternatives system.
 
-CRITICAL — GYM GRADE CONVERSION: Indoor gym grades are significantly HIGHER than outdoor grades for the same climber. When prescribing gym climbing grades, convert from the athlete's outdoor lead grade using these offsets: indoor lead = outdoor lead + 4 letter grades, indoor top-rope = outdoor lead + 6 letter grades. Example: a 5.9 outdoor lead climber should do gym lead volume around 5.10d and gym top-rope laps around 5.11b. A 5.10a outdoor lead climber should do gym lead around 5.11a and gym top-rope around 5.11c. Do NOT use outdoor lead grades for indoor gym sessions — they will be far too easy. Always convert UP for the gym.
+CRITICAL — GYM GRADE CONVERSION: Indoor gym grades are significantly HIGHER than outdoor grades for the same climber. Use these conversion offsets (letter grades ABOVE outdoor lead): indoor lead = +4, indoor top-rope = +6, outdoor top-rope = +3. Example: a 5.9 outdoor lead climber should do gym lead volume around 5.10d and gym top-rope laps around 5.11b.
+
+IMPORTANT: Graduation benchmarks like "Top-Rope Climbing Assessment" are expressed as OUTDOOR top-rope grades. When programming gym sessions to train toward these benchmarks, you must convert further: outdoor top-rope to indoor top-rope = +3 letter grades. Example: if graduation benchmark is "5.11a outdoor top-rope", gym top-rope laps at peak week should be around 5.11d-5.12a (3 grades higher indoors). Do NOT use the outdoor benchmark grade directly for gym sessions — always convert up.
+
+MULTI-PITCH ENDURANCE PROGRAMMING: When the objective has pitch_count >= 5, climbing sessions MUST include endurance-specific training — not just grade work. Program sustained climbing volume: ARC training (20-30 min continuous), top-rope lap sets (4-6 laps back-to-back), route mileage sessions, and 4x4 circuits. Progress the volume weekly — Week 1 might be 4 continuous laps, final weeks should approach the objective's pitch count in continuous effort. This is the primary climbing demand for big alpine days, not peak grade.
 
 ALLOWED GYM CLIMBING EXERCISES — every exercise in a default climbing session MUST be from this list:
 
@@ -733,6 +739,7 @@ GYM GRADE CONVERSION (applies to all gym climbing alternatives): Indoor gym grad
   ALLOWED GYM EXERCISES for Alternative 1: limit bouldering, volume bouldering, flash attempts, project sessions, lead climbing volume, top-rope laps, onsight attempts, downclimbing gym routes, 4x4s (boulders or routes), linked boulder circuits, up-down-up sequences, pyramid sessions, max-weight dead hangs, hangboard repeaters, campus board laddering (intermediate+), ARC training, route mileage, traversing, weighted pull-ups, lock-offs, one-arm hang progressions, Frenchies, front lever progressions, hollow body holds, hanging leg raises, L-sit holds, push-ups, shoulder press, rotator cuff band work, reverse wrist curls, rice bucket, band pull-aparts, face pulls. If an exercise is NOT on this list, do NOT use it in Alternative 1.
 - Alternative 2: An OUTDOOR CLIMBING DAY tailored to the objective. For trad/alpine objectives: multi-pitch trad at moderate grade, crack climbing laps, or multi-pitch mileage day. For sport objectives: outdoor sport lead volume. For mountaineering: outdoor rock day on moderate terrain. Frame this as "if you have crag access this week" — a real outdoor climbing day that lets the athlete practice skills from their suggestedSkillPractice in context. If outdoor isn't practical for the objective type, offer a different gym-based climbing workout instead.
   ALLOWED OUTDOOR EXERCISES for Alternative 2: moderate multi-pitch routes, onsight attempts at 2-3 grades below max, mileage days (many pitches), long single-pitch routes, back-to-back routes, crack climbing laps (hand/finger/fist/off-width), mock leading on top rope, anchor building, rappel practice, multi-pitch mileage, outdoor sport lead volume. No invented exercises.
+  For multi-pitch objectives (pitch_count >= 5), outdoor Alternative 2 should specifically be a multi-pitch mileage day — climb as many pitches as possible at a comfortable grade to build sustained climbing endurance and rope management speed.
 
 FLEXIBILITY alternatives:
 - Alternative 1: A different modality (yoga class vs home routine, guided video vs self-directed).

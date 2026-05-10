@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     description: b.description,
   }));
 
-  const userMessage = `Objective: ${objectiveDetails.name}. Route: ${objectiveDetails.route || "N/A"}. Type: ${objectiveDetails.type}. Season: ${objectiveDetails.season || "N/A"}. Duration: ${objectiveDetails.duration || "N/A"}. Summit elevation: ${objectiveDetails.elevation || "N/A"}. Total gain: ${objectiveDetails.totalGain || "N/A"}. Distance: ${objectiveDetails.distance || "N/A"}. Technical grade: ${objectiveDetails.grade || "N/A"}. Additional details: ${objectiveDetails.details || "N/A"}. Pack weight: ${objectiveDetails.packWeight || "N/A"}.
+  const userMessage = `Objective: ${objectiveDetails.name}. Route: ${objectiveDetails.route || "N/A"}. Type: ${objectiveDetails.type}. Season: ${objectiveDetails.season || "N/A"}. Duration: ${objectiveDetails.duration || "N/A"}. Summit elevation: ${objectiveDetails.elevation || "N/A"}. Total gain: ${objectiveDetails.totalGain || "N/A"}. Distance: ${objectiveDetails.distance || "N/A"}. Technical grade: ${objectiveDetails.grade || "N/A"}. Pitch count: ${objectiveDetails.pitchCount || "N/A"}. Additional details: ${objectiveDetails.details || "N/A"}. Pack weight: ${objectiveDetails.packWeight || "N/A"}.
 
 Available benchmark exercises: ${JSON.stringify(trimmedBenchmarks)}
 
