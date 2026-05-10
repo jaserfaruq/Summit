@@ -9,11 +9,13 @@ import { useState, useTransition, Suspense } from "react";
 function LoginForm() {
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
+  const returnParam = searchParams.get("return");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   async function handleSubmit(formData: FormData) {
     setError(null);
+    if (returnParam) formData.set("return", returnParam);
     startTransition(async () => {
       const result = await login(formData);
       if (result?.error) {
@@ -103,7 +105,10 @@ function LoginForm() {
 
           <p className="mt-6 text-center text-sm text-dark-text/60">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-gold hover:underline font-medium">
+            <Link
+              href={returnParam ? `/signup?return=${encodeURIComponent(returnParam)}` : "/signup"}
+              className="text-gold hover:underline font-medium"
+            >
               Sign Up
             </Link>
           </p>

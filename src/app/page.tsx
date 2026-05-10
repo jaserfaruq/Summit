@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import LandingCTAs from "@/components/LandingCTAs";
 
 export default function Home() {
   return (
@@ -46,20 +47,7 @@ export default function Home() {
             climbing, and flexibility. Adapts weekly.
           </p>
 
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/signup"
-              className="bg-burnt-orange hover:bg-burnt-orange/90 text-white font-semibold py-3 px-7 rounded-lg transition-colors text-sm"
-            >
-              Get Started
-            </Link>
-            <Link
-              href="/login"
-              className="border border-white/20 text-white/80 hover:text-white hover:border-white/40 font-semibold py-3 px-7 rounded-lg transition-colors text-sm"
-            >
-              Log In
-            </Link>
-          </div>
+          <LandingCTAs />
         </div>
       </main>
     </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
 import { usePlanSwitcher } from "@/lib/plan-switcher-context";
+import { useDraftPlan } from "@/lib/draft-plan-context";
 import { Objective, WeeklyTarget, PlanSession, WorkoutLog } from "@/lib/types";
 import ObjectiveModal from "@/components/ObjectiveModal";
 import WeekBadge from "@/components/WeekBadge";
@@ -38,6 +39,7 @@ interface CalendarSession {
 
 export default function CalendarPage() {
   const { activePlanId, isLoading: plansLoading } = usePlanSwitcher();
+  const { draft, isLoaded: draftLoaded } = useDraftPlan();
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [calendarSessions, setCalendarSessions] = useState<CalendarSession[]>([]);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
@@ -49,7 +51,75 @@ export default function CalendarPage() {
   const fetchData = useCallback(async function fetchData() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      // Guest mode: hydrate from draft context
+      if (draft?.objective) {
+        const draftAsObjective: Objective = {
+          id: "draft",
+          user_id: "draft",
+          name: draft.objective.name,
+          target_date: draft.objective.target_date,
+          type: draft.objective.type,
+          distance_miles: draft.objective.distance_miles,
+          elevation_gain_ft: draft.objective.elevation_gain_ft,
+          technical_grade: draft.objective.technical_grade,
+          target_cardio_score: draft.objective.target_cardio_score,
+          target_strength_score: draft.objective.target_strength_score,
+          target_climbing_score: draft.objective.target_climbing_score,
+          target_flexibility_score: draft.objective.target_flexibility_score,
+          current_cardio_score: draft.objective.current_cardio_score,
+          current_strength_score: draft.objective.current_strength_score,
+          current_climbing_score: draft.objective.current_climbing_score,
+          current_flexibility_score: draft.objective.current_flexibility_score,
+          taglines: draft.objective.taglines,
+          relevance_profiles: draft.objective.relevance_profiles as Objective["relevance_profiles"],
+          graduation_benchmarks: draft.objective.graduation_benchmarks,
+          climbing_role: draft.objective.climbing_role,
+          matched_validated_id: draft.objective.matched_validated_id,
+          tier: draft.objective.tier,
+          created_at: draft.createdAt,
+        };
+        setObjectives([draftAsObjective]);
+
+        // If guest has plan with sessions, surface them on the calendar
+        if (draft.plan?.weeks) {
+          const sessions: CalendarSession[] = [];
+          for (const week of draft.plan.weeks) {
+            if (!week.sessions || week.sessions.length === 0) continue;
+            const weekStart = new Date(week.weekStartDate + "T00:00:00");
+            const sessionCount = week.sessions.length;
+            const spacing = sessionCount <= 1 ? 1 : Math.floor(6 / sessionCount);
+            for (let i = 0; i < sessionCount; i++) {
+              const dayOffset = Math.min(i * spacing, 6);
+              const sessionDate = new Date(weekStart);
+              sessionDate.setDate(sessionDate.getDate() + dayOffset);
+              sessions.push({
+                date: sessionDate.toISOString().split("T")[0],
+                session: week.sessions[i],
+                weekNumber: week.weekNumber,
+                weekType: week.weekType,
+                planId: "draft",
+              });
+            }
+          }
+          setCalendarSessions(sessions);
+        } else {
+          setCalendarSessions([]);
+        }
+        // Center calendar on the objective's target month for context
+        if (objectives.length === 0 && draft.objective.target_date) {
+          const targetDate = new Date(draft.objective.target_date + "T00:00:00");
+          if (!isNaN(targetDate.getTime())) {
+            setCurrentDate(new Date(targetDate.getFullYear(), targetDate.getMonth()));
+          }
+        }
+      } else {
+        setObjectives([]);
+        setCalendarSessions([]);
+      }
+      setWorkoutLogs([]);
+      return;
+    }
 
     const { data: objData } = await supabase
       .from("objectives")
@@ -91,11 +161,11 @@ export default function CalendarPage() {
       .eq("user_id", user.id);
     if (logData) setWorkoutLogs(logData as WorkoutLog[]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlanId]);
+  }, [activePlanId, draft]);
 
   useEffect(() => {
-    if (!plansLoading) fetchData();
-  }, [fetchData, plansLoading]);
+    if (!plansLoading && draftLoaded) fetchData();
+  }, [fetchData, plansLoading, draftLoaded]);
 
   function distributeSessionsToDates(weeks: WeeklyTarget[], planId: string): CalendarSession[] {
     const results: CalendarSession[] = [];

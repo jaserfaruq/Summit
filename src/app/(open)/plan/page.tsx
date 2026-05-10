@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { TrainingPlan, WeeklyTarget, Objective, PlanSession, WorkoutLog, ValidatedObjective, Dimension, WeekCompletionFeedback, DifficultyLevel, DIFFICULTY_LABELS, DIFFICULTY_SCALE_FACTORS, DifficultyAdjustment, PlanData, WeeklyReport, DimensionScores, SkillPracticeItem, GapAnalysis } from "@/lib/types";
 import { usePlanData } from "@/lib/use-plan-data";
 import { usePlanSwitcher } from "@/lib/plan-switcher-context";
+import { useDraftPlan, DraftPlan as DraftPlanShape, DraftObjective } from "@/lib/draft-plan-context";
 import { calculateAllScoresFromRatings, shouldHighlightRebalance, generateCompletionSummary } from "@/lib/scoring";
 import DeletePlanButton from "@/components/DeletePlanButton";
 import GapInfoBubble from "@/components/GapInfoBubble";
@@ -14,6 +15,85 @@ import AlternativesPanel from "@/components/AlternativesPanel";
 import AILoadingIndicator from "@/components/AILoadingIndicator";
 import ExerciseDemoButton from "@/components/ExerciseDemoButton";
 import Link from "next/link";
+
+const DRAFT_PLAN_ID = "draft";
+
+interface GuestPlanData {
+  plan: TrainingPlan;
+  weeks: WeeklyTarget[];
+  objective: Objective;
+  weekSessions: Record<number, PlanSession[]>;
+}
+
+function buildGuestPlanData(draftObjective: DraftObjective, draftPlan: DraftPlanShape, createdAt: string): GuestPlanData {
+  const objective: Objective = {
+    id: DRAFT_PLAN_ID,
+    user_id: DRAFT_PLAN_ID,
+    name: draftObjective.name,
+    target_date: draftObjective.target_date,
+    type: draftObjective.type,
+    distance_miles: draftObjective.distance_miles,
+    elevation_gain_ft: draftObjective.elevation_gain_ft,
+    technical_grade: draftObjective.technical_grade,
+    target_cardio_score: draftObjective.target_cardio_score,
+    target_strength_score: draftObjective.target_strength_score,
+    target_climbing_score: draftObjective.target_climbing_score,
+    target_flexibility_score: draftObjective.target_flexibility_score,
+    current_cardio_score: draftObjective.current_cardio_score,
+    current_strength_score: draftObjective.current_strength_score,
+    current_climbing_score: draftObjective.current_climbing_score,
+    current_flexibility_score: draftObjective.current_flexibility_score,
+    taglines: draftObjective.taglines,
+    relevance_profiles: draftObjective.relevance_profiles as Objective["relevance_profiles"],
+    graduation_benchmarks: draftObjective.graduation_benchmarks,
+    climbing_role: draftObjective.climbing_role,
+    matched_validated_id: draftObjective.matched_validated_id,
+    tier: draftObjective.tier,
+    created_at: createdAt,
+  };
+  const plan: TrainingPlan = {
+    id: DRAFT_PLAN_ID,
+    user_id: DRAFT_PLAN_ID,
+    objective_id: DRAFT_PLAN_ID,
+    assessment_id: DRAFT_PLAN_ID,
+    created_at: createdAt,
+    plan_data: {
+      planSummary: draftPlan.planSummary,
+      heroImageUrl: draftPlan.heroImageUrl,
+      programmingHints: draftPlan.programmingHints,
+      gapAnalysis: draftPlan.gapAnalysis ?? undefined,
+      weeks: draftPlan.weeks.map((w) => ({
+        weekNumber: w.weekNumber,
+        weekStartDate: w.weekStartDate,
+        weekType: w.weekType,
+        totalHoursTarget: w.totalHoursTarget,
+        expectedScores: w.expectedScores,
+        sessions: w.sessions,
+      })),
+    } as PlanData,
+    graduation_workouts: draftPlan.graduationWorkouts,
+    status: "active",
+    current_week_number: 1,
+  };
+  const weeks: WeeklyTarget[] = draftPlan.weeks.map((w) => ({
+    id: `draft-week-${w.weekNumber}`,
+    plan_id: DRAFT_PLAN_ID,
+    week_number: w.weekNumber,
+    week_start: w.weekStartDate,
+    week_type: w.weekType,
+    total_hours: w.totalHoursTarget,
+    expected_scores: w.expectedScores,
+    sessions: w.sessions,
+    weekly_report: null,
+  }));
+  const weekSessions: Record<number, PlanSession[]> = {};
+  for (const w of draftPlan.weeks) {
+    if (w.sessions && w.sessions.length > 0) {
+      weekSessions[w.weekNumber] = w.sessions;
+    }
+  }
+  return { plan, weeks, objective, weekSessions };
+}
 
 /** Inline SVG mountain silhouette used when no hero image URL is stored */
 const MOUNTAIN_SVG_FALLBACK = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400"><defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a1a2e"/><stop offset="40%" stop-color="#16213e"/><stop offset="70%" stop-color="#1b4d3e"/><stop offset="100%" stop-color="#0f3d3e"/></linearGradient><linearGradient id="g" x1=".5" y1="0" x2=".5" y2="1"><stop offset="0%" stop-color="#d4782f" stop-opacity=".4"/><stop offset="100%" stop-color="#d4782f" stop-opacity="0"/></linearGradient><linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2a3a30"/><stop offset="100%" stop-color="#1a2a20"/></linearGradient><linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1f2f25"/><stop offset="100%" stop-color="#0f1f15"/></linearGradient></defs><rect width="1200" height="400" fill="url(#s)"/><ellipse cx="600" cy="120" rx="300" ry="60" fill="url(#g)"/><polygon points="0,400 150,180 300,280 500,120 650,220 800,160 950,240 1050,140 1200,250 1200,400" fill="url(#a)" opacity=".7"/><polygon points="500,120 520,130 540,125" fill="#e8e8e8" opacity=".5"/><polygon points="800,160 825,172 845,168" fill="#e8e8e8" opacity=".5"/><polygon points="1050,140 1075,155 1090,150" fill="#e8e8e8" opacity=".5"/><polygon points="0,400 100,250 250,320 400,200 550,300 700,230 850,290 1000,210 1100,280 1200,220 1200,400" fill="url(#b)"/></svg>`)}`;
@@ -33,6 +113,8 @@ function PlanContent() {
   // SWR-cached plan data — returns stale data instantly on revisit, revalidates in background
   const { data: planData, isLoading: swrLoading, mutate } = usePlanData();
   const { refreshPlans } = usePlanSwitcher();
+  const { draft, isLoaded: draftLoaded, setPlan: setDraftPlan, setWeekSessions: setDraftWeekSessions } = useDraftPlan();
+  const isDraftMode = searchParams.get("draft") === "true" || (!!draft?.objective && !planData.plan && draftLoaded);
 
   // Local state derived from SWR (allows real-time mutation feedback)
   const [plan, setPlan] = useState<TrainingPlan | null>(null);
@@ -76,10 +158,11 @@ function PlanContent() {
   const assessmentId = searchParams.get("assessmentId");
   const loggedParam = searchParams.get("logged");
 
-  const loading = swrLoading && !plan;
+  const loading = !isDraftMode && swrLoading && !plan;
 
-  // Sync SWR data into local state whenever it updates
+  // Sync SWR data into local state whenever it updates (authed users only)
   useEffect(() => {
+    if (isDraftMode) return;
     if (!planData.plan) return;
     setPlan(planData.plan);
     setWeeks(planData.weeks);
@@ -100,9 +183,34 @@ function PlanContent() {
     if (planData.activeWeek && expandedWeek === null) {
       setExpandedWeek(planData.activeWeek);
     }
-  }, [planData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [planData, isDraftMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-load current week + next 2 weeks sequentially on page open
+  // Sync DRAFT data into local state for guest mode
+  const guestData = useMemo(() => {
+    if (!isDraftMode || !draft?.objective || !draft.plan) return null;
+    return buildGuestPlanData(draft.objective, draft.plan, draft.createdAt);
+  }, [isDraftMode, draft]);
+
+  useEffect(() => {
+    if (!guestData) return;
+    setPlan(guestData.plan);
+    setWeeks(guestData.weeks);
+    setObjective(guestData.objective);
+    setValidatedObj(null);
+    setWorkoutLogs([]);
+    setWeekSessions((prev) => {
+      const merged = { ...prev };
+      for (const [k, v] of Object.entries(guestData.weekSessions)) {
+        if (!merged[Number(k)] || merged[Number(k)].length === 0) {
+          merged[Number(k)] = v;
+        }
+      }
+      return merged;
+    });
+    if (expandedWeek === null) setExpandedWeek(1);
+  }, [guestData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-load current week + next 2 weeks sequentially on page open (week 1 only for guests)
   const autoLoadTriggeredRef = useRef(false);
   useEffect(() => {
     // Skip auto-load when navigating here to generate a new plan —
@@ -111,18 +219,20 @@ function PlanContent() {
     autoLoadTriggeredRef.current = true;
 
     const currentWeek = plan.current_week_number || 1;
-    const weeksToLoad = [currentWeek, currentWeek + 1, currentWeek + 2].filter(
-      (wn) => weeks.some((w) => w.week_number === wn)
-    );
+    const weeksToLoad = isDraftMode
+      ? [currentWeek] // Guests get week 1 only — signup gate before more
+      : [currentWeek, currentWeek + 1, currentWeek + 2].filter(
+          (wn) => weeks.some((w) => w.week_number === wn)
+        );
 
     // Load sequentially: week 1 finishes, then week 2 starts, then week 3
     (async () => {
       for (const wn of weeksToLoad) {
-        if (weekSessions[wn]?.length > 0) continue; // already loaded from DB
+        if (weekSessions[wn]?.length > 0) continue; // already loaded
         await loadWeekSessions(wn);
       }
     })();
-  }, [plan, weeks]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [plan, weeks, isDraftMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-expand philosophy & graduation workouts on first visit to this plan
   useEffect(() => {
@@ -142,11 +252,14 @@ function PlanContent() {
   }, [loggedParam, mutate]);
 
   useEffect(() => {
-    if (shouldGenerate && objectiveId && assessmentId) {
+    if (!shouldGenerate) return;
+    if (isDraftMode && draft?.objective && draft?.assessment) {
+      generateDraftPlan();
+    } else if (objectiveId && assessmentId) {
       generatePlan(objectiveId, assessmentId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isDraftMode, draftLoaded]);
 
   async function generatePlan(objId: string, assId: string) {
     setGenerating(true);
@@ -186,6 +299,54 @@ function PlanContent() {
     setGenerating(false);
   }
 
+  async function generateDraftPlan() {
+    if (!draft?.objective || !draft?.assessment) return;
+    setGenerating(true);
+    setGenerateError(null);
+    try {
+      const res = await fetch("/api/generate-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          objective: draft.objective,
+          assessment: {
+            cardio_score: draft.assessment.cardio_score,
+            strength_score: draft.assessment.strength_score,
+            climbing_score: draft.assessment.climbing_score,
+            flexibility_score: draft.assessment.flexibility_score,
+            ai_reasoning: draft.assessment.ai_reasoning,
+            raw_data: { programmingHints: draft.assessment.programming_hints },
+            standard_answers: draft.assessment.standard_answers,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to generate plan");
+      }
+
+      const data = await res.json();
+      // Persist plan to draft context — page will hydrate from it via guestData effect
+      setDraftPlan({
+        planSummary: data.planSummary,
+        heroImageUrl: data.heroImageUrl,
+        programmingHints: data.programmingHints,
+        gapAnalysis: data.gapAnalysis,
+        graduationWorkouts: data.graduationWorkouts,
+        weeks: data.weeks,
+      });
+      autoLoadTriggeredRef.current = false;
+      router.replace("/plan?draft=true");
+    } catch (error) {
+      console.error("Draft plan generation error:", error);
+      setGenerateError(
+        error instanceof Error ? error.message : "Failed to generate plan. Please try again."
+      );
+    }
+    setGenerating(false);
+  }
+
   async function loadWeekSessions(weekNumber: number, retryCount = 0) {
     if (!plan) return;
     if (weekSessions[weekNumber] && weekSessions[weekNumber].length > 0) return;
@@ -200,13 +361,33 @@ function PlanContent() {
       return next;
     });
 
+    // Build the appropriate request body for guest vs authed mode
+    const draftWeek = isDraftMode ? draft?.plan?.weeks.find((w) => w.weekNumber === weekNumber) : null;
+    const requestBody = isDraftMode && draft?.objective && draftWeek
+      ? {
+          weekNumber,
+          stream: true,
+          objective: draft.objective,
+          weekTarget: {
+            week_number: draftWeek.weekNumber,
+            week_type: draftWeek.weekType,
+            week_start: draftWeek.weekStartDate,
+            total_hours: draftWeek.totalHoursTarget,
+            expected_scores: draftWeek.expectedScores,
+          },
+          totalWeeks: draft.plan?.weeks.length || weekNumber,
+          programmingHints: draft.assessment?.programming_hints || null,
+          trainingDaysPerWeek: draft.assessment?.standard_answers?.training_days_per_week || 5,
+        }
+      : { planId: plan.id, weekNumber, stream: true };
+
     try {
       let res: Response;
       try {
         res = await fetch("/api/generate-week-sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ planId: plan.id, weekNumber, stream: true }),
+          body: JSON.stringify(requestBody),
         });
       } catch (networkError) {
         // Network error (Failed to fetch) — retry with backoff
@@ -277,6 +458,11 @@ function PlanContent() {
 
       setWeekSessions((prev) => ({ ...prev, [weekNumber]: sessions }));
 
+      // Persist sessions to draft localStorage in guest mode
+      if (isDraftMode) {
+        setDraftWeekSessions(weekNumber, sessions);
+      }
+
       // Update the week's total_hours and suggested_skill_practice from response
       const totalMinutes = (sessions as PlanSession[]).reduce(
         (sum: number, s: PlanSession) => sum + (s.estimatedMinutes || 0),
@@ -291,8 +477,8 @@ function PlanContent() {
         )
       );
 
-      // Pre-generate next week in the background (non-blocking)
-      preGenerateNextWeek(weekNumber);
+      // Pre-generate next week in the background (non-blocking, authed only)
+      if (!isDraftMode) preGenerateNextWeek(weekNumber);
     } catch (error) {
       console.error(`Error loading sessions for week ${weekNumber}:`, error);
       setSessionErrors((prev) => ({
@@ -755,6 +941,30 @@ function PlanContent() {
   }
 
   if (!plan) {
+    // For guests, route them through the appropriate next step in the draft flow
+    if (draftLoaded && !planData.plan) {
+      const guestNextRoute = !draft?.objective
+        ? { label: "Start Planning", href: "/calendar", helper: "Create your objective to get started." }
+        : !draft?.assessment
+        ? { label: "Take Assessment", href: "/assessment/draft", helper: "Take your fitness assessment to generate a plan." }
+        : null;
+
+      if (guestNextRoute) {
+        return (
+          <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+            <h2 className="text-2xl font-bold text-white mb-4">No Plan Yet</h2>
+            <p className="text-white/70 mb-8 drop-shadow-md">{guestNextRoute.helper}</p>
+            <Link
+              href={guestNextRoute.href}
+              className="inline-block bg-gold text-dark-bg px-6 py-3 rounded-lg font-medium hover:bg-gold/90 transition-colors"
+            >
+              {guestNextRoute.label}
+            </Link>
+          </div>
+        );
+      }
+    }
+
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <h2 className="text-2xl font-bold text-white mb-4">No Active Plan</h2>
@@ -774,6 +984,22 @@ function PlanContent() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
+      {/* Guest mode: prominent save-your-plan banner */}
+      {isDraftMode && (
+        <div className="rounded-xl border border-burnt-orange/40 bg-gradient-to-r from-burnt-orange/15 to-burnt-orange/5 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex-1 min-w-[220px]">
+            <p className="text-sm font-semibold text-white">Your plan isn&apos;t saved yet.</p>
+            <p className="text-xs text-white/70 mt-0.5">Sign up to keep it, log workouts, and track your progress week by week.</p>
+          </div>
+          <Link
+            href="/signup?return=persist"
+            className="bg-burnt-orange hover:bg-burnt-orange/90 text-white font-semibold py-2.5 px-5 rounded-lg transition-colors text-sm shrink-0"
+          >
+            Sign up to keep it →
+          </Link>
+        </div>
+      )}
+
       {/* Hero header with blurred background image */}
       <div className="relative rounded-xl overflow-hidden -mx-4 sm:mx-0">
         {/* Background image layer */}
@@ -805,13 +1031,15 @@ function PlanContent() {
               )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 pt-1">
-              <DeletePlanButton planId={plan.id} onDeleted={() => {
-              setPlan(null);
-              setWeeks([]);
-              setObjective(null);
-              setWeekSessions({});
-              setWorkoutLogs([]);
-            }} />
+              {!isDraftMode && (
+                <DeletePlanButton planId={plan.id} onDeleted={() => {
+                  setPlan(null);
+                  setWeeks([]);
+                  setObjective(null);
+                  setWeekSessions({});
+                  setWorkoutLogs([]);
+                }} />
+              )}
             </div>
           </div>
         </div>
@@ -894,8 +1122,8 @@ function PlanContent() {
               ))}
               <p className="text-sm text-dark-muted leading-relaxed">{planSummary.weeklyStructure}</p>
 
-              {/* Initial Assessment link */}
-              {objective && (
+              {/* Initial Assessment link — authed only (draft view-results not yet supported) */}
+              {objective && !isDraftMode && (
                 <Link
                   href={`/assessment/${objective.id}?view=results`}
                   className="inline-block text-sm text-gold hover:text-gold/80 transition-colors mt-1"
@@ -966,8 +1194,8 @@ function PlanContent() {
         </div>
       )}
 
-      {/* Adjust Difficulty & Rebalance */}
-      {objective && plan && (
+      {/* Adjust Difficulty & Rebalance — authed only */}
+      {!isDraftMode && objective && plan && (
         <DifficultyAdjuster
           plan={plan}
           adjustingDifficulty={adjustingDifficulty}
@@ -1135,7 +1363,7 @@ function PlanContent() {
                                 </button>
                               ) : null;
                             })()}
-                            {!logged && (
+                            {!logged && !isDraftMode && (
                               <>
                                 <button
                                   onClick={(e) => {
@@ -1154,6 +1382,16 @@ function PlanContent() {
                                   Log
                                 </Link>
                               </>
+                            )}
+                            {!logged && isDraftMode && (
+                              <Link
+                                href="/signup?return=persist"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs bg-burnt-orange/15 text-burnt-orange border border-burnt-orange/30 px-3 py-1.5 rounded-md hover:bg-burnt-orange/25 transition-colors font-semibold"
+                                title="Sign up to log workouts and track progress"
+                              >
+                                Sign up to log
+                              </Link>
                             )}
                             <svg className={`w-3.5 h-3.5 text-dark-muted/50 transition-transform flex-shrink-0 ${isSessionExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -1253,8 +1491,8 @@ function PlanContent() {
                     </div>
                   )}
 
-                  {/* Complete Week button */}
-                  {canComplete && (
+                  {/* Complete Week button — authed only */}
+                  {!isDraftMode && canComplete && (
                     <div className="pt-2">
                       <button
                         onClick={() => handleCompleteWeek(week)}

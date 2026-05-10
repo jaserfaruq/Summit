@@ -1,10 +1,9 @@
 import { createClient } from "@/lib/supabase-server";
-import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import { PlanSwitcherProvider } from "@/lib/plan-switcher-context";
 import { DraftPlanProvider } from "@/lib/draft-plan-context";
 
-export default async function AppLayout({
+export default async function OpenLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -12,20 +11,20 @@ export default async function AppLayout({
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login");
+  let isValidator = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_validator")
+      .eq("id", user.id)
+      .single();
+    isValidator = !!profile?.is_validator;
   }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_validator")
-    .eq("id", user.id)
-    .single();
 
   return (
     <DraftPlanProvider>
       <PlanSwitcherProvider>
-        <AppShell email={user.email || ""} isValidator={profile?.is_validator}>
+        <AppShell email={user?.email || null} isValidator={isValidator}>
           {children}
         </AppShell>
       </PlanSwitcherProvider>

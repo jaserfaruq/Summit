@@ -4,32 +4,55 @@ import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_ASSESS_Q_SYSTEM } from "@/lib/prompts";
 import { AIQuestion } from "@/lib/types";
 
+interface InlineObjective {
+  name: string;
+  type: string;
+  distance_miles: number | null;
+  elevation_gain_ft: number | null;
+  technical_grade: string | null;
+  target_cardio_score: number;
+  target_strength_score: number;
+  target_climbing_score: number;
+  target_flexibility_score: number;
+  graduation_benchmarks: unknown;
+  relevance_profiles: unknown;
+  matched_validated_id: string | null;
+}
+
 export async function POST(request: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
-  const { objectiveId, standardAnswers, previousQuestions, previousAnswers } = await request.json();
+  const { objectiveId, objective: inlineObjective, standardAnswers, previousQuestions, previousAnswers } = await request.json();
 
-  if (!objectiveId || !standardAnswers || !previousQuestions || !previousAnswers) {
+  if (!standardAnswers || !previousQuestions || !previousAnswers) {
     return NextResponse.json(
-      { error: "objectiveId, standardAnswers, previousQuestions, and previousAnswers are required" },
+      { error: "standardAnswers, previousQuestions, and previousAnswers are required" },
       { status: 400 }
     );
   }
 
-  // Fetch the objective
-  const { data: objective, error: objError } = await supabase
-    .from("objectives")
-    .select("*")
-    .eq("id", objectiveId)
-    .eq("user_id", user.id)
-    .single();
+  let objective: InlineObjective | null = null;
 
-  if (objError || !objective) {
-    return NextResponse.json({ error: "Objective not found" }, { status: 404 });
+  if (user && objectiveId) {
+    const { data, error: objError } = await supabase
+      .from("objectives")
+      .select("*")
+      .eq("id", objectiveId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (objError || !data) {
+      return NextResponse.json({ error: "Objective not found" }, { status: 404 });
+    }
+    objective = data as InlineObjective;
+  } else if (inlineObjective) {
+    objective = inlineObjective as InlineObjective;
+  } else {
+    return NextResponse.json(
+      { error: "objectiveId (when authenticated) or objective (guest) is required" },
+      { status: 400 }
+    );
   }
 
   // Fetch route name from validated objective if matched
