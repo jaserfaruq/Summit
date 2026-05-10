@@ -229,7 +229,10 @@ export async function POST(request: NextRequest) {
     weekStart.setDate(weekStart.getDate() + i * 7);
     const weekStartStr = weekStart.toISOString().split("T")[0];
 
-    const isTaper = weekNumber > totalWeeks - 2;
+    // Scale taper to plan length: require at least 4 training weeks before tapering.
+    // Short plans (<6 weeks): no taper. Medium (6-7 weeks): 1 taper week. 8+ weeks: 2 taper weeks.
+    const taperWeeks = totalWeeks < 6 ? 0 : totalWeeks < 8 ? 1 : 2;
+    const isTaper = taperWeeks > 0 && weekNumber > totalWeeks - taperWeeks;
     const volumeMultiplier = isTaper ? 0.6 : 1.0;
 
     const progressionFactor = Math.min(1.0, 0.7 + (weekNumber / totalWeeks) * 0.3);
@@ -503,7 +506,12 @@ function buildPlanPhilosophy(
     parts.push(`${labels.join(" and ")} ${minimal.length === 1 ? "is" : "are"} close to target and ${minimal.length === 1 ? "needs" : "need"} only light work.`);
   }
 
-  parts.push(`Rate each workout on a 1-5 scale to track your progress. The plan includes a 2-week taper to peak on your target date.`);
+  const taperWeeks = totalWeeks < 6 ? 0 : totalWeeks < 8 ? 1 : 2;
+  if (taperWeeks > 0) {
+    parts.push(`Rate each workout on a 1-5 scale to track your progress. The plan includes a ${taperWeeks}-week taper to peak on your target date.`);
+  } else {
+    parts.push(`Rate each workout on a 1-5 scale to track your progress. No taper — every week counts with this timeline.`);
+  }
 
   return parts.join(" ");
 }
