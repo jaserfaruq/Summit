@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import ObjectiveModal from "./ObjectiveModal";
+import dynamic from "next/dynamic";
+import { DraftPlanProvider } from "@/lib/draft-plan-context";
+
+const ObjectiveModal = dynamic(() => import("./ObjectiveModal"), { ssr: false });
 
 interface DraftSummary {
   objectiveName: string | null;
@@ -92,12 +95,14 @@ export default function LandingCTAs() {
       </div>
 
       {showModal && createPortal(
-        <ObjectiveModal
-          date={null}
-          objective={null}
-          onClose={() => setShowModal(false)}
-          onSaved={() => setShowModal(false)}
-        />,
+        <DraftPlanProvider>
+          <ObjectiveModal
+            date={null}
+            objective={null}
+            onClose={() => setShowModal(false)}
+            onSaved={() => setShowModal(false)}
+          />
+        </DraftPlanProvider>,
         document.body
       )}
     </>

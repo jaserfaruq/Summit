@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 /**
- * Legacy assessment page — redirects to calendar (objective-first flow).
+ * Legacy assessment page — redirects to dashboard (objective-first flow).
  * The actual assessment now lives at /assessment/[objectiveId].
  */
 export default function AssessmentPage() {
