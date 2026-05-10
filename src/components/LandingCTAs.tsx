@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { DraftPlanProvider } from "@/lib/draft-plan-context";
+import { createClient } from "@/lib/supabase";
 
 const ObjectiveModal = dynamic(() => import("./ObjectiveModal"), { ssr: false });
 
@@ -43,8 +44,20 @@ export default function LandingCTAs() {
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    setDraft(readDraftSummary());
-    setHydrated(true);
+    async function init() {
+      // If the user is authenticated, don't show the draft resume CTA —
+      // they should use /dashboard. Also clear stale draft data.
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        localStorage.removeItem(STORAGE_KEY);
+        setDraft(null);
+      } else {
+        setDraft(readDraftSummary());
+      }
+      setHydrated(true);
+    }
+    init();
   }, []);
 
   if (!hydrated) {

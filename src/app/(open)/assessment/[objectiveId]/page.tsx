@@ -56,7 +56,7 @@ function AssessmentContent() {
   const objectiveId = params.objectiveId as string;
   const isGuest = objectiveId === "draft";
   const viewResults = searchParams.get("view") === "results";
-  const { draft, setObjective: setDraftObjective, setAssessment: setDraftAssessment } = useDraftPlan();
+  const { draft, isLoaded: draftLoaded, setObjective: setDraftObjective, setAssessment: setDraftAssessment } = useDraftPlan();
 
   const [phase, setPhase] = useState<Phase>(viewResults ? "results" : "layer1");
   const [loading, setLoading] = useState(false);
@@ -218,8 +218,8 @@ function AssessmentContent() {
       try {
         // Guest path: read from draft context
         if (isGuest) {
+          if (!draftLoaded) return; // Wait for draft context to hydrate from localStorage
           if (!draft?.objective) {
-            // No draft — kick the user back to calendar to create one
             router.replace("/");
             return;
           }
@@ -324,7 +324,7 @@ function AssessmentContent() {
       }
     }
     fetchObjective();
-  }, [objectiveId, viewResults, runBackgroundEstimation, isGuest, draft, router]);
+  }, [objectiveId, viewResults, runBackgroundEstimation, isGuest, draft, draftLoaded, router]);
 
   function buildStandardAnswers(): StandardAnswers {
     return {
