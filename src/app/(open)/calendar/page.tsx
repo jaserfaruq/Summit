@@ -49,15 +49,16 @@ export default function CalendarPage() {
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
+  const [addMode] = useState(() => searchParams.get("add") === "true");
 
   // Auto-open the add objective modal when ?add=true is present
   useEffect(() => {
-    if (searchParams.get("add") === "true" && !showModal) {
+    if (addMode && !showModal) {
       setSelectedDate(new Date().toISOString().split("T")[0]);
       setShowModal(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [addMode]);
 
   const fetchData = useCallback(async function fetchData() {
     const supabase = createClient();
@@ -253,6 +254,17 @@ export default function CalendarPage() {
     if (objs.length > 0 || sess.length > 0 || logs.length > 0) {
       monthDays.push({ day: d, objectives: objs, sessions: sess, logs: logs });
     }
+  }
+
+  // When arriving via ?add=true, only show the modal — no calendar behind it
+  if (addMode && showModal) {
+    return (
+      <ObjectiveModal
+        date={selectedDate} objective={selectedObjective}
+        onClose={() => { setShowModal(false); setSelectedObjective(null); setSelectedDate(null); }}
+        onSaved={handleSaved}
+      />
+    );
   }
 
   return (
