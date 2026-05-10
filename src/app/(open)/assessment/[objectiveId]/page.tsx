@@ -100,6 +100,8 @@ function AssessmentContent() {
   // When user finishes Layer 1 before estimation completes, this gates the transition
   const [waitingForEstimation, setWaitingForEstimation] = useState(false);
   const pendingLayer1SubmitRef = useRef(false);
+  const pendingQuickPathRef = useRef(false);
+  const [skippedLayer2, setSkippedLayer2] = useState(false);
 
   // Run estimate-scores in background for silver/bronze objectives
   const runBackgroundEstimation = useCallback(async (objName: string, objType: string, objData: {
@@ -346,12 +348,17 @@ function AssessmentContent() {
     };
   }
 
-  // When estimation finishes and user was waiting, auto-proceed to generate questions
+  // When estimation finishes and user was waiting, auto-proceed to generate questions or quick score
   useEffect(() => {
     if (estimationReady && pendingLayer1SubmitRef.current) {
       pendingLayer1SubmitRef.current = false;
       setWaitingForEstimation(false);
       doSubmitLayer1();
+    }
+    if (estimationReady && pendingQuickPathRef.current) {
+      pendingQuickPathRef.current = false;
+      setWaitingForEstimation(false);
+      doSubmitQuickPath();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estimationReady]);
@@ -360,6 +367,7 @@ function AssessmentContent() {
   useEffect(() => {
     if (estimationError && waitingForEstimation) {
       pendingLayer1SubmitRef.current = false;
+      pendingQuickPathRef.current = false;
       setWaitingForEstimation(false);
       setLoading(false);
       setError(`Score estimation failed: ${estimationError}. Please go back and try again.`);
@@ -402,6 +410,21 @@ function AssessmentContent() {
       return;
     }
     doSubmitLayer1();
+  }
+
+  function submitQuickPath() {
+    if (!estimationReady) {
+      setWaitingForEstimation(true);
+      setLoading(true);
+      pendingQuickPathRef.current = true;
+      return;
+    }
+    doSubmitQuickPath();
+  }
+
+  function doSubmitQuickPath() {
+    setSkippedLayer2(true);
+    submitAssessment();
   }
 
   async function requestMoreQuestions() {
@@ -479,7 +502,7 @@ function AssessmentContent() {
       setPhase("results");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
-      setPhase("layer2");
+      setPhase(skippedLayer2 ? "layer1" : "layer2");
     } finally {
       setLoading(false);
     }
@@ -764,6 +787,7 @@ function AssessmentContent() {
             </div>
           </div>
 
+          {/* Primary path: detailed assessment */}
           <button
             onClick={submitLayer1}
             disabled={loading}
@@ -775,6 +799,34 @@ function AssessmentContent() {
               ? "Generating questions..."
               : "Continue to Objective-Specific Questions"}
           </button>
+          <p className="text-xs text-dark-muted text-center mt-1.5">
+            We&apos;ll generate 3–5 questions tailored to your objective (~2 min). Recommended for a more personalized plan.
+          </p>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-3">
+            <div className="flex-1 border-t border-dark-border/50" />
+            <span className="text-xs text-dark-muted">or</span>
+            <div className="flex-1 border-t border-dark-border/50" />
+          </div>
+
+          {/* Quick path: skip AI questions */}
+          <button
+            onClick={submitQuickPath}
+            disabled={loading}
+            className="w-full py-2.5 border border-dark-border text-dark-text rounded-lg text-sm hover:bg-dark-card transition-colors disabled:opacity-50"
+          >
+            {waitingForEstimation
+              ? "Finishing score analysis..."
+              : loading
+              ? "Scoring..."
+              : "Skip & Build My Plan Now"}
+          </button>
+          <p className="text-xs text-dark-muted/70 text-center mt-1">
+            Score from baseline answers only — still builds a solid plan
+          </p>
+
+          {/* Waiting indicator (shared by both paths) */}
           {waitingForEstimation && (
             <AILoadingIndicator
               size="sm"
