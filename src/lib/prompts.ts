@@ -311,6 +311,8 @@ CLIMBING/TECHNICAL EXERCISE LIBRARY:
 
 DEFAULT CLIMBING SESSIONS MUST BE GYM-BASED. Every climbing/technical session in the main plan MUST use ONLY exercises from the ALLOWED GYM EXERCISES list below. If an exercise cannot be done on a gym climbing wall, hangboard, campus board, pull-up bar, or gym floor, it does NOT belong in a default climbing session. Outdoor climbing is ONLY offered through the alternatives system.
 
+CRITICAL — GYM GRADE CONVERSION: Indoor gym grades are significantly HIGHER than outdoor grades for the same climber. When prescribing gym climbing grades, convert from the athlete's outdoor lead grade using these offsets: indoor lead = outdoor lead + 4 letter grades, indoor top-rope = outdoor lead + 6 letter grades. Example: a 5.9 outdoor lead climber should do gym lead volume around 5.10d and gym top-rope laps around 5.11b. A 5.10a outdoor lead climber should do gym lead around 5.11a and gym top-rope around 5.11c. Do NOT use outdoor lead grades for indoor gym sessions — they will be far too easy. Always convert UP for the gym.
+
 ALLOWED GYM CLIMBING EXERCISES — every exercise in a default climbing session MUST be from this list:
 
 BOULDERING:
