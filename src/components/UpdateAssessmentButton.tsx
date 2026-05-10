@@ -23,7 +23,7 @@ export default function UpdateAssessmentButton({
     } else if (objectiveId) {
       router.push(`/assessment/${objectiveId}`);
     } else {
-      router.push("/calendar");
+      router.push("/dashboard");
     }
   }
 
@@ -59,7 +59,7 @@ export default function UpdateAssessmentButton({
                   if (objectiveId) {
                     router.push(`/assessment/${objectiveId}`);
                   } else {
-                    router.push("/calendar");
+                    router.push("/dashboard");
                   }
                 }}
                 className="px-4 py-2 text-sm bg-gold hover:bg-gold/90 text-dark-bg rounded-lg font-medium transition-colors"

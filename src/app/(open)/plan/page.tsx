@@ -944,7 +944,7 @@ function PlanContent() {
     // For guests, route them through the appropriate next step in the draft flow
     if (draftLoaded && !planData.plan) {
       const guestNextRoute = !draft?.objective
-        ? { label: "Start Planning", href: "/calendar", helper: "Create your objective to get started." }
+        ? { label: "Start Planning", href: "/dashboard", helper: "Create your objective to get started." }
         : !draft?.assessment
         ? { label: "Take Assessment", href: "/assessment/draft", helper: "Take your fitness assessment to generate a plan." }
         : null;

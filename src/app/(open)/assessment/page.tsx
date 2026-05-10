@@ -11,7 +11,7 @@ export default function AssessmentPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/calendar");
+    router.replace("/dashboard");
   }, [router]);
 
   return (

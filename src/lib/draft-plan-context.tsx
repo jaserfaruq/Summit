@@ -109,7 +109,7 @@ const DraftPlanContext = createContext<DraftPlanContextValue>({
   setPlan: () => {},
   setWeekSessions: () => {},
   clearDraft: () => {},
-  resumeRoute: () => "/calendar",
+  resumeRoute: () => "/dashboard",
 });
 
 export function useDraftPlan() {
@@ -217,7 +217,7 @@ export function DraftPlanProvider({ children }: { children: ReactNode }) {
   }, [persist]);
 
   const resumeRoute = useCallback(() => {
-    if (!draft?.objective) return "/calendar";
+    if (!draft?.objective) return "/dashboard";
     if (!draft.assessment) return "/assessment/draft";
     return "/plan";
   }, [draft]);

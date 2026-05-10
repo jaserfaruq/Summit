@@ -220,7 +220,7 @@ function AssessmentContent() {
         if (isGuest) {
           if (!draft?.objective) {
             // No draft — kick the user back to calendar to create one
-            router.replace("/calendar");
+            router.replace("/");
             return;
           }
           const draftObj = draft.objective;

@@ -410,7 +410,7 @@ export default function ProgressPage() {
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <h2 className="text-2xl font-bold text-white font-display mb-3">No Progress Data Yet</h2>
         <p className="text-white/70 mb-6 drop-shadow-md">Add an objective and start training to see your progress here.</p>
-        <a href="/calendar" className="inline-block bg-burnt-orange hover:bg-burnt-orange/90 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors">
+        <a href="/dashboard" className="inline-block bg-burnt-orange hover:bg-burnt-orange/90 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors">
           Set an objective
         </a>
       </div>
