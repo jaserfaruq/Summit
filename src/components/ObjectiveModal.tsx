@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import AILoadingIndicator from "@/components/AILoadingIndicator";
 import { Objective, ObjectiveType, MatchObjectiveResponse, DimensionGraduationBenchmarks, DimensionScores, DimensionTaglines, DimensionRelevanceProfiles, SearchMatch } from "@/lib/types";
+import { useDraftPlan, DraftObjective } from "@/lib/draft-plan-context";
 
 const OBJECTIVE_TYPES: { value: ObjectiveType; label: string }[] = [
   { value: "hike", label: "Hike" },
@@ -30,6 +31,7 @@ export default function ObjectiveModal({
   onSaved: () => void;
 }) {
   const router = useRouter();
+  const { setObjective: setDraftObjective, clearDraft } = useDraftPlan();
 
   // Shared state
   const [loading, setLoading] = useState(false);
@@ -127,14 +129,13 @@ export default function ObjectiveModal({
     setError(null);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
 
     try {
       let targetScores: DimensionScores = { cardio: 50, strength: 50, climbing_technical: 25, flexibility: 30 };
       let taglines: DimensionTaglines = { cardio: "", strength: "", climbing_technical: "", flexibility: "" };
       let relevanceProfiles: DimensionRelevanceProfiles | Record<string, never> = {};
       let graduationBenchmarks: DimensionGraduationBenchmarks = { cardio: [], strength: [], climbing_technical: [], flexibility: [] };
-      let matchedId = null;
+      let matchedId: string | null = null;
       const tier = matchResult?.tier || "bronze";
       let needsEstimation = false;
 
@@ -150,6 +151,40 @@ export default function ObjectiveModal({
         needsEstimation = true;
       }
 
+      // GUEST PATH: write to draft context, route to /assessment/draft
+      if (!user) {
+        const draftObj: DraftObjective = {
+          name,
+          type,
+          target_date: targetDate,
+          distance_miles: distance ? parseFloat(distance) : null,
+          elevation_gain_ft: elevation ? parseFloat(elevation) : null,
+          technical_grade: grade || null,
+          target_cardio_score: targetScores.cardio,
+          target_strength_score: targetScores.strength,
+          target_climbing_score: targetScores.climbing_technical,
+          target_flexibility_score: targetScores.flexibility,
+          current_cardio_score: 0,
+          current_strength_score: 0,
+          current_climbing_score: 0,
+          current_flexibility_score: 0,
+          taglines,
+          relevance_profiles: relevanceProfiles,
+          graduation_benchmarks: graduationBenchmarks,
+          climbing_role: null,
+          matched_validated_id: matchedId,
+          tier,
+        };
+        // Editing an existing draft replaces it; reset assessment + plan downstream so stale data doesn't leak
+        if (objective) {
+          clearDraft();
+        }
+        setDraftObjective(draftObj);
+        router.push("/assessment/draft");
+        return;
+      }
+
+      // AUTHED PATH
       if (objective) {
         await supabase
           .from("objectives")
@@ -225,8 +260,17 @@ export default function ObjectiveModal({
   }
 
   async function handleDelete() {
-    if (!objective) return;
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      // Guest: clear local draft
+      clearDraft();
+      onSaved();
+      return;
+    }
+
+    if (!objective) return;
 
     // Delete associated plan and weekly targets first
     const { data: plans } = await supabase

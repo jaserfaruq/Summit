@@ -3,15 +3,19 @@
 import { signup } from "@/app/auth/actions";
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useState, Suspense } from "react";
 
-export default function SignupPage() {
+function SignupForm() {
+  const searchParams = useSearchParams();
+  const returnParam = searchParams.get("return");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError(null);
+    if (returnParam) formData.set("return", returnParam);
     const result = await signup(formData);
     if (result?.error) {
       setError(result.error);
@@ -38,9 +42,15 @@ export default function SignupPage() {
 
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="w-full max-w-md bg-dark-bg/85 backdrop-blur-md rounded-2xl p-8 border border-dark-border/50">
-          <h2 className="text-3xl font-bold text-white text-center mb-8">
+          <h2 className="text-3xl font-bold text-white text-center mb-2">
             Sign Up
           </h2>
+          {returnParam === "persist" && (
+            <p className="text-sm text-burnt-orange/90 text-center mb-6">
+              Create an account to save your training plan and start tracking.
+            </p>
+          )}
+          {!returnParam && <div className="mb-6" />}
 
           {error && (
             <div className="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded mb-6 text-sm">
@@ -95,12 +105,23 @@ export default function SignupPage() {
 
           <p className="mt-6 text-center text-sm text-dark-text/60">
             Already have an account?{" "}
-            <Link href="/login" className="text-gold hover:underline font-medium">
+            <Link
+              href={returnParam ? `/login?return=${encodeURIComponent(returnParam)}` : "/login"}
+              className="text-gold hover:underline font-medium"
+            >
               Log In
             </Link>
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

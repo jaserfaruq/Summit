@@ -3,100 +3,168 @@ import { createServiceClient } from "@/lib/supabase-service";
 import { NextRequest, NextResponse } from "next/server";
 import { callClaudeWithCache, parseClaudeJSON, streamClaudeWithCache } from "@/lib/claude";
 import { PROMPT_2B_SYSTEM } from "@/lib/prompts";
-import { PlanSession, SkillPracticeItem } from "@/lib/types";
+import { PlanSession, SkillPracticeItem, DimensionScores, ProgrammingHints } from "@/lib/types";
 import { calculateAllSessionMinutes, calculateWeekTotalHours } from "@/lib/scoring";
 import { checkAndCreateNotifications } from "@/lib/partner-notifications";
 import { buildSessionUserMessage } from "@/lib/build-session-message";
 
 export const maxDuration = 120;
 
+interface GuestWeekTarget {
+  week_number: number;
+  week_type: string;
+  week_start: string;
+  total_hours: number;
+  expected_scores: DimensionScores;
+}
+
+interface GuestObjective {
+  name: string;
+  type: string;
+  target_date: string;
+  distance_miles: number | null;
+  elevation_gain_ft: number | null;
+  technical_grade: string | null;
+  target_cardio_score: number;
+  target_strength_score: number;
+  target_climbing_score: number;
+  target_flexibility_score: number;
+  current_cardio_score: number;
+  current_strength_score: number;
+  current_climbing_score: number;
+  current_flexibility_score: number;
+  graduation_benchmarks: unknown;
+  relevance_profiles: unknown;
+  climbing_role: "lead" | "follow" | null;
+}
+
 interface GenerateWeekSessionsRequest {
-  planId: string;
+  planId?: string;
   weekNumber: number;
   stream?: boolean;
+  // Guest-mode payload (when no planId)
+  objective?: GuestObjective;
+  weekTarget?: GuestWeekTarget;
+  totalWeeks?: number;
+  programmingHints?: ProgrammingHints | null;
+  trainingDaysPerWeek?: number;
 }
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   const body: GenerateWeekSessionsRequest = await request.json();
   const { planId, weekNumber, stream: useStreaming } = body;
 
-  // Fetch the plan — RLS ensures user can only see their own plans
-  const { data: plan, error: planError } = await supabase
-    .from("training_plans")
-    .select("*")
-    .eq("id", planId)
-    .single();
+  let objective: GuestObjective;
+  let weekTarget: GuestWeekTarget;
+  let weekTargetId: string | null = null;
+  let totalWeeks: number;
+  let programmingHints: ProgrammingHints | null = null;
+  let climbingRole: string | null = null;
+  let daysPerWeek: number;
+  let userIdForNotif: string | null = null;
+  let profileForMessage: { training_days_per_week?: number; equipment_access?: string[]; location?: string } | null = null;
 
-  if (planError || !plan) {
-    return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+  if (user && planId) {
+    // Authed path: fetch from DB
+    const { data: plan, error: planError } = await supabase
+      .from("training_plans")
+      .select("*")
+      .eq("id", planId)
+      .single();
+
+    if (planError || !plan) {
+      return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+    }
+
+    const { data: weekTargetRow, error: weekError } = await supabase
+      .from("weekly_targets")
+      .select("*")
+      .eq("plan_id", planId)
+      .eq("week_number", weekNumber)
+      .single();
+
+    if (weekError || !weekTargetRow) {
+      return NextResponse.json({ error: "Week not found" }, { status: 404 });
+    }
+
+    if (weekTargetRow.sessions && (weekTargetRow.sessions as PlanSession[]).length > 0) {
+      return NextResponse.json({ sessions: weekTargetRow.sessions, suggestedSkillPractice: weekTargetRow.suggested_skill_practice || null });
+    }
+
+    const { data: dbObjective, error: objError } = await supabase
+      .from("objectives")
+      .select("*")
+      .eq("id", plan.objective_id)
+      .single();
+
+    if (objError || !dbObjective) {
+      return NextResponse.json({ error: "Objective not found" }, { status: 404 });
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    const { count } = await supabase
+      .from("weekly_targets")
+      .select("*", { count: "exact", head: true })
+      .eq("plan_id", planId);
+
+    objective = dbObjective as GuestObjective;
+    weekTarget = {
+      week_number: weekTargetRow.week_number,
+      week_type: weekTargetRow.week_type,
+      week_start: weekTargetRow.week_start,
+      total_hours: weekTargetRow.total_hours,
+      expected_scores: weekTargetRow.expected_scores as DimensionScores,
+    };
+    weekTargetId = weekTargetRow.id;
+    totalWeeks = count || weekNumber;
+    programmingHints = (plan.plan_data?.programmingHints as ProgrammingHints | null) || null;
+    climbingRole = dbObjective.climbing_role || null;
+    daysPerWeek = profile?.training_days_per_week || 5;
+    userIdForNotif = user.id;
+    profileForMessage = profile;
+  } else if (body.objective && body.weekTarget && body.totalWeeks) {
+    // Guest path: trust the inline payload
+    objective = body.objective;
+    weekTarget = body.weekTarget;
+    totalWeeks = body.totalWeeks;
+    programmingHints = body.programmingHints || null;
+    climbingRole = body.objective.climbing_role || null;
+    daysPerWeek = body.trainingDaysPerWeek || 5;
+    profileForMessage = { training_days_per_week: daysPerWeek };
+  } else {
+    return NextResponse.json(
+      { error: "planId (when authenticated) or objective+weekTarget+totalWeeks (guest) is required" },
+      { status: 400 }
+    );
   }
 
-  // Fetch the specific weekly target
-  const { data: weekTarget, error: weekError } = await supabase
-    .from("weekly_targets")
-    .select("*")
-    .eq("plan_id", planId)
-    .eq("week_number", weekNumber)
-    .single();
-
-  if (weekError || !weekTarget) {
-    return NextResponse.json({ error: "Week not found" }, { status: 404 });
-  }
-
-  // If sessions already exist, return them
-  if (weekTarget.sessions && (weekTarget.sessions as PlanSession[]).length > 0) {
-    return NextResponse.json({ sessions: weekTarget.sessions, suggestedSkillPractice: weekTarget.suggested_skill_practice || null });
-  }
-
-  // Fetch objective
-  const { data: objective, error: objError } = await supabase
-    .from("objectives")
-    .select("*")
-    .eq("id", plan.objective_id)
-    .single();
-
-  if (objError || !objective) {
-    return NextResponse.json({ error: "Objective not found" }, { status: 404 });
-  }
-
-  // Fetch profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  // Calculate total weeks in plan
-  const { count: totalWeeks } = await supabase
-    .from("weekly_targets")
-    .select("*", { count: "exact", head: true })
-    .eq("plan_id", planId);
-
-  // Extract programmingHints from plan_data
-  const programmingHints = plan.plan_data?.programmingHints || null;
-  const climbingRole = objective.climbing_role || null;
-
-  const daysPerWeek = profile?.training_days_per_week || 5;
   const userMessage = buildSessionUserMessage(
-    profile,
-    objective,
-    { week_number: weekNumber, week_type: weekTarget.week_type, week_start: weekTarget.week_start, total_hours: weekTarget.total_hours, expected_scores: weekTarget.expected_scores as Record<string, number> },
-    totalWeeks || weekNumber,
-    programmingHints,
+    profileForMessage,
+    objective as unknown as Record<string, unknown>,
+    {
+      week_number: weekTarget.week_number,
+      week_type: weekTarget.week_type,
+      week_start: weekTarget.week_start,
+      total_hours: weekTarget.total_hours,
+      expected_scores: weekTarget.expected_scores as unknown as Record<string, number>,
+    },
+    totalWeeks,
+    programmingHints as unknown as Record<string, unknown> | null,
     climbingRole,
     daysPerWeek
   );
 
-  // Helper to save sessions to DB and trigger partner notifications
-  // Uses service client to bypass RLS — the user client's auth context may expire
-  // during streaming flush, causing silent save failures.
+  // Helper to save sessions to DB and trigger partner notifications (authed only)
   async function saveSessions(sessions: PlanSession[], suggestedSkillPractice?: SkillPracticeItem[]) {
+    if (!weekTargetId || !userIdForNotif || !planId) return;
     const serviceClient = createServiceClient();
     const totalHours = calculateWeekTotalHours(sessions);
     const updateData: Record<string, unknown> = { sessions, total_hours: totalHours };
@@ -106,14 +174,13 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await serviceClient
       .from("weekly_targets")
       .update(updateData)
-      .eq("id", weekTarget.id);
+      .eq("id", weekTargetId);
     if (updateError) {
       console.error("Error saving week sessions:", JSON.stringify(updateError));
-      // Retry with just sessions and total_hours (in case suggested_skill_practice column doesn't exist)
       const { error: retryError } = await serviceClient
         .from("weekly_targets")
         .update({ sessions, total_hours: totalHours })
-        .eq("id", weekTarget.id);
+        .eq("id", weekTargetId);
       if (retryError) {
         console.error("Error saving week sessions (retry):", JSON.stringify(retryError));
       } else {
@@ -122,12 +189,11 @@ export async function POST(request: NextRequest) {
     } else {
       console.log("Sessions saved successfully for week", weekTarget.week_number, "- session count:", sessions.length);
     }
-    checkAndCreateNotifications(user!.id, planId, weekNumber, sessions, serviceClient)
+    checkAndCreateNotifications(userIdForNotif, planId, weekNumber, sessions, serviceClient)
       .catch((err) => console.error("Error creating partner notifications:", err));
   }
 
   if (useStreaming) {
-    // Streaming mode: send text chunks as they arrive, then save to DB
     try {
       const claudeStream = streamClaudeWithCache(PROMPT_2B_SYSTEM, userMessage, 8192, "opus4_7");
       const decoder = new TextDecoder();
@@ -138,16 +204,13 @@ export async function POST(request: NextRequest) {
         transform(chunk, controller) {
           const text = decoder.decode(chunk, { stream: true });
           accumulated += text;
-          // Send raw text chunk to client for progressive display
           controller.enqueue(chunk);
         },
         async flush(controller) {
-          // Stream complete — parse, save, and send final JSON as last event
           try {
             const result = parseClaudeJSON<{ sessions: PlanSession[]; suggestedSkillPractice?: SkillPracticeItem[] }>(accumulated);
             calculateAllSessionMinutes(result.sessions);
             await saveSessions(result.sessions, result.suggestedSkillPractice);
-            // Send a delimiter + final parsed JSON so client can extract it
             controller.enqueue(encoder.encode("\n__SESSIONS_JSON__\n" + JSON.stringify({ sessions: result.sessions, suggestedSkillPractice: result.suggestedSkillPractice })));
           } catch (parseErr) {
             controller.enqueue(encoder.encode("\n__SESSIONS_ERROR__\n" + String(parseErr)));
@@ -171,7 +234,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Non-streaming mode (used by generate-all-sessions background, pre-generation)
+  // Non-streaming mode
   try {
     const responseText = await callClaudeWithCache(PROMPT_2B_SYSTEM, userMessage, 8192, "opus4_7");
     const result = parseClaudeJSON<{ sessions: PlanSession[]; suggestedSkillPractice?: SkillPracticeItem[] }>(responseText);
@@ -194,4 +257,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

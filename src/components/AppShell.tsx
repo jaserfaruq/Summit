@@ -6,11 +6,13 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { signout } from "@/app/auth/actions";
 import PlanSwitcher from "@/components/PlanSwitcher";
+import { useDraftPlan } from "@/lib/draft-plan-context";
 
 const NAV_ITEMS = [
   {
     href: "/dashboard",
     label: "Dashboard",
+    authRequired: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="6" height="7" rx="1" />
@@ -23,6 +25,7 @@ const NAV_ITEMS = [
   {
     href: "/plan",
     label: "Plan",
+    authRequired: false,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 4h12M4 8h8M4 12h10M4 16h6" />
@@ -32,6 +35,7 @@ const NAV_ITEMS = [
   {
     href: "/progress",
     label: "Progress",
+    authRequired: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="3,16 7,10 11,13 17,4" />
@@ -42,6 +46,7 @@ const NAV_ITEMS = [
   {
     href: "/partners",
     label: "Partners",
+    authRequired: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="7" cy="7" r="3" />
@@ -56,6 +61,7 @@ const NAV_ITEMS = [
 const ADMIN_ITEM = {
   href: "/admin/objectives",
   label: "Admin",
+  authRequired: true,
   icon: (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="10" cy="10" r="3" />
@@ -70,12 +76,14 @@ export default function AppShell({
   isValidator,
 }: {
   children: React.ReactNode;
-  email: string;
+  email: string | null;
   isValidator?: boolean;
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { hasDraft } = useDraftPlan();
+  const isAuthed = email !== null && email.length > 0;
 
   // Close menu on outside click
   useEffect(() => {
@@ -91,9 +99,13 @@ export default function AppShell({
 
   const initial = email ? email[0].toUpperCase() : "?";
 
-  const allNavItems = isValidator
-    ? [...NAV_ITEMS, ADMIN_ITEM]
-    : NAV_ITEMS;
+  const allNavItems = (() => {
+    const items = isAuthed && isValidator ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
+    if (isAuthed) return items;
+    return items.filter((item) => !item.authRequired);
+  })();
+
+  const brandHref = isAuthed ? "/dashboard" : "/";
 
   return (
     <div className="min-h-screen flex flex-col relative">
@@ -106,7 +118,7 @@ export default function AppShell({
       {/* Desktop header */}
       <header className="bg-dark-surface/80 backdrop-blur-md border-b border-dark-border/50 px-4 md:px-6 h-14 flex items-center justify-between relative z-50">
         {/* Left: brand */}
-        <Link href="/dashboard" className="flex items-center gap-2 group">
+        <Link href={brandHref} className="flex items-center gap-2 group">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-burnt-orange shrink-0">
             <path d="M12 2L2 20h20L12 2z" fill="currentColor" opacity="0.9" />
             <path d="M12 8l-5 10h10L12 8z" fill="#1B4D3E" opacity="0.6" />
@@ -139,34 +151,55 @@ export default function AppShell({
           })}
         </nav>
 
-        {/* Right: plan switcher + avatar menu */}
+        {/* Right: plan switcher + avatar/auth menu */}
         <div className="flex items-center gap-3">
-        <PlanSwitcher />
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="w-8 h-8 rounded-full bg-forest/80 text-white text-sm font-semibold flex items-center justify-center hover:bg-forest transition-colors"
-            aria-label="Account menu"
-          >
-            {initial}
-          </button>
+          {isAuthed && <PlanSwitcher />}
 
-          {menuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-dark-card border border-dark-border rounded-lg shadow-xl overflow-hidden animate-scale-in origin-top-right z-50">
-              <div className="px-4 py-3 border-b border-dark-border/50">
-                <p className="text-sm text-dark-text truncate">{email}</p>
-              </div>
-              <form action={signout}>
-                <button
-                  type="submit"
-                  className="w-full text-left px-4 py-2.5 text-sm text-dark-muted hover:text-white hover:bg-white/5 transition-colors"
+          {isAuthed ? (
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="w-8 h-8 rounded-full bg-forest/80 text-white text-sm font-semibold flex items-center justify-center hover:bg-forest transition-colors"
+                aria-label="Account menu"
+              >
+                {initial}
+              </button>
+
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 bg-dark-card border border-dark-border rounded-lg shadow-xl overflow-hidden animate-scale-in origin-top-right z-50">
+                  <div className="px-4 py-3 border-b border-dark-border/50">
+                    <p className="text-sm text-dark-text truncate">{email}</p>
+                  </div>
+                  <form action={signout}>
+                    <button
+                      type="submit"
+                      className="w-full text-left px-4 py-2.5 text-sm text-dark-muted hover:text-white hover:bg-white/5 transition-colors"
+                    >
+                      Sign out
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              {hasDraft ? (
+                <Link
+                  href="/signup?return=persist"
+                  className="bg-burnt-orange hover:bg-burnt-orange/90 text-white text-sm font-semibold py-1.5 px-3 rounded-md transition-colors"
                 >
-                  Sign out
-                </button>
-              </form>
+                  Save your plan →
+                </Link>
+              ) : (
+                <Link
+                  href="/login"
+                  className="text-sm text-dark-muted hover:text-white font-medium transition-colors"
+                >
+                  Log in
+                </Link>
+              )}
             </div>
           )}
-        </div>
         </div>
       </header>
 
@@ -198,6 +231,17 @@ export default function AppShell({
               </Link>
             );
           })}
+          {!isAuthed && hasDraft && (
+            <Link
+              href="/signup?return=persist"
+              className="flex flex-col items-center justify-center gap-0.5 flex-1 text-burnt-orange"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 4v12l6-3 6 3V4" />
+              </svg>
+              <span className="text-[10px] font-semibold tracking-wide">Save plan</span>
+            </Link>
+          )}
         </div>
         {/* Safe area for iOS home indicator */}
         <div className="h-safe-bottom bg-dark-surface/95" />

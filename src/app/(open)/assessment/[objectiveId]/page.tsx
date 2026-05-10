@@ -7,6 +7,7 @@ import InfoBubble from "@/components/InfoBubble";
 import GapInfoBubble from "@/components/GapInfoBubble";
 import AILoadingIndicator from "@/components/AILoadingIndicator";
 import { classifyGaps } from "@/lib/scoring";
+import { useDraftPlan, DraftAssessment } from "@/lib/draft-plan-context";
 
 type Phase = "layer1" | "layer2" | "scoring" | "results";
 
@@ -53,7 +54,9 @@ function AssessmentContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const objectiveId = params.objectiveId as string;
+  const isGuest = objectiveId === "draft";
   const viewResults = searchParams.get("view") === "results";
+  const { draft, setObjective: setDraftObjective, setAssessment: setDraftAssessment } = useDraftPlan();
 
   const [phase, setPhase] = useState<Phase>(viewResults ? "results" : "layer1");
   const [loading, setLoading] = useState(false);
@@ -113,7 +116,7 @@ function AssessmentContent() {
       const { createClient } = await import("@/lib/supabase");
       const supabase = createClient();
 
-      // Fetch benchmark exercises
+      // Fetch benchmark exercises (public read — works for guests too via RLS)
       const { data: benchmarks } = await supabase
         .from("benchmark_exercises")
         .select("id, name, dimension, measurement_type, measurement_unit, description, tags, equipment_required, is_gym_reproducible")
@@ -173,9 +176,10 @@ function AssessmentContent() {
         flexibility: estimates.dimensions.flexibility.tagline,
       };
 
-      await supabase
-        .from("objectives")
-        .update({
+      if (isGuest && draft?.objective) {
+        // Guest: update draft objective in localStorage
+        setDraftObjective({
+          ...draft.objective,
           target_cardio_score: targetScores.cardio,
           target_strength_score: targetScores.strength,
           target_climbing_score: targetScores.climbing_technical,
@@ -183,20 +187,63 @@ function AssessmentContent() {
           taglines,
           relevance_profiles: estimates.relevanceProfiles,
           graduation_benchmarks: estimates.graduationBenchmarks,
-        })
-        .eq("id", objectiveId);
+        });
+      } else {
+        await supabase
+          .from("objectives")
+          .update({
+            target_cardio_score: targetScores.cardio,
+            target_strength_score: targetScores.strength,
+            target_climbing_score: targetScores.climbing_technical,
+            target_flexibility_score: targetScores.flexibility,
+            taglines,
+            relevance_profiles: estimates.relevanceProfiles,
+            graduation_benchmarks: estimates.graduationBenchmarks,
+          })
+          .eq("id", objectiveId);
+      }
 
       setEstimationReady(true);
     } catch (err) {
       console.error("Background estimation failed:", err);
       setEstimationError(err instanceof Error ? err.message : "Failed to estimate scores");
     }
-  }, [objectiveId]);
+  }, [objectiveId, isGuest, draft, setDraftObjective]);
 
   // Fetch objective name on mount, and load existing assessment if deep-linking to results
   useEffect(() => {
     async function fetchObjective() {
       try {
+        // Guest path: read from draft context
+        if (isGuest) {
+          if (!draft?.objective) {
+            // No draft — kick the user back to calendar to create one
+            router.replace("/calendar");
+            return;
+          }
+          const draftObj = draft.objective;
+          setObjectiveName(draftObj.name);
+
+          if (draftObj.tier !== "gold") {
+            const taglines = draftObj.taglines as unknown as Record<string, string> | null;
+            const hasRealScores = taglines && Object.values(taglines).some((t) => t && t.length > 0);
+            if (!hasRealScores) {
+              runBackgroundEstimation(draftObj.name, draftObj.type, {
+                distance_miles: draftObj.distance_miles,
+                elevation_gain_ft: draftObj.elevation_gain_ft,
+                technical_grade: draftObj.technical_grade,
+                tier: draftObj.tier,
+                matched_validated_id: draftObj.matched_validated_id,
+              });
+            } else {
+              setEstimationReady(true);
+            }
+          } else {
+            setEstimationReady(true);
+          }
+          return;
+        }
+
         const { createClient } = await import("@/lib/supabase");
         const supabase = createClient();
         const { data: objData } = await supabase
@@ -275,7 +322,7 @@ function AssessmentContent() {
       }
     }
     fetchObjective();
-  }, [objectiveId, viewResults, runBackgroundEstimation]);
+  }, [objectiveId, viewResults, runBackgroundEstimation, isGuest, draft, router]);
 
   function buildStandardAnswers(): StandardAnswers {
     return {
@@ -327,7 +374,8 @@ function AssessmentContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          objectiveId,
+          objectiveId: isGuest ? null : objectiveId,
+          objective: isGuest ? draft?.objective : null,
           standardAnswers: buildStandardAnswers(),
         }),
       });
@@ -364,7 +412,8 @@ function AssessmentContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          objectiveId,
+          objectiveId: isGuest ? null : objectiveId,
+          objective: isGuest ? draft?.objective : null,
           standardAnswers: buildStandardAnswers(),
           previousQuestions: aiQuestions,
           previousAnswers: aiAnswers,
@@ -392,7 +441,8 @@ function AssessmentContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          objectiveId,
+          objectiveId: isGuest ? null : objectiveId,
+          objective: isGuest ? draft?.objective : null,
           standardAnswers: buildStandardAnswers(),
           aiQuestions,
           aiAnswers,
@@ -405,6 +455,27 @@ function AssessmentContent() {
       }
       const data = await res.json();
       setResults(data);
+
+      // Guest: save assessment to draft context for later persistence
+      if (isGuest && draft?.objective) {
+        const assessmentToStore: DraftAssessment = {
+          cardio_score: data.scores.cardio,
+          strength_score: data.scores.strength,
+          climbing_score: data.scores.climbing_technical,
+          flexibility_score: data.scores.flexibility,
+          standard_answers: buildStandardAnswers(),
+          ai_questions: aiQuestions,
+          ai_answers: aiAnswers,
+          freeform_text: freeformText || null,
+          ai_reasoning: data.reasoning,
+          programming_hints: data.programmingHints,
+          climbing_role: data.climbingRole === "lead" || data.climbingRole === "follow" ? data.climbingRole : null,
+          adjusted_targets: data.adjustedTargets || null,
+          gap_analysis: data.gapAnalysis || null,
+        };
+        setDraftAssessment(assessmentToStore);
+      }
+
       setPhase("results");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -914,7 +985,13 @@ function AssessmentContent() {
             </button>
           ) : (
             <button
-              onClick={() => router.push(`/plan?generate=true&objectiveId=${objectiveId}&assessmentId=${results.assessmentId}`)}
+              onClick={() => {
+                if (isGuest) {
+                  router.push("/plan?generate=true&draft=true");
+                } else {
+                  router.push(`/plan?generate=true&objectiveId=${objectiveId}&assessmentId=${results.assessmentId}`);
+                }
+              }}
               className="w-full bg-gold text-dark-bg py-3 rounded-lg font-medium hover:bg-gold/90 transition-colors"
             >
               Generate Training Plan

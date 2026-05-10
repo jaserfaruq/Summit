@@ -14,32 +14,54 @@ interface ScoreAssessmentResponse {
   programmingHints: ProgrammingHints;
 }
 
+interface InlineObjective {
+  name: string;
+  type: string;
+  distance_miles: number | null;
+  elevation_gain_ft: number | null;
+  target_cardio_score: number;
+  target_strength_score: number;
+  target_climbing_score: number;
+  target_flexibility_score: number;
+  graduation_benchmarks: unknown;
+  relevance_profiles: unknown;
+  matched_validated_id: string | null;
+  target_date?: string;
+}
+
 export async function POST(request: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
-  const { objectiveId, standardAnswers, aiQuestions, aiAnswers, freeformText } = await request.json();
+  const { objectiveId, objective: inlineObjective, standardAnswers, aiQuestions, aiAnswers, freeformText } = await request.json();
 
-  if (!objectiveId || !standardAnswers) {
+  if (!standardAnswers) {
     return NextResponse.json(
-      { error: "objectiveId and standardAnswers are required" },
+      { error: "standardAnswers is required" },
       { status: 400 }
     );
   }
 
-  // Fetch the objective
-  const { data: objective, error: objError } = await supabase
-    .from("objectives")
-    .select("*")
-    .eq("id", objectiveId)
-    .eq("user_id", user.id)
-    .single();
+  let objective: InlineObjective | null = null;
 
-  if (objError || !objective) {
-    return NextResponse.json({ error: "Objective not found" }, { status: 404 });
+  if (user && objectiveId) {
+    const { data, error: objError } = await supabase
+      .from("objectives")
+      .select("*")
+      .eq("id", objectiveId)
+      .eq("user_id", user.id)
+      .single();
+    if (objError || !data) {
+      return NextResponse.json({ error: "Objective not found" }, { status: 404 });
+    }
+    objective = data as InlineObjective;
+  } else if (inlineObjective) {
+    objective = inlineObjective as InlineObjective;
+  } else {
+    return NextResponse.json(
+      { error: "objectiveId (when authenticated) or objective (guest) is required" },
+      { status: 400 }
+    );
   }
 
   // Determine climbing role from AI answers (look for the lead/follow question)
@@ -89,11 +111,42 @@ ${freeformText || "None provided"}`;
     const responseText = await callClaude(PROMPT_ASSESS_SCORE_SYSTEM, userMessage, 8192, "opus4_7");
     const result = parseClaudeJSON<ScoreAssessmentResponse>(responseText);
 
-    // Store climbing_role on the objective
     const climbingRole = result.climbingRole === "lead" || result.climbingRole === "follow"
       ? result.climbingRole
       : null;
 
+    // Compute final targets (may have been adjusted for "follow" role)
+    const finalTargets: DimensionScores = climbingRole === "follow" && result.adjustedTargets
+      ? result.adjustedTargets
+      : {
+          cardio: objective.target_cardio_score,
+          strength: objective.target_strength_score,
+          climbing_technical: objective.target_climbing_score,
+          flexibility: objective.target_flexibility_score,
+        };
+
+    // Compute gap analysis (uses target_date if available)
+    const targetDate = objective.target_date ? new Date(objective.target_date) : null;
+    const totalWeeks = targetDate
+      ? Math.max(4, Math.floor((targetDate.getTime() - Date.now()) / (7 * 24 * 60 * 60 * 1000)))
+      : 12;
+    const gapAnalysis: GapAnalysis = classifyGaps(result.scores, finalTargets, totalWeeks);
+
+    // Guest mode: return the result without persisting
+    if (!user || !objectiveId) {
+      return NextResponse.json({
+        assessmentId: null,
+        scores: result.scores,
+        reasoning: result.reasoning,
+        programmingHints: result.programmingHints,
+        adjustedTargets: finalTargets,
+        adjustedBenchmarks: result.adjustedBenchmarks,
+        climbingRole: result.climbingRole,
+        gapAnalysis,
+      });
+    }
+
+    // Authed mode: persist as before
     const objectiveUpdates: Record<string, unknown> = {
       climbing_role: climbingRole,
       current_cardio_score: result.scores.cardio,
@@ -102,7 +155,6 @@ ${freeformText || "None provided"}`;
       current_flexibility_score: result.scores.flexibility,
     };
 
-    // If follow role, update target scores and graduation benchmarks
     if (climbingRole === "follow" && result.adjustedTargets) {
       objectiveUpdates.target_cardio_score = result.adjustedTargets.cardio;
       objectiveUpdates.target_strength_score = result.adjustedTargets.strength;
@@ -116,7 +168,6 @@ ${freeformText || "None provided"}`;
 
     await supabase.from("objectives").update(objectiveUpdates).eq("id", objectiveId);
 
-    // Update training_days_per_week on user's profile from assessment answers
     if (standardAnswers.training_days_per_week) {
       await supabase
         .from("profiles")
@@ -124,7 +175,6 @@ ${freeformText || "None provided"}`;
         .eq("id", user.id);
     }
 
-    // Store the assessment with all fields
     const { data: assessment, error: assessError } = await supabase
       .from("assessments")
       .insert({
@@ -149,7 +199,6 @@ ${freeformText || "None provided"}`;
       return NextResponse.json({ error: "Failed to save assessment" }, { status: 500 });
     }
 
-    // Write to score_history with confidence = "low"
     const today = new Date().toISOString().split("T")[0];
     await supabase.from("score_history").insert({
       user_id: user.id,
@@ -163,19 +212,6 @@ ${freeformText || "None provided"}`;
       is_test_week: false,
       confidence: "low",
     });
-
-    // Compute gap analysis for achievability warnings
-    const finalTargets: DimensionScores = climbingRole === "follow" && result.adjustedTargets
-      ? result.adjustedTargets
-      : {
-          cardio: objective.target_cardio_score,
-          strength: objective.target_strength_score,
-          climbing_technical: objective.target_climbing_score,
-          flexibility: objective.target_flexibility_score,
-        };
-    const targetDate = new Date(objective.target_date);
-    const totalWeeks = Math.max(4, Math.floor((targetDate.getTime() - Date.now()) / (7 * 24 * 60 * 60 * 1000)));
-    const gapAnalysis: GapAnalysis = classifyGaps(result.scores, finalTargets, totalWeeks);
 
     return NextResponse.json({
       assessmentId: assessment.id,

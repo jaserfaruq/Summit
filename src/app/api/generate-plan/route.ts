@@ -1,148 +1,201 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextRequest, NextResponse } from "next/server";
-import { GeneratePlanRequest } from "@/lib/types";
 import { expectedScoresAtWeek, classifyGaps } from "@/lib/scoring";
 import { fetchHeroImageUrl } from "@/lib/unsplash";
 import { findSeedMatch } from "@/lib/seed-data";
 import { callClaude } from "@/lib/claude";
 import { PROMPT_PHILOSOPHY_SYSTEM } from "@/lib/prompts";
+import { DimensionScores, DimensionGraduationBenchmarks, GapAnalysis, ProgrammingHints, AIReasoning, StandardAnswers } from "@/lib/types";
+
+interface GuestObjective {
+  name: string;
+  type: string;
+  target_date: string;
+  distance_miles: number | null;
+  elevation_gain_ft: number | null;
+  technical_grade: string | null;
+  target_cardio_score: number;
+  target_strength_score: number;
+  target_climbing_score: number;
+  target_flexibility_score: number;
+  current_cardio_score: number;
+  current_strength_score: number;
+  current_climbing_score: number;
+  current_flexibility_score: number;
+  taglines: Record<string, string>;
+  graduation_benchmarks: DimensionGraduationBenchmarks;
+  matched_validated_id: string | null;
+  climbing_role?: "lead" | "follow" | null;
+}
+
+interface GuestAssessment {
+  cardio_score: number;
+  strength_score: number;
+  climbing_score: number;
+  flexibility_score: number;
+  ai_reasoning: AIReasoning | null;
+  raw_data?: { programmingHints?: ProgrammingHints | null };
+  standard_answers?: StandardAnswers;
+}
 
 export async function POST(request: NextRequest) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
-  const body: GeneratePlanRequest = await request.json();
-  const { objectiveId, assessmentId } = body;
+  const body = await request.json();
+  const { objectiveId, assessmentId, objective: inlineObjective, assessment: inlineAssessment } = body;
 
-  // Fetch objective
-  const { data: objective, error: objError } = await supabase
-    .from("objectives")
-    .select("*")
-    .eq("id", objectiveId)
-    .single();
+  let objective: GuestObjective;
+  let assessment: GuestAssessment;
+  let trainingDaysPerWeek = 5;
 
-  if (objError || !objective) {
-    return NextResponse.json({ error: "Objective not found" }, { status: 404 });
-  }
-
-  // Fetch assessment
-  const { data: assessment, error: assError } = await supabase
-    .from("assessments")
-    .select("*")
-    .eq("id", assessmentId)
-    .single();
-
-  if (assError || !assessment) {
-    return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
-  }
-
-  // Fetch profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  // Look up seed data first (authoritative), then fall back to validated_objectives table
-  const seedData = findSeedMatch(objective.name);
-
-  if (seedData) {
-    // Seed data is the single source of truth for gold objectives
-    objective.graduation_benchmarks = seedData.graduation_benchmarks;
-    const updateFields: Record<string, unknown> = {
-      graduation_benchmarks: seedData.graduation_benchmarks,
-      taglines: seedData.taglines,
-      target_cardio_score: seedData.target_scores.cardio,
-      target_strength_score: seedData.target_scores.strength,
-      target_climbing_score: seedData.target_scores.climbing_technical,
-      target_flexibility_score: seedData.target_scores.flexibility,
-      tier: "gold",
-    };
-
-    // Also link to validated objective if not already linked
-    if (!objective.matched_validated_id) {
-      const { data: allVOs } = await supabase
-        .from("validated_objectives")
-        .select("id, name")
-        .eq("status", "active");
-      const voMatch = allVOs?.find((vo: { name: string }) =>
-        vo.name.toLowerCase() === seedData.name.toLowerCase()
-      );
-      if (voMatch) {
-        updateFields.matched_validated_id = voMatch.id;
-        objective.matched_validated_id = voMatch.id;
-      }
-    }
-
-    await supabase.from("objectives").update(updateFields).eq("id", objectiveId);
-
-    // Update local target scores for plan generation
-    objective.target_cardio_score = seedData.target_scores.cardio;
-    objective.target_strength_score = seedData.target_scores.strength;
-    objective.target_climbing_score = seedData.target_scores.climbing_technical;
-    objective.target_flexibility_score = seedData.target_scores.flexibility;
-  } else if (objective.matched_validated_id) {
-    // No seed match but has a validated ID — refresh from DB
-    const { data: validatedObj } = await supabase
-      .from("validated_objectives")
-      .select("graduation_benchmarks, target_scores, taglines, relevance_profiles")
-      .eq("id", objective.matched_validated_id)
+  if (user && objectiveId && assessmentId) {
+    // Authed path: fetch from DB
+    const { data: dbObjective, error: objError } = await supabase
+      .from("objectives")
+      .select("*")
+      .eq("id", objectiveId)
       .single();
 
-    if (validatedObj?.graduation_benchmarks) {
-      objective.graduation_benchmarks = validatedObj.graduation_benchmarks;
-      await supabase
-        .from("objectives")
-        .update({
-          graduation_benchmarks: validatedObj.graduation_benchmarks,
-          taglines: validatedObj.taglines,
-          relevance_profiles: validatedObj.relevance_profiles,
-        })
-        .eq("id", objectiveId);
+    if (objError || !dbObjective) {
+      return NextResponse.json({ error: "Objective not found" }, { status: 404 });
     }
-  } else {
-    // No seed match, no validated match — try to find one by name in DB
-    const normalizedName = objective.name.toLowerCase().trim();
-    const { data: allVOs } = await supabase
-      .from("validated_objectives")
+
+    const { data: dbAssessment, error: assError } = await supabase
+      .from("assessments")
       .select("*")
-      .eq("status", "active");
+      .eq("id", assessmentId)
+      .single();
 
-    if (allVOs) {
-      const match = allVOs.find((vo: { match_aliases: string[] }) =>
-        vo.match_aliases.some((alias: string) => {
-          const a = alias.toLowerCase().trim();
-          return a === normalizedName || normalizedName.includes(a) || a.includes(normalizedName);
-        })
-      );
+    if (assError || !dbAssessment) {
+      return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
+    }
 
-      if (match) {
-        objective.graduation_benchmarks = match.graduation_benchmarks;
-        objective.matched_validated_id = match.id;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    objective = dbObjective as GuestObjective;
+    assessment = dbAssessment as GuestAssessment;
+    trainingDaysPerWeek = profile?.training_days_per_week || 5;
+
+    // Look up seed data first (authoritative), then fall back to validated_objectives table
+    const seedData = findSeedMatch(objective.name);
+
+    if (seedData) {
+      objective.graduation_benchmarks = seedData.graduation_benchmarks;
+      const updateFields: Record<string, unknown> = {
+        graduation_benchmarks: seedData.graduation_benchmarks,
+        taglines: seedData.taglines,
+        target_cardio_score: seedData.target_scores.cardio,
+        target_strength_score: seedData.target_scores.strength,
+        target_climbing_score: seedData.target_scores.climbing_technical,
+        target_flexibility_score: seedData.target_scores.flexibility,
+        tier: "gold",
+      };
+
+      if (!objective.matched_validated_id) {
+        const { data: allVOs } = await supabase
+          .from("validated_objectives")
+          .select("id, name")
+          .eq("status", "active");
+        const voMatch = allVOs?.find((vo: { name: string }) =>
+          vo.name.toLowerCase() === seedData.name.toLowerCase()
+        );
+        if (voMatch) {
+          updateFields.matched_validated_id = voMatch.id;
+          objective.matched_validated_id = voMatch.id;
+        }
+      }
+
+      await supabase.from("objectives").update(updateFields).eq("id", objectiveId);
+
+      objective.target_cardio_score = seedData.target_scores.cardio;
+      objective.target_strength_score = seedData.target_scores.strength;
+      objective.target_climbing_score = seedData.target_scores.climbing_technical;
+      objective.target_flexibility_score = seedData.target_scores.flexibility;
+    } else if (objective.matched_validated_id) {
+      const { data: validatedObj } = await supabase
+        .from("validated_objectives")
+        .select("graduation_benchmarks, target_scores, taglines, relevance_profiles")
+        .eq("id", objective.matched_validated_id)
+        .single();
+
+      if (validatedObj?.graduation_benchmarks) {
+        objective.graduation_benchmarks = validatedObj.graduation_benchmarks;
         await supabase
           .from("objectives")
           .update({
-            graduation_benchmarks: match.graduation_benchmarks,
-            taglines: match.taglines,
-            relevance_profiles: match.relevance_profiles,
-            matched_validated_id: match.id,
-            tier: "gold",
-            target_cardio_score: match.target_scores.cardio,
-            target_strength_score: match.target_scores.strength,
-            target_climbing_score: match.target_scores.climbing_technical,
-            target_flexibility_score: match.target_scores.flexibility,
+            graduation_benchmarks: validatedObj.graduation_benchmarks,
+            taglines: validatedObj.taglines,
+            relevance_profiles: validatedObj.relevance_profiles,
           })
           .eq("id", objectiveId);
+      }
+    } else {
+      const normalizedName = objective.name.toLowerCase().trim();
+      const { data: allVOs } = await supabase
+        .from("validated_objectives")
+        .select("*")
+        .eq("status", "active");
 
-        objective.target_cardio_score = match.target_scores.cardio;
-        objective.target_strength_score = match.target_scores.strength;
-        objective.target_climbing_score = match.target_scores.climbing_technical;
-        objective.target_flexibility_score = match.target_scores.flexibility;
+      if (allVOs) {
+        const match = allVOs.find((vo: { match_aliases: string[] }) =>
+          vo.match_aliases.some((alias: string) => {
+            const a = alias.toLowerCase().trim();
+            return a === normalizedName || normalizedName.includes(a) || a.includes(normalizedName);
+          })
+        );
+
+        if (match) {
+          objective.graduation_benchmarks = match.graduation_benchmarks;
+          objective.matched_validated_id = match.id;
+          await supabase
+            .from("objectives")
+            .update({
+              graduation_benchmarks: match.graduation_benchmarks,
+              taglines: match.taglines,
+              relevance_profiles: match.relevance_profiles,
+              matched_validated_id: match.id,
+              tier: "gold",
+              target_cardio_score: match.target_scores.cardio,
+              target_strength_score: match.target_scores.strength,
+              target_climbing_score: match.target_scores.climbing_technical,
+              target_flexibility_score: match.target_scores.flexibility,
+            })
+            .eq("id", objectiveId);
+
+          objective.target_cardio_score = match.target_scores.cardio;
+          objective.target_strength_score = match.target_scores.strength;
+          objective.target_climbing_score = match.target_scores.climbing_technical;
+          objective.target_flexibility_score = match.target_scores.flexibility;
+        }
       }
     }
+  } else if (inlineObjective && inlineAssessment) {
+    objective = inlineObjective as GuestObjective;
+    assessment = inlineAssessment as GuestAssessment;
+    if (assessment.standard_answers?.training_days_per_week) {
+      trainingDaysPerWeek = assessment.standard_answers.training_days_per_week;
+    }
+
+    // Even for guests, overlay seed data if we have a match — keeps Gold tier authoritative
+    const seedData = findSeedMatch(objective.name);
+    if (seedData) {
+      objective.graduation_benchmarks = seedData.graduation_benchmarks;
+      objective.taglines = seedData.taglines;
+      objective.target_cardio_score = seedData.target_scores.cardio;
+      objective.target_strength_score = seedData.target_scores.strength;
+      objective.target_climbing_score = seedData.target_scores.climbing_technical;
+      objective.target_flexibility_score = seedData.target_scores.flexibility;
+    }
+  } else {
+    return NextResponse.json(
+      { error: "objectiveId+assessmentId (when authenticated) or objective+assessment (guest) is required" },
+      { status: 400 }
+    );
   }
 
   // Calculate weeks available
@@ -153,17 +206,14 @@ export async function POST(request: NextRequest) {
     Math.floor((targetDate.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000))
   );
 
-  // All weeks are regular — no special week types
-  const daysPerWeek = profile?.training_days_per_week || 5;
-
-  const currentScores = {
+  const currentScores: DimensionScores = {
     cardio: assessment.cardio_score,
     strength: assessment.strength_score,
     climbing_technical: assessment.climbing_score,
     flexibility: assessment.flexibility_score,
   };
 
-  const targetScores = {
+  const targetScores: DimensionScores = {
     cardio: objective.target_cardio_score,
     strength: objective.target_strength_score,
     climbing_technical: objective.target_climbing_score,
@@ -171,7 +221,7 @@ export async function POST(request: NextRequest) {
   };
 
   // Base hours: scale by training days, cap at 20
-  const baseHours = Math.min(daysPerWeek * 1.2, 20);
+  const baseHours = Math.min(trainingDaysPerWeek * 1.2, 20);
 
   const weeks = Array.from({ length: totalWeeks }, (_, i) => {
     const weekNumber = i + 1;
@@ -179,11 +229,9 @@ export async function POST(request: NextRequest) {
     weekStart.setDate(weekStart.getDate() + i * 7);
     const weekStartStr = weekStart.toISOString().split("T")[0];
 
-    // Taper: reduce volume in last 2 weeks
     const isTaper = weekNumber > totalWeeks - 2;
     const volumeMultiplier = isTaper ? 0.6 : 1.0;
 
-    // Progressive volume: ramp up ~5% per week
     const progressionFactor = Math.min(1.0, 0.7 + (weekNumber / totalWeeks) * 0.3);
     const totalHours = Math.round(baseHours * volumeMultiplier * progressionFactor * 10) / 10;
 
@@ -196,16 +244,10 @@ export async function POST(request: NextRequest) {
     };
   });
 
-  // Extract programmingHints from assessment raw_data
   const programmingHints = assessment.raw_data?.programmingHints || null;
-
-  // Compute gap analysis for achievability warnings
   const gapAnalysis = classifyGaps(currentScores, targetScores, totalWeeks);
 
-  // Generate AI philosophy and fetch hero image in parallel
-  const philosophyFallback = buildPlanPhilosophy(objective.name, currentScores, targetScores, objective.taglines, totalWeeks);
-
-  // Resolve route name from validated objective if matched
+  // Resolve route name from validated objective if matched (only if DB available)
   let objectiveRouteName = objective.name;
   if (objective.matched_validated_id) {
     const { data: validatedObj } = await supabase
@@ -215,6 +257,14 @@ export async function POST(request: NextRequest) {
       .single();
     if (validatedObj?.route) objectiveRouteName = validatedObj.route;
   }
+
+  const philosophyFallback = buildPlanPhilosophy(
+    objective.name,
+    currentScores as unknown as Record<string, number>,
+    targetScores as unknown as Record<string, number>,
+    objective.taglines,
+    totalWeeks,
+  );
 
   const [philosophyText, heroImageUrl] = await Promise.all([
     generateAIPhilosophy(objective, assessment, currentScores, targetScores, totalWeeks, objectiveRouteName, gapAnalysis).catch((err) => {
@@ -229,13 +279,27 @@ export async function POST(request: NextRequest) {
 
   const planSummary = {
     philosophy: philosophyText,
-    weeklyStructure: `${daysPerWeek} sessions per week across cardio, strength, climbing/technical, and flexibility. Sessions are generated on-demand when you expand each week.`,
-    equipmentNeeded: profile?.equipment_access || ["basic gym equipment"],
+    weeklyStructure: `${trainingDaysPerWeek} sessions per week across cardio, strength, climbing/technical, and flexibility. Sessions are generated on-demand when you expand each week.`,
+    equipmentNeeded: ["basic gym equipment"],
     keyExercises: extractKeyExercises(objective.graduation_benchmarks),
   };
 
+  // Guest mode: return everything inline, no DB writes
+  if (!user || !objectiveId) {
+    return NextResponse.json({
+      planId: null,
+      weekCount: weeks.length,
+      planSummary,
+      heroImageUrl,
+      programmingHints,
+      gapAnalysis,
+      graduationWorkouts: objective.graduation_benchmarks,
+      weeks: weeks.map((w) => ({ ...w, sessions: [] })),
+    });
+  }
+
+  // Authed mode: persist
   try {
-    // Store the plan
     const { data: plan, error: planError } = await supabase
       .from("training_plans")
       .insert({
@@ -260,7 +324,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to save plan" }, { status: 500 });
     }
 
-    // Store weekly targets with empty sessions
     const weeklyTargets = weeks.map((week) => ({
       plan_id: plan.id,
       user_id: user.id,
@@ -269,7 +332,7 @@ export async function POST(request: NextRequest) {
       week_type: week.weekType,
       total_hours: week.totalHoursTarget,
       expected_scores: week.expectedScores,
-      sessions: [], // Generated on-demand via /api/generate-week-sessions
+      sessions: [],
     }));
 
     const { error: weekError } = await supabase
@@ -278,7 +341,6 @@ export async function POST(request: NextRequest) {
 
     if (weekError) {
       console.error("Error saving weekly targets:", weekError);
-      // Clean up the orphaned plan
       await supabase.from("training_plans").delete().eq("id", plan.id);
       return NextResponse.json(
         { error: "Failed to save weekly targets: " + weekError.message },
@@ -286,7 +348,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update current scores on objective from assessment
     await supabase
       .from("objectives")
       .update({
@@ -311,20 +372,19 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Generate a personalized plan philosophy using Claude AI,
- * incorporating assessment reasoning and programming hints.
+ * Generate a personalized plan philosophy using Claude AI.
  */
 async function generateAIPhilosophy(
-  objective: Record<string, unknown>,
-  assessment: Record<string, unknown>,
-  currentScores: Record<string, number>,
-  targetScores: Record<string, number>,
+  objective: GuestObjective,
+  assessment: GuestAssessment,
+  currentScores: DimensionScores,
+  targetScores: DimensionScores,
   totalWeeks: number,
   routeName: string,
-  gapAnalysis?: Record<string, { classification: string; gap: number; pointsPerWeek: number }>
+  gapAnalysis?: GapAnalysis
 ): Promise<string> {
-  const aiReasoning = assessment.ai_reasoning as Record<string, { explanation: string; keyFactor: string }> | null;
-  const programmingHints = (assessment.raw_data as Record<string, unknown>)?.programmingHints || null;
+  const aiReasoning = assessment.ai_reasoning;
+  const programmingHints = assessment.raw_data?.programmingHints || null;
 
   const gapLines = gapAnalysis ? Object.entries(gapAnalysis).map(([dim, g]) => {
     const label = dim === "climbing_technical" ? "Climbing/Technical" : dim.charAt(0).toUpperCase() + dim.slice(1);
@@ -361,7 +421,6 @@ Write exactly 2 paragraphs. No formatting, no headers, no bullet points. Plain t
 
   const response = await callClaude(PROMPT_PHILOSOPHY_SYSTEM, userMessage, 1024, "sonnet");
 
-  // Clean up: remove any markdown formatting the AI might add
   const cleaned = response
     .replace(/^#+\s.*$/gm, "")
     .replace(/\*\*/g, "")
@@ -378,10 +437,6 @@ const DIM_LABELS: Record<string, string> = {
   flexibility: "Flexibility",
 };
 
-/**
- * Build a data-driven plan philosophy that explains WHY the plan
- * is structured the way it is, based on actual score gaps.
- */
 function buildPlanPhilosophy(
   objectiveName: string,
   current: Record<string, number>,
@@ -391,7 +446,6 @@ function buildPlanPhilosophy(
 ): string {
   const dims = ["cardio", "strength", "climbing_technical", "flexibility"];
 
-  // Categorize each dimension
   const bigGaps: { dim: string; gap: number; pct: number }[] = [];
   const moderateGaps: { dim: string; gap: number }[] = [];
   const maintenance: { dim: string }[] = [];
@@ -414,15 +468,11 @@ function buildPlanPhilosophy(
     }
   }
 
-  // Sort big gaps by size (largest first)
   bigGaps.sort((a, b) => b.pct - a.pct);
 
   const parts: string[] = [];
-
-  // Opening line
   parts.push(`This ${totalWeeks}-week plan prepares you for ${objectiveName}.`);
 
-  // Big gaps — these drive the plan's focus
   if (bigGaps.length > 0) {
     const gapDescriptions = bigGaps.map((g) => {
       const label = DIM_LABELS[g.dim];
@@ -438,31 +488,26 @@ function buildPlanPhilosophy(
     }
   }
 
-  // Moderate gaps
   if (moderateGaps.length > 0) {
     const labels = moderateGaps.map((g) => DIM_LABELS[g.dim]);
     parts.push(`${labels.join(" and ")} ${moderateGaps.length === 1 ? "needs" : "need"} steady progression to reach target.`);
   }
 
-  // Maintenance dimensions
   if (maintenance.length > 0) {
     const labels = maintenance.map((g) => DIM_LABELS[g.dim]);
     parts.push(`${labels.join(" and ")} ${maintenance.length === 1 ? "is" : "are"} already at or above target — the plan maintains ${maintenance.length === 1 ? "this" : "these"} with reduced volume and reallocates that time to weaker areas.`);
   }
 
-  // Minimal gaps (close to target)
   if (minimal.length > 0 && bigGaps.length > 0) {
     const labels = minimal.map((g) => DIM_LABELS[g.dim]);
     parts.push(`${labels.join(" and ")} ${minimal.length === 1 ? "is" : "are"} close to target and ${minimal.length === 1 ? "needs" : "need"} only light work.`);
   }
 
-  // Periodization note
   parts.push(`Rate each workout on a 1-5 scale to track your progress. The plan includes a 2-week taper to peak on your target date.`);
 
   return parts.join(" ");
 }
 
-// Extract exercise names from graduation benchmarks for the plan summary
 function extractKeyExercises(graduationBenchmarks: unknown): string[] {
   const exercises: string[] = [];
   if (!graduationBenchmarks || typeof graduationBenchmarks !== "object") return exercises;

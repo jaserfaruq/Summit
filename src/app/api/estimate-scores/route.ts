@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase-server";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { callClaude, parseClaudeJSON } from "@/lib/claude";
 import { PROMPT_1_SYSTEM } from "@/lib/prompts";
 import { EstimateScoresRequest, EstimateScoresResponse } from "@/lib/types";
@@ -7,12 +6,6 @@ import { EstimateScoresRequest, EstimateScoresResponse } from "@/lib/types";
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const body: EstimateScoresRequest = await request.json();
   const { objectiveDetails, benchmarkExercises, anchors, validatorFeedback } = body;
 
