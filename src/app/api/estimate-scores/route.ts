@@ -71,8 +71,9 @@ ${anchors.length > 0 ? `Calibration anchors: ${JSON.stringify(anchors.map(a => (
         controller.close();
       } catch (error) {
         clearInterval(keepAlive);
-        console.error("Error estimating scores:", error);
-        controller.enqueue(encoder.encode(JSON.stringify({ error: "Failed to estimate scores" })));
+        const errMsg = error instanceof Error ? error.message : "Unknown error";
+        console.error("Error estimating scores:", errMsg, error);
+        controller.enqueue(encoder.encode(JSON.stringify({ error: `Failed to estimate scores: ${errMsg}` })));
         controller.close();
       }
     },
