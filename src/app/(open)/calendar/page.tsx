@@ -261,7 +261,7 @@ export default function CalendarPage() {
     return (
       <ObjectiveModal
         date={selectedDate} objective={selectedObjective}
-        onClose={() => { setShowModal(false); setSelectedObjective(null); setSelectedDate(null); }}
+        onClose={() => { window.location.href = "/"; }}
         onSaved={handleSaved}
       />
     );
