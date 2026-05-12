@@ -233,7 +233,7 @@ function PlanContent() {
         await loadWeekSessions(wn);
       }
     })();
-  }, [plan, weeks, isDraftMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [plan, weeks, isDraftMode, shouldGenerate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-expand philosophy & graduation workouts on first visit to this plan
   useEffect(() => {
