@@ -24,11 +24,17 @@
 | `.env.local` | Production Supabase | `npm run dev` (daily development) |
 | `.env.test.local` | Local Supabase (`127.0.0.1:54321`) | Playwright e2e tests via `playwright.config.ts` |
 
-### Local Supabase Commands
+### Standard Commands
 
-- `npm run supabase:start` — Start local Supabase (requires Docker running)
-- `npm run supabase:stop` — Stop local Supabase containers
-- `npm run supabase:reset` — Wipe local DB, re-run all migrations, re-seed foundational data
+| Command | What it does |
+|---------|-------------|
+| `npm run dev` | Start Next.js dev server (uses `.env.local` → production Supabase) |
+| `npm run test:e2e` | Run Playwright e2e tests (auto-starts dev server with `.env.test.local` → local Supabase) |
+| `npm run test:e2e:ui` | Same but opens Playwright interactive UI |
+| `npm run test:e2e:headed` | Same but with visible browser |
+| `npm run supabase:start` | Start local Supabase (requires Docker Desktop running) |
+| `npm run supabase:stop` | Stop local Supabase containers |
+| `npm run supabase:reset` | Wipe local DB, re-run all migrations, re-seed foundational data |
 
 ### Database Safety Rules
 
@@ -37,6 +43,14 @@
 - **Schema changes go through migration files** in `supabase/migrations/`, applied to local first (`supabase db reset`), then production. Never apply schema changes via MCP `execute_sql`
 - **E2e tests use local Supabase only.** Playwright config loads `.env.test.local` automatically — tests physically cannot reach production
 - **After enabling prod-write:** Read the SQL Claude proposes before approving. Re-disable `supabase-prod-write` immediately after use
+
+### How to Toggle Production Write Access
+
+1. Open `.mcp.json` in the project root
+2. Find `"supabase-prod-write"` → change `"disabled": true` to `"disabled": false`
+3. Restart Claude Code so the MCP change takes effect
+4. Do the specific change — read the SQL before approving
+5. Re-disable: set `"disabled": true`, restart Claude Code
 
 -----
 
