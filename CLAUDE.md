@@ -4,14 +4,39 @@
 
 -----
 
-## Database Safety Rules
+## Development Environment & Database Safety
 
-- **Never** run INSERT, UPDATE, DELETE, DROP, ALTER, or TRUNCATE against production Supabase via MCP unless the user explicitly requests it in the current message
-- **Always** show the full SQL statement and wait for user confirmation before executing any write operation on production
-- For e2e tests: use local Supabase only (`.env.test.local` → `http://127.0.0.1:54321`), never production
-- Schema changes go through migration files in `supabase/migrations/`, not direct SQL on production
-- Production project ID: `wrsshfpsntnxfvtsfvab` — treat with care
-- Local Supabase: `supabase start` / `supabase stop` / `supabase db reset`
+### Three Supabase Contexts
+
+| Context | Purpose | Access | How |
+|---------|---------|--------|-----|
+| **Local Supabase** | Development & e2e testing | Full read/write | App connects via `.env.test.local` → `http://127.0.0.1:54321` |
+| **Production read-only** | Diagnostics & inspection | SELECT only | MCP server `supabase-prod-readonly` (always enabled, `--read-only` enforced) |
+| **Production read/write** | Deliberate data changes | Full access | MCP server `supabase-prod-write` (disabled by default in `.mcp.json`) |
+
+- Production project: `wrsshfpsntnxfvtsfvab` (us-west-1)
+- Local Supabase has no MCP server — it's accessed by the app directly, not through Claude Code MCP tools
+
+### Environment Files
+
+| File | Points at | Used by |
+|------|-----------|---------|
+| `.env.local` | Production Supabase | `npm run dev` (daily development) |
+| `.env.test.local` | Local Supabase (`127.0.0.1:54321`) | Playwright e2e tests via `playwright.config.ts` |
+
+### Local Supabase Commands
+
+- `npm run supabase:start` — Start local Supabase (requires Docker running)
+- `npm run supabase:stop` — Stop local Supabase containers
+- `npm run supabase:reset` — Wipe local DB, re-run all migrations, re-seed foundational data
+
+### Database Safety Rules
+
+- **Read-only MCP is the default.** `supabase-prod-readonly` uses `--read-only` flag — write operations are rejected at the server level, not by convention
+- **To make production changes:** User must manually enable `supabase-prod-write` in `.mcp.json` (set `"disabled": false`), do the specific change, then re-disable it. This is the deliberate friction that prevents accidental writes
+- **Schema changes go through migration files** in `supabase/migrations/`, applied to local first (`supabase db reset`), then production. Never apply schema changes via MCP `execute_sql`
+- **E2e tests use local Supabase only.** Playwright config loads `.env.test.local` automatically — tests physically cannot reach production
+- **After enabling prod-write:** Read the SQL Claude proposes before approving. Re-disable `supabase-prod-write` immediately after use
 
 -----
 
