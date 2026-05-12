@@ -1,6 +1,29 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 
+// --- Test mode fixture bypass ---
+// When SUMMIT_TEST_MODE=1, all AI calls return deterministic fixture data
+// instead of hitting a real API. This is used by Playwright e2e tests.
+function isTestMode(): boolean {
+  return process.env.SUMMIT_TEST_MODE === "1";
+}
+
+function loadTestFixture(systemPrompt: string): string {
+  // Dynamic import to avoid bundling e2e fixtures in production
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { resolveFixtureName, loadFixture } = require("../../e2e/fixtures/loadFixture");
+  const fixtureName = resolveFixtureName(systemPrompt);
+  if (!fixtureName) {
+    throw new Error(
+      `[SUMMIT_TEST_MODE] No fixture mapping found for system prompt starting with: "${systemPrompt.slice(0, 80)}..."\n` +
+        `Test mode is ON but this prompt has no fixture. This would fall through to a real API call, which is not allowed in test mode.\n` +
+        `Add a mapping in e2e/fixtures/loadFixture.ts PROMPT_FIXTURE_MAP.`
+    );
+  }
+  const data = loadFixture(fixtureName);
+  return JSON.stringify(data);
+}
+
 // Provider config — "anthropic" (default) or "openai"
 const AI_PROVIDER = process.env.AI_PROVIDER || "anthropic";
 
@@ -113,6 +136,10 @@ export async function callClaude(
   maxTokens: number = 8192,
   model: ClaudeModel = "opus"
 ): Promise<string> {
+  if (isTestMode()) {
+    return loadTestFixture(systemPrompt);
+  }
+
   if (AI_PROVIDER === "openai") {
     return callOpenAI(systemPrompt, userMessage, maxTokens, model);
   }
@@ -144,6 +171,10 @@ export async function callClaudeWithCache(
   maxTokens: number = 8192,
   model: ClaudeModel = "opus"
 ): Promise<string> {
+  if (isTestMode()) {
+    return loadTestFixture(systemPrompt);
+  }
+
   if (AI_PROVIDER === "openai") {
     return callOpenAI(systemPrompt, userMessage, maxTokens, model);
   }
@@ -181,6 +212,17 @@ export function streamClaudeWithCache(
   maxTokens: number = 8192,
   model: ClaudeModel = "opus"
 ): ReadableStream<Uint8Array> {
+  if (isTestMode()) {
+    const fixtureText = loadTestFixture(systemPrompt);
+    const encoder = new TextEncoder();
+    return new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(fixtureText));
+        controller.close();
+      },
+    });
+  }
+
   if (AI_PROVIDER === "openai") {
     return streamOpenAI(systemPrompt, userMessage, maxTokens, model);
   }

@@ -1,0 +1,107 @@
+{
+  "climbingRole": "follow",
+  "adjustedTargets": {
+    "cardio": 75,
+    "strength": 70,
+    "climbing_technical": 36,
+    "flexibility": 55
+  },
+  "adjustedBenchmarks": {
+    "cardio": [
+      {
+        "exerciseId": "b1000000-0000-0000-0000-000000000003",
+        "exerciseName": "Uphill Hike with Pack",
+        "graduationTarget": "2000 ft/hr @ 40lb for 60 minutes",
+        "whyThisTarget": "Exceeds Mont Blanc's sustained uphill pace requirements with multi-day pack weight"
+      },
+      {
+        "exerciseId": "b1000000-0000-0000-0000-000000000001",
+        "exerciseName": "Timed Loaded Step-Ups",
+        "graduationTarget": "450 reps/30min @ 35lb",
+        "whyThisTarget": "Builds altitude-specific leg endurance with pack weight for sustained uphill travel"
+      }
+    ],
+    "strength": [
+      {
+        "exerciseId": "b2000000-0000-0000-0000-000000000004",
+        "exerciseName": "Loaded Carry",
+        "graduationTarget": "450m @ 50lb in 10 minutes",
+        "whyThisTarget": "Multi-day pack carrying capacity over alpine terrain with comfort buffer"
+      },
+      {
+        "exerciseId": "b2000000-0000-0000-0000-000000000002",
+        "exerciseName": "Single-Leg Step-Down",
+        "graduationTarget": "20 controlled reps per leg",
+        "whyThisTarget": "Knee stability and control for crampon walking on uneven glacier terrain"
+      }
+    ],
+    "climbing_technical": [
+      {
+        "exerciseId": "b3000000-0000-0000-0000-000000000002",
+        "exerciseName": "Scramble Confidence Assessment",
+        "graduationTarget": "3/5 confidence on exposed terrain with crampons",
+        "whyThisTarget": "Following requires comfortable movement on glacier and the Gouter ridge, not leading"
+      }
+    ],
+    "flexibility": [
+      {
+        "exerciseId": "b4000000-0000-0000-0000-000000000001",
+        "exerciseName": "Deep Squat Hold",
+        "graduationTarget": "60-second hold",
+        "whyThisTarget": "Hip and ankle mobility for crampon walking and recovery positions"
+      },
+      {
+        "exerciseId": "b4000000-0000-0000-0000-000000000003",
+        "exerciseName": "Ankle Dorsiflexion Test",
+        "graduationTarget": "4+ inches from wall",
+        "whyThisTarget": "Ankle mobility essential for proper crampon technique and injury prevention"
+      }
+    ]
+  },
+  "scores": {
+    "cardio": 34,
+    "strength": 28,
+    "climbing_technical": 18,
+    "flexibility": 19
+  },
+  "reasoning": {
+    "cardio": {
+      "explanation": "Your 3-hour hikes with 2000ft gain show a solid aerobic base, but the graduation benchmark requires sustaining 2000 ft/hr with a 40lb pack for a full hour. Your current pace and pack weight put you at roughly 45% of that target.",
+      "keyFactor": "Loaded uphill pace and sustained duration"
+    },
+    "strength": {
+      "explanation": "Your strength training 2x/week and moderate loaded leg capacity (rated 3) give you a foundation, but the graduation benchmarks require carrying 50lb for 450m and doing 20 controlled single-leg step-downs. You're at about 40% of requirements.",
+      "keyFactor": "Heavy pack carrying capacity"
+    },
+    "climbing_technical": {
+      "explanation": "As a follower, your target is reduced to 36. Your indoor gym climbing experience and basic scrambling comfort put you at 50% of the adjusted target. You'll need to build crampon confidence and glacier travel comfort.",
+      "keyFactor": "Crampon and glacier travel experience"
+    },
+    "flexibility": {
+      "explanation": "Your hip mobility rated 3 and ankle mobility rated 2 indicate average lower body flexibility. The graduation benchmarks require a 60-second deep squat hold and 4+ inch ankle dorsiflexion, putting you at roughly 35% of target.",
+      "keyFactor": "Ankle dorsiflexion for crampon technique"
+    }
+  },
+  "programmingHints": {
+    "cardio": {
+      "startingIntensity": "Start loaded hikes at 20lb pack, building to 40lb. Begin with 30-minute sustained uphills.",
+      "sessionsPerWeek": 3,
+      "keyAdaptation": "Build sustained uphill pace with progressively heavier pack — biggest gap is loaded endurance"
+    },
+    "strength": {
+      "startingIntensity": "Start step-ups at 25lb, loaded carries at 30lb. Bodyweight single-leg step-downs first.",
+      "sessionsPerWeek": 2,
+      "keyAdaptation": "Focus on loaded carry endurance and single-leg stability for crampon terrain"
+    },
+    "climbing_technical": {
+      "startingIntensity": "Start with gym scramble practice and balance work. No lead-specific training needed.",
+      "sessionsPerWeek": 1,
+      "keyAdaptation": "Build exposure comfort and basic crampon movement patterns — follow role, no lead skills"
+    },
+    "flexibility": {
+      "startingIntensity": "Daily 10-minute hip and ankle mobility routine. Start deep squat holds at 20 seconds.",
+      "sessionsPerWeek": 2,
+      "keyAdaptation": "Prioritize ankle dorsiflexion for crampon technique — currently the weakest flexibility component"
+    }
+  }
+}

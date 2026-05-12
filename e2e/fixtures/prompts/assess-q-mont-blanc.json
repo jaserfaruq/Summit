@@ -1,0 +1,35 @@
+{
+  "questions": [
+    {
+      "id": "climbing-lead-follow",
+      "question": "Do you plan to lead or follow on this route?",
+      "dimension": "climbing_technical",
+      "fieldType": "dropdown",
+      "options": ["Lead", "Follow"]
+    },
+    {
+      "id": "altitude-experience",
+      "question": "What is the highest altitude you've spent time at, and did you experience any altitude sickness symptoms?",
+      "dimension": "cardio",
+      "fieldType": "text"
+    },
+    {
+      "id": "crampon-experience",
+      "question": "Have you used crampons and an ice axe before? If so, describe the terrain and conditions.",
+      "dimension": "climbing_technical",
+      "fieldType": "text"
+    },
+    {
+      "id": "multi-day-pack",
+      "question": "What's the heaviest pack you've carried on a multi-day trip, and for how many days?",
+      "dimension": "strength",
+      "fieldType": "text"
+    },
+    {
+      "id": "time-on-feet",
+      "question": "What's the longest continuous day of hiking or climbing you've done in the last 6 months (hours moving)?",
+      "dimension": "cardio",
+      "fieldType": "number"
+    }
+  ]
+}

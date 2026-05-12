@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // \"\"' | grep -q '^git commit' && npm run test:types 2>&1 | tail -20 || true",
+            "timeout": 60,
+            "statusMessage": "Type-checking before commit..."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -44,6 +44,7 @@ export default defineConfig({
     env: {
       ...Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)),
       ...testEnv,
+      SUMMIT_TEST_MODE: "1",
     },
   },
 });

@@ -1,0 +1,49 @@
+{
+  "suggestions": [
+    {
+      "name": "Mont Blanc",
+      "route": "Gouter Route",
+      "type": "mountaineering",
+      "description": "The classic and most popular route up Mont Blanc, starting from Saint-Gervais. Involves the Gouter Hut, the Gouter Couloir (objective hazard), and a long summit ridge at altitude.",
+      "difficulty": "advanced",
+      "total_gain_ft": 10400,
+      "distance_miles": 14,
+      "summit_elevation_ft": 15774,
+      "technical_grade": null,
+      "pitch_count": null,
+      "validated": true,
+      "validatedId": null,
+      "matchReason": "Exact match for the most popular route on Mont Blanc"
+    },
+    {
+      "name": "Mont Blanc",
+      "route": "Trois Monts Route",
+      "type": "mountaineering",
+      "description": "A more technical route up Mont Blanc via Mont Blanc du Tacul and Mont Maudit. Involves glacier travel, crevasse navigation, and steep snow climbing.",
+      "difficulty": "expert",
+      "total_gain_ft": 11200,
+      "distance_miles": 12,
+      "summit_elevation_ft": 15774,
+      "technical_grade": "PD+",
+      "pitch_count": null,
+      "validated": false,
+      "validatedId": null,
+      "matchReason": "Alternative technical route on the same mountain"
+    },
+    {
+      "name": "Gran Paradiso",
+      "route": "Normal Route",
+      "type": "mountaineering",
+      "description": "Italy's highest peak entirely within its borders, often used as a training peak for Mont Blanc. Glacier travel with moderate technical difficulty.",
+      "difficulty": "intermediate",
+      "total_gain_ft": 5500,
+      "distance_miles": 8,
+      "summit_elevation_ft": 13323,
+      "technical_grade": null,
+      "pitch_count": null,
+      "validated": false,
+      "validatedId": null,
+      "matchReason": "Classic Mont Blanc training peak in the same region"
+    }
+  ]
+}

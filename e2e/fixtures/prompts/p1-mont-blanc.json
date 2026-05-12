@@ -1,0 +1,167 @@
+{
+  "pitchCount": null,
+  "dimensions": {
+    "cardio": {
+      "tagline": "High altitude endurance with heavy pack",
+      "targetScore": 75
+    },
+    "strength": {
+      "tagline": "Multi-day load carrying capacity",
+      "targetScore": 70
+    },
+    "climbing_technical": {
+      "tagline": "Glacier travel and crampon skills",
+      "targetScore": 60
+    },
+    "flexibility": {
+      "tagline": "Crampon mobility and recovery",
+      "targetScore": 55
+    }
+  },
+  "relevanceProfiles": {
+    "cardio": {
+      "summary": "Mont Blanc via the Gouter Route demands sustained aerobic output at altitude with a heavy pack across multiple days. The approach and summit push require hours of continuous uphill movement.",
+      "keyComponents": [
+        "Sustained uphill hiking with 35-45lb pack",
+        "Zone 2 aerobic capacity for 6-8 hour days",
+        "Altitude-adapted breathing efficiency",
+        "Loaded stairmaster or incline treadmill endurance",
+        "Multi-day recovery between hard efforts",
+        "Trail running for aerobic base building",
+        "Rucking on varied terrain",
+        "Step-up endurance with pack weight"
+      ],
+      "irrelevantComponents": [
+        "Sprint intervals or anaerobic capacity",
+        "Flat road running speed",
+        "Cycling-only cardio without load bearing",
+        "Swimming for cardio",
+        "Rowing machine endurance",
+        "Track workouts or tempo runs",
+        "Sport-specific agility drills",
+        "Dance or aerobics classes"
+      ]
+    },
+    "strength": {
+      "summary": "The objective demands heavy pack carrying over steep terrain across multiple days. Leg endurance, core stability under load, and grip strength for fixed ropes are primary.",
+      "keyComponents": [
+        "Loaded step-ups and lunges",
+        "Single-leg stability and control",
+        "Heavy pack carrying endurance",
+        "Core stability under load",
+        "Farmer carries and loaded walks",
+        "Squat endurance with pack weight",
+        "Eccentric quad strength for descents",
+        "Grip endurance for fixed rope sections"
+      ],
+      "irrelevantComponents": [
+        "Bench press or chest isolation",
+        "Bicep curls or arm isolation",
+        "Lat pulldowns without functional transfer",
+        "Leg press machine only",
+        "Bodybuilding-style split training",
+        "Wrist curls or forearm isolation",
+        "Calf raises without hiking context",
+        "Machine-only training"
+      ]
+    },
+    "climbing_technical": {
+      "summary": "The Gouter Route requires glacier travel, crampon use, ice axe self-arrest, and comfortable movement on exposed ridges. Roped travel on moderate terrain is essential.",
+      "keyComponents": [
+        "Crampon walking on moderate snow slopes",
+        "Ice axe self-arrest technique",
+        "Roped glacier travel basics",
+        "Comfort on exposed ridge terrain",
+        "Fixed rope ascent and descent",
+        "Basic crevasse awareness",
+        "Movement efficiency in mountaineering boots",
+        "Scramble confidence on Class 3 terrain"
+      ],
+      "irrelevantComponents": [
+        "Sport climbing lead technique",
+        "Bouldering power",
+        "Crack climbing skills",
+        "Multi-pitch trad gear placement",
+        "Ice climbing vertical technique",
+        "Aid climbing",
+        "Competitive climbing training",
+        "Campus board or hangboard power"
+      ]
+    },
+    "flexibility": {
+      "summary": "Crampon walking and steep terrain demand ankle mobility, while multi-day pack carrying requires hip flexibility for efficient movement and camp recovery.",
+      "keyComponents": [
+        "Ankle dorsiflexion for crampon technique",
+        "Hip flexor mobility for steep uphill",
+        "Deep squat mobility for camp and rest",
+        "Hamstring flexibility for varied step heights",
+        "Thoracic spine rotation for pack balance",
+        "Calf flexibility for sustained uphill",
+        "Hip external rotation for terrain adaptation",
+        "Morning mobility routine for multi-day recovery"
+      ],
+      "irrelevantComponents": [
+        "Full splits or extreme range of motion",
+        "Shoulder flexibility beyond basic range",
+        "Wrist flexibility training",
+        "Neck mobility work",
+        "Contortion or gymnastics flexibility",
+        "Upper back flexibility isolation",
+        "Finger flexibility",
+        "Jaw or facial tension release"
+      ]
+    }
+  },
+  "graduationBenchmarks": {
+    "cardio": [
+      {
+        "exerciseId": "b1000000-0000-0000-0000-000000000003",
+        "exerciseName": "Uphill Hike with Pack",
+        "graduationTarget": "2000 ft/hr @ 40lb for 60 minutes",
+        "whyThisTarget": "Exceeds Mont Blanc's sustained uphill pace requirements with multi-day pack weight"
+      },
+      {
+        "exerciseId": "b1000000-0000-0000-0000-000000000001",
+        "exerciseName": "Timed Loaded Step-Ups",
+        "graduationTarget": "450 reps/30min @ 35lb",
+        "whyThisTarget": "Builds altitude-specific leg endurance with pack weight for sustained uphill travel"
+      }
+    ],
+    "strength": [
+      {
+        "exerciseId": "b2000000-0000-0000-0000-000000000004",
+        "exerciseName": "Loaded Carry",
+        "graduationTarget": "450m @ 50lb in 10 minutes",
+        "whyThisTarget": "Multi-day pack carrying capacity over alpine terrain with comfort buffer"
+      },
+      {
+        "exerciseId": "b2000000-0000-0000-0000-000000000002",
+        "exerciseName": "Single-Leg Step-Down",
+        "graduationTarget": "20 controlled reps per leg",
+        "whyThisTarget": "Knee stability and control for crampon walking on uneven glacier terrain"
+      }
+    ],
+    "climbing_technical": [
+      {
+        "exerciseId": "b3000000-0000-0000-0000-000000000002",
+        "exerciseName": "Scramble Confidence Assessment",
+        "graduationTarget": "Confident 4/5 on exposed Class 3 terrain",
+        "whyThisTarget": "Comfortable movement on Gouter Couloir and summit ridge exposure"
+      }
+    ],
+    "flexibility": [
+      {
+        "exerciseId": "b4000000-0000-0000-0000-000000000001",
+        "exerciseName": "Deep Squat Hold",
+        "graduationTarget": "60-second hold",
+        "whyThisTarget": "Hip and ankle mobility for crampon walking and recovery positions"
+      },
+      {
+        "exerciseId": "b4000000-0000-0000-0000-000000000003",
+        "exerciseName": "Ankle Dorsiflexion Test",
+        "graduationTarget": "4+ inches from wall",
+        "whyThisTarget": "Ankle mobility essential for proper crampon technique and injury prevention"
+      }
+    ]
+  }
+}
