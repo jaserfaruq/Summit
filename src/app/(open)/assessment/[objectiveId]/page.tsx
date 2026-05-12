@@ -558,7 +558,7 @@ function AssessmentContent() {
       <div className="bg-dark-bg/85 backdrop-blur-md rounded-2xl p-6 border border-dark-border/50">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">
+        <h1 className="text-2xl font-bold text-white" data-testid="assessment-heading">
           {objectiveName ? `Assess for ${objectiveName}` : "Fitness Assessment"}
         </h1>
         <p className="text-sm text-dark-muted mt-1">
@@ -579,6 +579,7 @@ function AssessmentContent() {
         <div className="w-full bg-dark-border rounded-full h-2">
           <div
             className="bg-gold rounded-full h-2 transition-all duration-500"
+            data-testid="assessment-progress-bar"
             style={{
               width:
                 phase === "layer1" ? "25%" :
@@ -608,7 +609,7 @@ function AssessmentContent() {
           <div>
             <label className="block text-sm font-medium text-dark-muted mb-1">How many days per week can you train?</label>
             <p className="text-xs text-dark-muted mb-2">We recommend 5–6 days for most major objectives.</p>
-            <select value={trainingDays} onChange={(e) => setTrainingDays(parseInt(e.target.value))} className={inputClass}>
+            <select value={trainingDays} onChange={(e) => setTrainingDays(parseInt(e.target.value))} className={inputClass} data-testid="assessment-training-days">
               {[2, 3, 4, 5, 6, 7].map((n) => (
                 <option key={n} value={n}>{n} days</option>
               ))}
@@ -625,6 +626,7 @@ function AssessmentContent() {
               <button
                 type="button"
                 onClick={() => setCardioMode('uphill')}
+                data-testid="assessment-cardio-mode-uphill"
                 className={`flex-1 py-2 text-sm font-medium transition-colors ${
                   cardioMode === 'uphill'
                     ? 'bg-gold text-dark-bg'
@@ -636,6 +638,7 @@ function AssessmentContent() {
               <button
                 type="button"
                 onClick={() => setCardioMode('hike_run')}
+                data-testid="assessment-cardio-mode-hike"
                 className={`flex-1 py-2 text-sm font-medium transition-colors ${
                   cardioMode === 'hike_run'
                     ? 'bg-gold text-dark-bg'
@@ -651,15 +654,15 @@ function AssessmentContent() {
                 <p className="text-xs text-dark-muted">Sustained uphill effort — just the uphill portion, not the descent or flat sections.</p>
                 <div>
                   <label className="block text-sm font-medium text-dark-muted mb-1">Elevation gain (ft)</label>
-                  <input type="number" value={uphillElevation} onChange={(e) => setUphillElevation(e.target.value)} className={inputClass} placeholder="e.g., 3000" />
+                  <input type="number" value={uphillElevation} onChange={(e) => setUphillElevation(e.target.value)} className={inputClass} placeholder="e.g., 3000" data-testid="assessment-uphill-elevation" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-dark-muted mb-1">Time for the uphill (hours)</label>
-                  <input type="number" step="0.1" value={uphillDuration} onChange={(e) => setUphillDuration(e.target.value)} className={inputClass} placeholder="e.g., 2.5" />
+                  <input type="number" step="0.1" value={uphillDuration} onChange={(e) => setUphillDuration(e.target.value)} className={inputClass} placeholder="e.g., 2.5" data-testid="assessment-uphill-duration" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-dark-muted mb-1">Pack weight (lbs) — optional</label>
-                  <input type="number" value={uphillPackWeight} onChange={(e) => setUphillPackWeight(e.target.value)} className={inputClass} placeholder="e.g., 30" />
+                  <input type="number" value={uphillPackWeight} onChange={(e) => setUphillPackWeight(e.target.value)} className={inputClass} placeholder="e.g., 30" data-testid="assessment-uphill-pack" />
                 </div>
               </div>
             ) : (
@@ -667,15 +670,15 @@ function AssessmentContent() {
                 <p className="text-xs text-dark-muted">A full hike or trail run — total distance and time including all terrain.</p>
                 <div>
                   <label className="block text-sm font-medium text-dark-muted mb-1">Distance (miles)</label>
-                  <input type="number" step="0.1" value={hikeDistance} onChange={(e) => setHikeDistance(e.target.value)} className={inputClass} placeholder="e.g., 12" />
+                  <input type="number" step="0.1" value={hikeDistance} onChange={(e) => setHikeDistance(e.target.value)} className={inputClass} placeholder="e.g., 12" data-testid="assessment-hike-distance" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-dark-muted mb-1">Time (hours)</label>
-                  <input type="number" step="0.1" value={hikeDuration} onChange={(e) => setHikeDuration(e.target.value)} className={inputClass} placeholder="e.g., 4.5" />
+                  <input type="number" step="0.1" value={hikeDuration} onChange={(e) => setHikeDuration(e.target.value)} className={inputClass} placeholder="e.g., 4.5" data-testid="assessment-hike-duration" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-dark-muted mb-1">Elevation gain (ft) — optional</label>
-                  <input type="number" value={hikeElevation} onChange={(e) => setHikeElevation(e.target.value)} className={inputClass} placeholder="e.g., 2000" />
+                  <input type="number" value={hikeElevation} onChange={(e) => setHikeElevation(e.target.value)} className={inputClass} placeholder="e.g., 2000" data-testid="assessment-hike-elevation" />
                 </div>
               </div>
             )}
@@ -687,7 +690,7 @@ function AssessmentContent() {
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-dark-muted mb-1">Strength training frequency</label>
-                <select value={strengthFrequency} onChange={(e) => setStrengthFrequency(e.target.value)} className={inputClass}>
+                <select value={strengthFrequency} onChange={(e) => setStrengthFrequency(e.target.value)} className={inputClass} data-testid="assessment-strength-frequency">
                   <option value="never">Never</option>
                   <option value="1-2x/week">1-2x per week</option>
                   <option value="3-4x/week">3-4x per week</option>
@@ -706,7 +709,7 @@ function AssessmentContent() {
                     <p><span className="font-bold text-burnt-orange">5</span> <span className="font-semibold">(Very strong):</span> 15+ strict pull-ups or 5+ reps at +25 lb. Pull-up strength has never limited any activity. Serious climbers, CrossFitters, and calisthenics athletes are typically here.</p>
                   </InfoBubble>
                 </label>
-                <input type="range" min="1" max="5" value={pullupCapacity} onChange={(e) => setPullupCapacity(parseInt(e.target.value))} className="w-full accent-gold" />
+                <input type="range" min="1" max="5" value={pullupCapacity} onChange={(e) => setPullupCapacity(parseInt(e.target.value))} className="w-full accent-gold" data-testid="assessment-pullup-scale" />
                 <div className="flex justify-between text-xs text-dark-muted"><span>1 (none)</span><span>3</span><span>5 (very strong)</span></div>
               </div>
               <div>
@@ -721,7 +724,7 @@ function AssessmentContent() {
                     <p><span className="font-bold text-burnt-orange">5</span> <span className="font-semibold">(Very strong):</span> 50+ lb packs feel manageable on steep terrain for hours. You can squat 1.5x+ bodyweight and crank out loaded step-ups all day. Mountaineers, military athletes, and dedicated strength trainers are typically here.</p>
                   </InfoBubble>
                 </label>
-                <input type="range" min="1" max="5" value={loadedLegCapacity} onChange={(e) => setLoadedLegCapacity(parseInt(e.target.value))} className="w-full accent-gold" />
+                <input type="range" min="1" max="5" value={loadedLegCapacity} onChange={(e) => setLoadedLegCapacity(parseInt(e.target.value))} className="w-full accent-gold" data-testid="assessment-loaded-leg-scale" />
                 <div className="flex justify-between text-xs text-dark-muted"><span>1 (untested)</span><span>3</span><span>5 (very strong)</span></div>
               </div>
             </div>
@@ -733,7 +736,7 @@ function AssessmentContent() {
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-dark-muted mb-1">Climbing experience level</label>
-                <select value={climbingLevel} onChange={(e) => setClimbingLevel(e.target.value)} className={inputClass}>
+                <select value={climbingLevel} onChange={(e) => setClimbingLevel(e.target.value)} className={inputClass} data-testid="assessment-climbing-level">
                   <option value="none">No climbing experience</option>
                   <option value="beginner">Beginner (indoor gym only)</option>
                   <option value="intermediate">Intermediate (some outdoor climbing)</option>
@@ -748,7 +751,7 @@ function AssessmentContent() {
                     <p>Select the grade you climb at and your climbing style below. We&apos;ll convert it to an outdoor lead equivalent automatically.</p>
                   </InfoBubble>
                 </label>
-                <select value={climbingGrade} onChange={(e) => setClimbingGrade(e.target.value)} className={inputClass}>
+                <select value={climbingGrade} onChange={(e) => setClimbingGrade(e.target.value)} className={inputClass} data-testid="assessment-climbing-grade">
                   <option value="none">None / no climbing</option>
                   <option value="class_3_4">Class 3-4 scrambling</option>
                   {climbingLevel !== "none" && YDS_GRADES.map((g) => (
@@ -760,7 +763,7 @@ function AssessmentContent() {
                 <>
                   <div>
                     <label className="block text-sm font-medium text-dark-muted mb-1">Climbing style</label>
-                    <select value={climbingStyle} onChange={(e) => setClimbingStyle(e.target.value as ClimbingStyle)} className={inputClass}>
+                    <select value={climbingStyle} onChange={(e) => setClimbingStyle(e.target.value as ClimbingStyle)} className={inputClass} data-testid="assessment-climbing-style">
                       <option value="indoor_toprope">Indoor Top-Rope</option>
                       <option value="indoor_lead">Indoor Lead</option>
                       <option value="outdoor_toprope">Outdoor Top-Rope</option>
@@ -807,6 +810,7 @@ function AssessmentContent() {
                           }
                         }}
                         className="accent-gold w-4 h-4"
+                        data-testid={`assessment-climbing-skill-${skill.id.replace(/_/g, "-")}`}
                       />
                       <span className="text-sm text-dark-text">{skill.label}</span>
                     </label>
@@ -832,7 +836,7 @@ function AssessmentContent() {
                     <p><span className="font-bold text-burnt-orange">5</span> <span className="font-semibold">(Very flexible):</span> Full splits or near-splits. You can drop into a deep squat with feet flat and sit there comfortably. Hip mobility has never limited any physical activity. Dancers, martial artists, and dedicated yoga practitioners are typically here.</p>
                   </InfoBubble>
                 </label>
-                <input type="range" min="1" max="5" value={hipTightness} onChange={(e) => setHipTightness(parseInt(e.target.value))} className="w-full accent-gold" />
+                <input type="range" min="1" max="5" value={hipTightness} onChange={(e) => setHipTightness(parseInt(e.target.value))} className="w-full accent-gold" data-testid="assessment-hip-mobility" />
                 <div className="flex justify-between text-xs text-dark-muted"><span>1 (tight)</span><span>3</span><span>5 (flexible)</span></div>
               </div>
               <div>
@@ -847,11 +851,11 @@ function AssessmentContent() {
                     <p><span className="font-bold text-burnt-orange">5</span> <span className="font-semibold">(Excellent):</span> You can easily pass the wall test at 6+ inches. Deep pistol squats are accessible. Your ankles have never limited any athletic movement. This level is common in gymnasts, experienced barefoot runners, and dedicated mobility practitioners.</p>
                   </InfoBubble>
                 </label>
-                <input type="range" min="1" max="5" value={ankleMobility} onChange={(e) => setAnkleMobility(parseInt(e.target.value))} className="w-full accent-gold" />
+                <input type="range" min="1" max="5" value={ankleMobility} onChange={(e) => setAnkleMobility(parseInt(e.target.value))} className="w-full accent-gold" data-testid="assessment-ankle-mobility" />
                 <div className="flex justify-between text-xs text-dark-muted"><span>1 (limited)</span><span>3</span><span>5 (excellent)</span></div>
               </div>
               <div className="flex items-center gap-3">
-                <input type="checkbox" id="flexRoutine" checked={hasFlexRoutine} onChange={(e) => setHasFlexRoutine(e.target.checked)} className="accent-gold w-4 h-4" />
+                <input type="checkbox" id="flexRoutine" checked={hasFlexRoutine} onChange={(e) => setHasFlexRoutine(e.target.checked)} className="accent-gold w-4 h-4" data-testid="assessment-flex-routine" />
                 <label htmlFor="flexRoutine" className="text-sm text-dark-text">I have a regular stretching/mobility routine</label>
               </div>
             </div>
@@ -862,6 +866,7 @@ function AssessmentContent() {
             onClick={submitLayer1}
             disabled={loading}
             className="w-full bg-gold text-dark-bg py-3 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
+            data-testid="assessment-continue-button"
           >
             {waitingForEstimation
               ? "Finishing score analysis..."
@@ -885,6 +890,7 @@ function AssessmentContent() {
             onClick={submitQuickPath}
             disabled={loading}
             className="w-full py-2.5 border border-dark-border text-dark-text rounded-lg text-sm hover:bg-dark-card transition-colors disabled:opacity-50"
+            data-testid="assessment-skip-button"
           >
             {waitingForEstimation
               ? "Finishing score analysis..."
@@ -918,8 +924,8 @@ function AssessmentContent() {
             These questions are tailored to {objectiveName || "your objective"} to give you the most accurate assessment.
           </div>
 
-          {aiQuestions.map((q) => (
-            <div key={q.id} className="space-y-2">
+          {aiQuestions.map((q, index) => (
+            <div key={q.id} className="space-y-2" data-testid={`assessment-ai-question-${index}`}>
               <label className="block text-sm font-medium text-dark-text">{q.question}</label>
               {q.dimension && (
                 <span className="text-xs text-dark-muted capitalize">{q.dimension.replace("_", " / ")}</span>
@@ -931,6 +937,7 @@ function AssessmentContent() {
                   onChange={(e) => setAiAnswers({ ...aiAnswers, [q.id]: e.target.value })}
                   className={`${inputClass} min-h-[80px]`}
                   placeholder="Your answer..."
+                  data-testid={`assessment-ai-answer-${q.id}`}
                 />
               )}
 
@@ -940,6 +947,7 @@ function AssessmentContent() {
                   value={(aiAnswers[q.id] as number) ?? ""}
                   onChange={(e) => setAiAnswers({ ...aiAnswers, [q.id]: parseFloat(e.target.value) || 0 })}
                   className={inputClass}
+                  data-testid={`assessment-ai-answer-${q.id}`}
                 />
               )}
 
@@ -948,6 +956,7 @@ function AssessmentContent() {
                   value={(aiAnswers[q.id] as string) || ""}
                   onChange={(e) => setAiAnswers({ ...aiAnswers, [q.id]: e.target.value })}
                   className={inputClass}
+                  data-testid={`assessment-ai-answer-${q.id}`}
                 >
                   <option value="">Select...</option>
                   {q.options.map((opt) => (
@@ -965,6 +974,7 @@ function AssessmentContent() {
                     value={(aiAnswers[q.id] as number) || 3}
                     onChange={(e) => setAiAnswers({ ...aiAnswers, [q.id]: parseInt(e.target.value) })}
                     className="w-full accent-gold"
+                    data-testid={`assessment-ai-answer-${q.id}`}
                   />
                   <div className="flex justify-between text-xs text-dark-muted">
                     <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
@@ -979,6 +989,7 @@ function AssessmentContent() {
             onClick={requestMoreQuestions}
             disabled={moreQuestionsLoading}
             className="w-full py-2.5 border border-dark-border text-dark-text rounded-lg text-sm hover:bg-dark-card transition-colors disabled:opacity-50"
+            data-testid="assessment-more-questions"
           >
             {moreQuestionsLoading ? "Generating..." : "Want a more precise assessment? Get more questions"}
           </button>
@@ -993,6 +1004,7 @@ function AssessmentContent() {
               onChange={(e) => setFreeformText(e.target.value)}
               className={`${inputClass} min-h-[80px]`}
               placeholder="Optional — any additional context about your fitness, experience, injuries, etc. The more detail you share, the more customized your plan will be."
+              data-testid="assessment-freeform"
             />
           </div>
 
@@ -1000,6 +1012,7 @@ function AssessmentContent() {
             <button
               onClick={() => setPhase("layer1")}
               className="px-4 py-2.5 border border-dark-border text-dark-text rounded-lg hover:bg-dark-card transition-colors"
+              data-testid="assessment-back-button"
             >
               Back
             </button>
@@ -1007,6 +1020,7 @@ function AssessmentContent() {
               onClick={submitAssessment}
               disabled={loading}
               className="flex-1 bg-gold text-dark-bg py-3 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
+              data-testid="assessment-score-button"
             >
               {loading ? "Scoring..." : "Score My Assessment"}
             </button>
@@ -1031,13 +1045,13 @@ function AssessmentContent() {
 
       {/* Results */}
       {phase === "results" && results && (
-        <div className="space-y-6">
+        <div className="space-y-6" data-testid="assessment-results">
           <div className="bg-test-blue/20 border border-test-blue/30 text-blue-300 px-4 py-3 rounded-lg text-sm">
             These are estimated scores. They&apos;ll calibrate as you train and complete test weeks.
           </div>
 
           {results.climbingRole && (
-            <div className="bg-dark-card/80 border border-dark-border/50 rounded-lg px-4 py-3 text-sm">
+            <div className="bg-dark-card/80 border border-dark-border/50 rounded-lg px-4 py-3 text-sm" data-testid="assessment-climbing-role">
               <span className="text-dark-muted">Climbing role: </span>
               <span className="text-gold font-medium capitalize">{results.climbingRole}</span>
               {results.climbingRole === "follow" && (
@@ -1061,9 +1075,9 @@ function AssessmentContent() {
                 <div key={dim} className="bg-dark-card/80 backdrop-blur-sm rounded-xl p-4 border border-dark-border/50">
                   <div className="flex items-baseline justify-between mb-1">
                     <span className="text-sm text-dark-muted">{label}</span>
-                    <span className="text-xs text-dark-muted">/ {target}</span>
+                    <span className="text-xs text-dark-muted" data-testid={`assessment-target-${dim}`}>/ {target}</span>
                   </div>
-                  <div className="text-3xl font-bold text-gold">{score}</div>
+                  <div className="text-3xl font-bold text-gold" data-testid={`assessment-score-${dim}`}>{score}</div>
                   <div className="w-full bg-dark-border rounded-full h-2 mt-2">
                     <div
                       className="bg-gold rounded-full h-2 transition-all"
@@ -1115,6 +1129,7 @@ function AssessmentContent() {
                 }
               }}
               className="w-full bg-gold text-dark-bg py-3 rounded-lg font-medium hover:bg-gold/90 transition-colors"
+              data-testid="assessment-generate-plan"
             >
               Generate Training Plan
             </button>

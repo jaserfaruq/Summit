@@ -33,7 +33,7 @@ export default function ScoreArc({
     const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
     return (
-      <div className="text-center">
+      <div data-testid={`score-arc-${label.toLowerCase()}`} className="text-center">
         <div className="relative inline-block">
           <svg width="50" height="50" className="-rotate-90">
             <circle cx="25" cy="25" r={radius} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="4" />
@@ -51,11 +51,11 @@ export default function ScoreArc({
             />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className={`text-xs font-bold ${text}`}>{current}</span>
+            <span data-testid={`score-arc-value-${label.toLowerCase()}`} className={`text-xs font-bold ${text}`}>{current}</span>
           </div>
         </div>
         <div className="text-[10px] text-white/60 mt-0.5">{label}</div>
-        <div className="text-[10px] text-white/40">/ {target}</div>
+        <div data-testid={`score-arc-target-${label.toLowerCase()}`} className="text-[10px] text-white/40">/ {target}</div>
       </div>
     );
   }
@@ -136,6 +136,7 @@ function DefaultArc({
 
   return (
     <div
+      data-testid={`score-arc-${label.toLowerCase()}`}
       className="bg-dark-card/80 backdrop-blur-sm rounded-xl p-4 text-center border border-dark-border/50"
       style={{
         opacity: mounted ? 1 : 0,
@@ -170,8 +171,8 @@ function DefaultArc({
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
           <div>
-            <div className={`text-lg font-bold ${text}`}>{mounted ? displayNumber : 0}</div>
-            <div className="text-xs text-dark-muted">/ {target}</div>
+            <div data-testid={`score-arc-value-${label.toLowerCase()}`} className={`text-lg font-bold ${text}`}>{mounted ? displayNumber : 0}</div>
+            <div data-testid={`score-arc-target-${label.toLowerCase()}`} className="text-xs text-dark-muted">/ {target}</div>
           </div>
         </div>
       </div>

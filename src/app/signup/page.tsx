@@ -53,7 +53,7 @@ function SignupForm() {
           {!returnParam && <div className="mb-6" />}
 
           {error && (
-            <div className="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded mb-6 text-sm">
+            <div data-testid="signup-error" className="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded mb-6 text-sm">
               {error}
             </div>
           )}
@@ -64,6 +64,7 @@ function SignupForm() {
                 Email
               </label>
               <input
+                data-testid="signup-email"
                 id="email"
                 name="email"
                 type="email"
@@ -78,6 +79,7 @@ function SignupForm() {
                 Password
               </label>
               <input
+                data-testid="signup-password"
                 id="password"
                 name="password"
                 type="password"
@@ -89,6 +91,7 @@ function SignupForm() {
             </div>
 
             <button
+              data-testid="signup-submit"
               type="submit"
               disabled={loading}
               className="w-full bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -106,6 +109,7 @@ function SignupForm() {
           <p className="mt-6 text-center text-sm text-dark-text/60">
             Already have an account?{" "}
             <Link
+              data-testid="signup-login-link"
               href={returnParam ? `/login?return=${encodeURIComponent(returnParam)}` : "/login"}
               className="text-gold hover:underline font-medium"
             >

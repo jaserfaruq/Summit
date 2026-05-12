@@ -42,7 +42,7 @@ export default defineConfig({
     reuseExistingServer: true,
     timeout: 120000,
     env: {
-      ...process.env,
+      ...Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)),
       ...testEnv,
     },
   },

@@ -1226,6 +1226,8 @@ Seed data is defined in `src/lib/seed-data.ts`. The `findSeedMatch(name, route?)
 | AlternativesPanel | `src/components/AlternativesPanel.tsx` | Shows 2 AI-generated alternative sessions per session |
 | WeekBadge | `src/components/WeekBadge.tsx` | Week type badge (test=blue, recovery=green, regular, taper=amber) |
 
+Any new or modified component must include `data-testid` attributes on interactive elements and assertion targets. Follow the convention in `.claude/skills/summit-testids/SKILL.md`.
+
 -----
 
 ## Build Order (remaining work)

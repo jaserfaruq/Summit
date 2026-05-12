@@ -1031,7 +1031,7 @@ function PlanContent() {
         <div className="relative px-6 pt-8 pb-6 sm:pt-10 sm:pb-8">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h2 className="font-display text-3xl sm:text-4xl font-bold text-white drop-shadow-lg leading-tight">{objective?.name}</h2>
+              <h2 data-testid="plan-heading" className="font-display text-3xl sm:text-4xl font-bold text-white drop-shadow-lg leading-tight">{objective?.name}</h2>
               <p className="text-white/60 text-sm mt-2 drop-shadow tracking-wide">
                 {weeks.length} weeks · Target: {objective?.target_date ? new Date(objective.target_date).toLocaleDateString() : ""}
               </p>
@@ -1257,22 +1257,24 @@ function PlanContent() {
           return (
             <div
               key={week.id}
+              data-testid={`plan-week-${week.week_number}`}
               className={`bg-dark-card/80 backdrop-blur-sm rounded-xl border overflow-hidden ${
                 isCurrent ? "border-gold/40 ring-1 ring-gold/20" : "border-dark-border/50"
               }`}
             >
               {/* Week header */}
               <button
+                data-testid={`plan-week-toggle-${week.week_number}`}
                 onClick={() => handleWeekToggle(week.week_number)}
                 className="w-full px-5 py-3.5 flex items-center justify-between text-left"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="text-sm font-semibold text-white tabular-nums">Week {week.week_number}</span>
                   {isCurrent && (
-                    <span className="text-[10px] bg-gold text-dark-bg px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide flex-shrink-0">Now</span>
+                    <span data-testid="plan-week-now-badge" className="text-[10px] bg-gold text-dark-bg px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide flex-shrink-0">Now</span>
                   )}
                   {(alreadyScored || completeResult) && (
-                    <span className="text-[10px] text-green-400 font-medium flex-shrink-0">✓ Done</span>
+                    <span data-testid="plan-week-done-badge" className="text-[10px] text-green-400 font-medium flex-shrink-0">✓ Done</span>
                   )}
                   {hasLogs && !alreadyScored && !completeResult && (
                     <span className="text-[10px] text-dark-muted flex-shrink-0">{weekLogs.length} logged</span>
@@ -1342,6 +1344,7 @@ function PlanContent() {
                     return (
                       <div
                         key={i}
+                        data-testid={`plan-session-${week.week_number}-${i}`}
                         className={`rounded-lg border ${
                           logged
                             ? "border-green-800/30 bg-green-900/10"
@@ -1349,6 +1352,7 @@ function PlanContent() {
                         }`}
                       >
                         <button
+                          data-testid={`plan-session-toggle-${week.week_number}-${i}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             setExpandedSession(isSessionExpanded ? null : sessionKey);
@@ -1358,7 +1362,7 @@ function PlanContent() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               {logged && <span className="text-green-400 text-xs">✓</span>}
-                              <span className={`font-medium text-sm leading-snug ${logged ? "line-through opacity-50 text-dark-muted" : "text-dark-text"}`}>
+                              <span data-testid={`plan-session-name-${week.week_number}-${i}`} className={`font-medium text-sm leading-snug ${logged ? "line-through opacity-50 text-dark-muted" : "text-dark-text"}`}>
                                 {session.name}
                               </span>
                               {session.isAlternative && (
@@ -1393,6 +1397,7 @@ function PlanContent() {
                                   Alternatives
                                 </button>
                                 <Link
+                                  data-testid={`plan-session-log-${week.week_number}-${i}`}
                                   href={`/log?session=${encodeURIComponent(session.name)}&planId=${plan.id}&week=${week.week_number}`}
                                   className="text-xs bg-gold text-dark-bg px-3 py-1.5 rounded-md hover:bg-gold/90 transition-colors font-semibold"
                                   onClick={(e) => e.stopPropagation()}
@@ -1513,6 +1518,7 @@ function PlanContent() {
                   {!isDraftMode && canComplete && (
                     <div className="pt-2">
                       <button
+                        data-testid={`plan-complete-week-${week.week_number}`}
                         onClick={() => handleCompleteWeek(week)}
                         disabled={isCompleting}
                         className="w-full py-3 rounded-lg font-semibold text-sm transition-colors bg-gold text-dark-bg hover:bg-gold/90 disabled:opacity-50"
@@ -1547,19 +1553,19 @@ function PlanContent() {
                       <div className="grid grid-cols-4 gap-2 text-xs mb-3">
                         <div className="text-center">
                           <div className="text-dark-muted mb-0.5">Cardio</div>
-                          <div className="text-dark-text font-semibold">{completeResult.updatedScores.cardio}</div>
+                          <div data-testid="plan-score-result-cardio" className="text-dark-text font-semibold">{completeResult.updatedScores.cardio}</div>
                         </div>
                         <div className="text-center">
                           <div className="text-dark-muted mb-0.5">Strength</div>
-                          <div className="text-dark-text font-semibold">{completeResult.updatedScores.strength}</div>
+                          <div data-testid="plan-score-result-strength" className="text-dark-text font-semibold">{completeResult.updatedScores.strength}</div>
                         </div>
                         <div className="text-center">
                           <div className="text-dark-muted mb-0.5">Climbing</div>
-                          <div className="text-dark-text font-semibold">{completeResult.updatedScores.climbing_technical}</div>
+                          <div data-testid="plan-score-result-climbing_technical" className="text-dark-text font-semibold">{completeResult.updatedScores.climbing_technical}</div>
                         </div>
                         <div className="text-center">
                           <div className="text-dark-muted mb-0.5">Flex</div>
-                          <div className="text-dark-text font-semibold">{completeResult.updatedScores.flexibility}</div>
+                          <div data-testid="plan-score-result-flexibility" className="text-dark-text font-semibold">{completeResult.updatedScores.flexibility}</div>
                         </div>
                       </div>
                       {completeResult.summary && (

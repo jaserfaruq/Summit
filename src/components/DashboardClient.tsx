@@ -164,11 +164,12 @@ export default function DashboardClient() {
   if (!objectiveAssessment) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center animate-fade-in-up">
-        <h2 className="text-3xl font-bold text-white mb-3">{activeObjective.name}</h2>
+        <h2 data-testid="dashboard-heading" className="text-3xl font-bold text-white mb-3">{activeObjective.name}</h2>
         <p className="text-white/70 mb-8 leading-relaxed drop-shadow-md">
           Assess your current fitness so we can build a plan calibrated to this objective.
         </p>
         <Link
+          data-testid="dashboard-assess-link"
           href={`/assessment/${activeObjective.id}`}
           className="btn-press inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors"
         >
@@ -200,6 +201,7 @@ export default function DashboardClient() {
         <p className="text-white/60 mb-8 text-sm drop-shadow-md">Assessment complete. Ready to generate your plan.</p>
         <div className="flex flex-col items-center gap-3">
           <Link
+            data-testid="dashboard-generate-plan"
             href={`/plan?generate=true&objectiveId=${activeObjective.id}&assessmentId=${objectiveAssessment.id}`}
             className="btn-press inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors"
           >
@@ -227,7 +229,7 @@ export default function DashboardClient() {
       <div className="bg-dark-card/80 backdrop-blur-sm rounded-xl border border-dark-border/50 p-5 animate-fade-in">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="text-2xl font-bold text-white leading-tight">{activeObjective.name}</h2>
+            <h2 data-testid="dashboard-heading" className="text-2xl font-bold text-white leading-tight">{activeObjective.name}</h2>
             <div className="flex items-center gap-3 mt-1.5">
               <TierBadge tier={activeObjective.tier} />
               <span className="text-white/60 text-sm">{formatDate(activeObjective.target_date)}</span>
@@ -301,7 +303,7 @@ export default function DashboardClient() {
       </div>
 
       {/* Readiness */}
-      <div className="animate-fade-in-up stagger-3">
+      <div data-testid="dashboard-readiness" className="animate-fade-in-up stagger-3">
         <h3 className="text-xs font-semibold text-white/60 uppercase tracking-widest mb-3">Readiness</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <ScoreArc
@@ -379,6 +381,7 @@ export default function DashboardClient() {
       {/* Quick links */}
       <div className="flex gap-3 pb-2 animate-fade-in-up stagger-6">
         <Link
+          data-testid="dashboard-view-plan"
           href="/plan"
           className="btn-press flex-1 text-center py-3 bg-gold text-dark-bg rounded-lg font-semibold hover:bg-gold/90 transition-colors text-sm"
         >

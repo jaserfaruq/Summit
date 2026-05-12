@@ -314,7 +314,7 @@ export default function ObjectiveModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+    <div data-testid="objective-modal" className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-dark-card rounded-xl shadow-xl border border-dark-border max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -327,7 +327,7 @@ export default function ObjectiveModal({
           </div>
 
           {error && (
-            <div className="bg-red-900/30 border border-red-800 text-red-300 px-3 py-2 rounded mb-4 text-sm">
+            <div data-testid="objective-error" className="bg-red-900/30 border border-red-800 text-red-300 px-3 py-2 rounded mb-4 text-sm">
               {error}
             </div>
           )}
@@ -337,6 +337,7 @@ export default function ObjectiveModal({
             <div className="space-y-4">
               <p className="text-dark-muted text-sm">How would you like to add your objective?</p>
               <button
+                data-testid="objective-mode-search"
                 onClick={() => setStep("search")}
                 className="w-full p-4 bg-dark-surface border border-dark-border rounded-lg text-left hover:border-gold/50 transition-colors group"
               >
@@ -346,6 +347,7 @@ export default function ObjectiveModal({
                 </p>
               </button>
               <button
+                data-testid="objective-mode-manual"
                 onClick={() => setStep("manual-form")}
                 className="w-full p-4 bg-dark-surface border border-dark-border rounded-lg text-left hover:border-gold/50 transition-colors group"
               >
@@ -369,6 +371,7 @@ export default function ObjectiveModal({
                   onChange={(e) => setSearchName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
+                  data-testid="objective-name-input"
                   placeholder="e.g., Mont Blanc, Half Dome, Rainier"
                   autoFocus
                 />
@@ -494,6 +497,7 @@ export default function ObjectiveModal({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
+                  data-testid="objective-name-input"
                   placeholder="e.g., Mont Blanc, Half Dome"
                 />
               </div>
@@ -501,6 +505,7 @@ export default function ObjectiveModal({
               <div>
                 <label className="block text-sm font-medium text-dark-muted mb-1">Type</label>
                 <select
+                  data-testid="objective-type-select"
                   value={type}
                   onChange={(e) => setType(e.target.value as ObjectiveType)}
                   className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50"
@@ -514,6 +519,7 @@ export default function ObjectiveModal({
               <div>
                 <label className="block text-sm font-medium text-dark-muted mb-1">Target Date</label>
                 <input
+                  data-testid="objective-date-input"
                   type="date"
                   value={targetDate}
                   min={minDate}
@@ -527,6 +533,7 @@ export default function ObjectiveModal({
                 <div>
                   <label className="block text-sm font-medium text-dark-muted mb-1">Distance (miles)</label>
                   <input
+                    data-testid="objective-distance-input"
                     type="number"
                     value={distance}
                     onChange={(e) => setDistance(e.target.value)}
@@ -536,6 +543,7 @@ export default function ObjectiveModal({
                 <div>
                   <label className="block text-sm font-medium text-dark-muted mb-1">Elevation Gain (ft)</label>
                   <input
+                    data-testid="objective-elevation-input"
                     type="number"
                     value={elevation}
                     onChange={(e) => setElevation(e.target.value)}
@@ -569,12 +577,14 @@ export default function ObjectiveModal({
 
               <div className="flex gap-3 pt-2">
                 <button
+                  data-testid="objective-save-button"
                   onClick={handleMatch}
                   disabled={!name || !targetDate || loading}
                   className="flex-1 bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
                 >
                   {loading ? "Matching..." : "Find & Save"}
                 </button>
+
                 {!objective && (
                   <button
                     onClick={() => setStep("choose-mode")}
@@ -612,7 +622,7 @@ export default function ObjectiveModal({
           {step === "confirm" && matchResult && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <span className={`px-2 py-1 text-sm font-bold rounded ${
+                <span data-testid="objective-tier-badge" className={`px-2 py-1 text-sm font-bold rounded ${
                   matchResult.tier === "gold"
                     ? "bg-medal-gold/20 text-medal-gold"
                     : matchResult.tier === "silver"
@@ -678,6 +688,7 @@ export default function ObjectiveModal({
 
               <div className="flex gap-3">
                 <button
+                  data-testid="objective-confirm-button"
                   onClick={handleSave}
                   disabled={loading || !targetDate}
                   className="flex-1 bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"

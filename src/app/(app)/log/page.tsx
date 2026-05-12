@@ -95,7 +95,7 @@ function LogForm() {
   return (
     <div className="max-w-xl mx-auto px-4 py-6">
       <div className="bg-dark-bg/85 backdrop-blur-md rounded-2xl p-6 border border-dark-border/50 space-y-6">
-      <h2 className="text-2xl font-bold text-white">
+      <h2 data-testid="log-heading" className="text-2xl font-bold text-white">
         {sessionName ? `Log: ${sessionName}` : "Log Workout"}
       </h2>
 
@@ -112,6 +112,7 @@ function LogForm() {
           <div className="grid grid-cols-5 gap-2">
             {RATING_OPTIONS.map((opt) => (
               <button
+                data-testid={`log-rating-${opt.value}`}
                 key={opt.value}
                 onClick={() => setRating(opt.value)}
                 className={`flex flex-col items-center p-2 rounded-lg border transition-all ${
@@ -124,7 +125,7 @@ function LogForm() {
               </button>
             ))}
           </div>
-          <p className="text-xs text-dark-text/60 mt-1.5 text-center">
+          <p data-testid="log-rating-description" className="text-xs text-dark-text/60 mt-1.5 text-center">
             {RATING_OPTIONS.find(o => o.value === rating)?.description}
           </p>
         </div>
@@ -139,6 +140,7 @@ function LogForm() {
               This helps the AI evaluate how relevant your training was to your objective.
             </p>
             <textarea
+              data-testid="log-comment"
               value={ratingComment}
               onChange={(e) => setRatingComment(e.target.value)}
               rows={3}
@@ -158,10 +160,11 @@ function LogForm() {
         {/* Optional notes */}
         <div>
           <label className="block text-sm font-medium text-dark-text/70 mb-1">Additional notes (optional)</label>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50" placeholder="Any other details?" />
+          <textarea data-testid="log-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white focus:ring-2 focus:ring-gold/50 focus:border-gold/50" placeholder="Any other details?" />
         </div>
 
         <button
+          data-testid="log-submit"
           onClick={() => handleSubmit()}
           disabled={loading || !canSubmit}
           className="w-full bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
