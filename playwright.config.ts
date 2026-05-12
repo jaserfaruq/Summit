@@ -1,4 +1,23 @@
 import { defineConfig, devices } from "@playwright/test";
+import * as fs from "fs";
+import * as path from "path";
+
+// Load .env.test.local so Playwright's webServer uses local Supabase
+function loadEnvFile(filePath: string): Record<string, string> {
+  const env: Record<string, string> = {};
+  if (!fs.existsSync(filePath)) return env;
+  const lines = fs.readFileSync(filePath, "utf-8").split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIndex = trimmed.indexOf("=");
+    if (eqIndex === -1) continue;
+    env[trimmed.slice(0, eqIndex).trim()] = trimmed.slice(eqIndex + 1).trim();
+  }
+  return env;
+}
+
+const testEnv = loadEnvFile(path.resolve(__dirname, ".env.test.local"));
 
 export default defineConfig({
   testDir: "./e2e",
@@ -22,5 +41,9 @@ export default defineConfig({
     port: 3000,
     reuseExistingServer: true,
     timeout: 120000,
+    env: {
+      ...process.env,
+      ...testEnv,
+    },
   },
 });

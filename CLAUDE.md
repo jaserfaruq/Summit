@@ -4,6 +4,17 @@
 
 -----
 
+## Database Safety Rules
+
+- **Never** run INSERT, UPDATE, DELETE, DROP, ALTER, or TRUNCATE against production Supabase via MCP unless the user explicitly requests it in the current message
+- **Always** show the full SQL statement and wait for user confirmation before executing any write operation on production
+- For e2e tests: use local Supabase only (`.env.test.local` → `http://127.0.0.1:54321`), never production
+- Schema changes go through migration files in `supabase/migrations/`, not direct SQL on production
+- Production project ID: `wrsshfpsntnxfvtsfvab` — treat with care
+- Local Supabase: `supabase start` / `supabase stop` / `supabase db reset`
+
+-----
+
 ## Stack
 
 - **Framework:** Next.js 14+ (App Router)
