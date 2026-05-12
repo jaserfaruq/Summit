@@ -184,7 +184,13 @@ function PlanContent() {
     if (planData.activeWeek && expandedWeek === null) {
       setExpandedWeek(planData.activeWeek);
     }
-  }, [planData, isDraftMode]); // eslint-disable-line react-hooks/exhaustive-deps
+    // If we returned from logging a workout, force a fresh SWR fetch.
+    // This must happen here (not in a separate effect) because mutate() requires
+    // activePlanId to be set — which is only guaranteed once planData has loaded.
+    if (loggedParam) {
+      mutate();
+    }
+  }, [planData, isDraftMode, loggedParam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync DRAFT data into local state for guest mode
   const guestData = useMemo(() => {
@@ -246,10 +252,10 @@ function PlanContent() {
     }
   }, [plan]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-fetch on loggedParam change (after logging a workout)
-  useEffect(() => {
-    if (loggedParam) mutate();
-  }, [loggedParam, mutate]);
+  // Re-fetch on loggedParam change is now handled in the data-sync effect above.
+  // The standalone effect was unreliable because mutate() requires activePlanId
+  // to be set (for the SWR key), which isn't guaranteed on cross-layout-group
+  // navigation (e.g., (app)/log → (open)/plan remounts the PlanSwitcherProvider).
 
   useEffect(() => {
     if (!shouldGenerate) return;
