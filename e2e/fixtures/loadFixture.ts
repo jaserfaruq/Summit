@@ -1,7 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
 
-const FIXTURES_DIR = path.resolve(__dirname, "prompts");
+// Use process.cwd() instead of __dirname — __dirname doesn't survive webpack
+// bundling (resolves to .next/server/ at runtime instead of e2e/fixtures/).
+const FIXTURES_DIR = path.resolve(process.cwd(), "e2e/fixtures/prompts");
 
 /**
  * Load a JSON fixture from e2e/fixtures/prompts/<name>.json.

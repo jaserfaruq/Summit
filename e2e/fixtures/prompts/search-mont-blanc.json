@@ -2,21 +2,6 @@
   "suggestions": [
     {
       "name": "Mont Blanc",
-      "route": "Gouter Route",
-      "type": "mountaineering",
-      "description": "The classic and most popular route up Mont Blanc, starting from Saint-Gervais. Involves the Gouter Hut, the Gouter Couloir (objective hazard), and a long summit ridge at altitude.",
-      "difficulty": "advanced",
-      "total_gain_ft": 10400,
-      "distance_miles": 14,
-      "summit_elevation_ft": 15774,
-      "technical_grade": null,
-      "pitch_count": null,
-      "validated": true,
-      "validatedId": null,
-      "matchReason": "Exact match for the most popular route on Mont Blanc"
-    },
-    {
-      "name": "Mont Blanc",
       "route": "Trois Monts Route",
       "type": "mountaineering",
       "description": "A more technical route up Mont Blanc via Mont Blanc du Tacul and Mont Maudit. Involves glacier travel, crevasse navigation, and steep snow climbing.",

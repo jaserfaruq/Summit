@@ -12,6 +12,7 @@ export default function AddObjectiveButton({ label }: { label?: string }) {
   return (
     <>
       <button
+        data-testid="add-objective-button"
         onClick={() => setShowModal(true)}
         className="btn-press inline-block bg-gold hover:bg-gold/90 text-dark-bg font-semibold py-3 px-8 rounded-lg transition-colors"
       >

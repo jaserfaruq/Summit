@@ -378,6 +378,7 @@ export default function ObjectiveModal({
               </div>
               <div className="flex gap-3">
                 <button
+                  data-testid="objective-search-button"
                   onClick={handleSearch}
                   disabled={!searchName.trim() || loading}
                   className="flex-1 bg-gold text-dark-bg py-2.5 rounded-lg font-medium disabled:opacity-50 hover:bg-gold/90 transition-colors"
@@ -408,13 +409,16 @@ export default function ObjectiveModal({
 
           {/* Step: Search Results — pick from 3 matches */}
           {step === "search-results" && (
-            <div className="space-y-4">
-              <p className="text-sm text-dark-muted">
-                {searchMatches.length > 0
-                  ? `We found ${searchMatches.length} matching objective${searchMatches.length !== 1 ? "s" : ""} for "${searchName}". Pick one to continue.`
-                  : `No matches found for "${searchName}". Try a different name or enter details manually.`
-                }
-              </p>
+            <div data-testid="search-results-list" className="space-y-4">
+              {searchMatches.length > 0 ? (
+                <p data-testid="search-results-count" className="text-sm text-dark-muted">
+                  {`We found ${searchMatches.length} matching objective${searchMatches.length !== 1 ? "s" : ""} for "${searchName}". Pick one to continue.`}
+                </p>
+              ) : (
+                <p data-testid="search-results-empty" className="text-sm text-dark-muted">
+                  {`No matches found for "${searchName}". Try a different name or enter details manually.`}
+                </p>
+              )}
 
               {searchMatches.map((match, index) => {
                 const obj = match.validatedObjective || match.suggestedObjective;
@@ -423,6 +427,7 @@ export default function ObjectiveModal({
                 return (
                   <button
                     key={match.validatedObjective?.id || `${obj.name}-${index}`}
+                    data-testid={`search-result-${index}`}
                     onClick={() => handleSelectMatch(match)}
                     className="w-full p-4 bg-dark-surface border border-dark-border rounded-lg text-left hover:border-gold/50 transition-colors group"
                   >
@@ -677,6 +682,7 @@ export default function ObjectiveModal({
               <div>
                 <label className="block text-sm font-medium text-dark-muted mb-1">Target Date</label>
                 <input
+                  data-testid="objective-confirm-date"
                   type="date"
                   value={targetDate}
                   min={minDate}

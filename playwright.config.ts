@@ -19,13 +19,16 @@ function loadEnvFile(filePath: string): Record<string, string> {
 
 const testEnv = loadEnvFile(path.resolve(__dirname, ".env.test.local"));
 
+// Also expose to the test runner process (for helpers like resetDatabase)
+Object.assign(process.env, testEnv);
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30000,
   retries: process.env.CI ? 1 : 0,
   reporter: [["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://localhost:3001",
     headless: true,
     screenshot: "only-on-failure",
     trace: "on-first-retry",
@@ -37,9 +40,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
-    port: 3000,
-    reuseExistingServer: true,
+    command: "npm run dev -- -p 3001",
+    port: 3001,
+    reuseExistingServer: false,
     timeout: 120000,
     env: {
       ...Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)),
