@@ -140,6 +140,7 @@ function PlanContent() {
   const [rebalancing, setRebalancing] = useState(false);
   const [adjustingDifficulty, setAdjustingDifficulty] = useState<DifficultyLevel | null>(null);
   const [deletingLog, setDeletingLog] = useState<string | null>(null);
+  const [uncompletingWeek, setUncompletingWeek] = useState<number | null>(null);
   const [scoredWeekNumbers, setScoredWeekNumbers] = useState<Set<number>>(new Set());
   const [alternativesPanel, setAlternativesPanel] = useState<{
     weekNumber: number;
@@ -765,6 +766,34 @@ function PlanContent() {
       alert(error instanceof Error ? error.message : "Failed to delete workout");
     }
     setDeletingLog(null);
+  }
+
+  async function handleUncompleteWeek(weekNumber: number) {
+    if (!plan) return;
+    if (!confirm("Uncomplete this week? Scores will revert to previous values. Your workout logs will be preserved.")) return;
+    setUncompletingWeek(weekNumber);
+    try {
+      const res = await fetch("/api/uncomplete-week", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: plan.id, weekNumber }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to uncomplete week");
+      }
+      // Clear local completion result for this week
+      setWeekCompleteResult((prev) => {
+        const next = { ...prev };
+        delete next[weekNumber];
+        return next;
+      });
+      await mutate();
+    } catch (error) {
+      console.error("Error uncompleting week:", error);
+      alert(error instanceof Error ? error.message : "Failed to uncomplete week");
+    }
+    setUncompletingWeek(null);
   }
 
   // Poll for weekly report on completed weeks that don't have one yet
@@ -1647,6 +1676,20 @@ function PlanContent() {
                           Report generating…
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* Uncomplete Week button — only for completed weeks */}
+                  {!isDraftMode && (alreadyScored || completeResult) && (
+                    <div className="pt-1">
+                      <button
+                        data-testid={`plan-uncomplete-week-${week.week_number}`}
+                        onClick={() => handleUncompleteWeek(week.week_number)}
+                        disabled={uncompletingWeek === week.week_number}
+                        className="text-xs text-dark-muted/60 hover:text-red-400 transition-colors disabled:opacity-50"
+                      >
+                        {uncompletingWeek === week.week_number ? "Reverting…" : "Uncomplete this week"}
+                      </button>
                     </div>
                   )}
                 </div>
